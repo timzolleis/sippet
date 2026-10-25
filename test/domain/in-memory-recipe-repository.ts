@@ -30,6 +30,7 @@ export const makeInMemoryRecipeRepository = () => {
       content: stored.revisions[stored.revisions.length - 1]!,
       ...(stored.source === undefined ? {} : { source: stored.source }),
     }
+
     return stored.trash === undefined
       ? LibraryRecipe.make(fields)
       : TrashedRecipe.make({ ...fields, trashedAt: stored.trash.trashedAt, purgeAt: stored.trash.purgeAt })
@@ -50,12 +51,14 @@ export const makeInMemoryRecipeRepository = () => {
       RecipesTrashedEvent: (trashed) => {
         for (const { recipeId, purgeAt } of trashed.trashed) {
           const stored = storedRecipes.get(recipeId)
+
           if (stored !== undefined) stored.trash = { trashedAt: trashed.occurredOn, purgeAt }
         }
       },
       RecipesRestoredEvent: (restored) => {
         for (const recipeId of restored.restoredRecipeIds) {
           const stored = storedRecipes.get(recipeId)
+
           if (stored !== undefined) delete stored.trash
         }
       },
@@ -67,7 +70,9 @@ export const makeInMemoryRecipeRepository = () => {
   const layer = Layer.succeed(RecipeRepository, RecipeRepository.of({
     findLibraryRecipeById: ({ recipeId }) => {
       const stored = storedRecipes.get(recipeId)
+
       if (stored === undefined) return Effect.fail(new RecipeNotFoundError({ recipeId }))
+
       return Match.valueTags(recipeFromStored(stored), {
         LibraryRecipe: (recipe) => Effect.succeed(recipe),
         TrashedRecipe: (recipe) => Effect.fail(new RecipeAlreadyTrashedError({ recipeId, trashedAt: recipe.trashedAt })),
@@ -75,10 +80,12 @@ export const makeInMemoryRecipeRepository = () => {
     },
     findRecipesByIds: ({ recipeIds }) => {
       const missing = recipeIds.filter((recipeId) => !storedRecipes.has(recipeId))
+
       return missing.length > 0
         ? Effect.fail(new RecipesNotFoundError({ recipeIds: missing }))
         : Effect.succeed(recipeIds.flatMap((recipeId) => {
           const stored = storedRecipes.get(recipeId)
+
           return stored === undefined ? [] : [recipeFromStored(stored)]
         }))
     },
@@ -86,6 +93,7 @@ export const makeInMemoryRecipeRepository = () => {
       Effect.sync(() => Option.map(Option.fromUndefinedOr([...storedRecipes.values()].find((stored) => stored.source === source)), recipeFromStored)),
     findRecipeRevisionContent: ({ recipeId, revision }) => {
       const content = storedRecipes.get(recipeId)?.revisions[revision - 1]
+
       return content === undefined ? Effect.fail(new RecipeRevisionNotFoundError({ recipeId, revision })) : Effect.succeed(content)
     },
     findTrashedRecipes: () =>
@@ -109,7 +117,9 @@ export const inMemoryRecipeSourcesLayer = Layer.succeed(RecipeSources, RecipeSou
   cleanRecipeSource: (address) =>
     Effect.sync(() => {
       const url = new URL(address)
+
       for (const name of [...url.searchParams.keys()]) if (name.startsWith("utm_")) url.searchParams.delete(name)
+
       return url.toString()
     }),
 }))

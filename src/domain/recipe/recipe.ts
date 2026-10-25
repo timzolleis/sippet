@@ -23,6 +23,7 @@ const recipeFields = {
 
 // In the library: listed, searchable, revisable.
 export const LibraryRecipe = Schema.TaggedStruct("LibraryRecipe", { ...recipeFields })
+
 export type LibraryRecipe = typeof LibraryRecipe.Type
 
 // In the trash until purgeAt; keeps its tags and collection places (revising rules 6, 8).
@@ -31,6 +32,7 @@ export const TrashedRecipe = Schema.TaggedStruct("TrashedRecipe", {
   trashedAt: Schema.DateTimeUtc,
   purgeAt: Schema.DateTimeUtc,
 })
+
 export type TrashedRecipe = typeof TrashedRecipe.Type
 
 export type Recipe = LibraryRecipe | TrashedRecipe
@@ -73,6 +75,7 @@ export const addRecipeRules: ReadonlyArray<AddRecipeRule> = [onePerSourceRule]
 export const addRecipe = (input: AddRecipeInput): Result.Result<RecipeAddedEvent, RecipeSourceAlreadyAddedError> =>
   Result.gen(function* () {
     yield* checkRules(addRecipeRules, input)
+
     return RecipeAddedEvent.make({
       recipeId: input.recipeId,
       revision: 1,
@@ -113,9 +116,11 @@ export const reviseOnlyLatestRevisionRule = (input: { readonly recipe: LibraryRe
     }))
 
 export type ReviseRecipeRule = (input: ReviseRecipeInput) => Result.Result<void, RecipeRevisedSinceError>
+
 export const reviseRecipeRules: ReadonlyArray<ReviseRecipeRule> = [reviseOnlyLatestRevisionRule]
 
 export type RestoreRecipeRevisionRule = (input: RestoreRecipeRevisionInput) => Result.Result<void, RecipeRevisedSinceError>
+
 export const restoreRecipeRevisionRules: ReadonlyArray<RestoreRecipeRevisionRule> = [reviseOnlyLatestRevisionRule]
 
 // A batch of edits, checked once, becomes the next revision (revising rules 1–4).
@@ -123,6 +128,7 @@ export const reviseRecipe = (input: ReviseRecipeInput): Result.Result<RecipeRevi
   Result.gen(function* () {
     yield* checkRules(reviseRecipeRules, input)
     const content = yield* recipeContentFromEdits({ content: input.recipe.content, edits: input.edits })
+
     return RecipeRevisedEvent.make({
       recipeId: input.recipe.recipeId,
       revision: input.recipe.latestRevision + 1,
@@ -137,6 +143,7 @@ export const reviseRecipe = (input: ReviseRecipeInput): Result.Result<RecipeRevi
 export const restoreRecipeRevision = (input: RestoreRecipeRevisionInput): Result.Result<RecipeRevisedEvent, RecipeRevisedSinceError> =>
   Result.gen(function* () {
     yield* checkRules(restoreRecipeRevisionRules, input)
+
     return RecipeRevisedEvent.make({
       recipeId: input.recipe.recipeId,
       revision: input.recipe.latestRevision + 1,
@@ -154,6 +161,7 @@ export type TrashRecipesInput = { readonly recipes: ReadonlyArray<Recipe>; reado
 // All at once; one already in the trash keeps its 30 days (revising rules 6, 7, 10).
 export const trashRecipes = ({ recipes, by, now }: TrashRecipesInput): RecipesTrashedEvent => {
   const purgeAt = recipePurgeAtFromTrashedAt(now)
+
   return RecipesTrashedEvent.make({
     trashed: recipes.flatMap((recipe) =>
       Match.valueTags(recipe, { LibraryRecipe: (inLibrary) => [{ recipeId: inLibrary.recipeId, purgeAt }], TrashedRecipe: () => [] })

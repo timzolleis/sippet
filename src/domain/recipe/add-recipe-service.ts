@@ -22,17 +22,21 @@ export class AddRecipeService extends Context.Service<AddRecipeService, {
   static layer = Layer.effect(AddRecipeService, Effect.gen(function* () {
     const recipeRepository = yield* RecipeRepository
     const recipeSources = yield* RecipeSources
+
     return AddRecipeService.of({
       addRecipe: Effect.fn("AddRecipeService.addRecipe")(function* (command) {
         const now = yield* DateTime.now
+
         // checked before the source is cleaned, so a refused batch costs no fetch (hosting.md Source)
         const content = yield* Effect.fromResult(recipeContentFromEdits({
           content: emptyRecipeContent({ title: command.title, yield: command.yield }),
           edits: command.edits,
         }))
+
         const source = command.source === undefined ? undefined : yield* recipeSources.cleanRecipeSource(command.source)
         const recipeWithSameSource = source === undefined ? Option.none() : yield* recipeRepository.findRecipeBySource({ source })
         const recipeId = generateRecipeId()
+
         const event = yield* Effect.fromResult(addRecipe({
           recipeId,
           content,
@@ -41,7 +45,9 @@ export class AddRecipeService extends Context.Service<AddRecipeService, {
           by: command.by,
           now,
         }))
+
         yield* recipeRepository.publishRecipeEvent(event)
+
         return recipeId
       }),
     })

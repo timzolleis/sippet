@@ -76,6 +76,7 @@ describe("tags", () => {
       ...emptyLibrary,
       tags: [{ name: "Nachtisch", recipeIds: [...nachtischOnly, ...shared] }, { name: "Dessert", recipeIds: [...dessertOnly, ...shared] }],
     }
+
     const tags = Result.getOrThrow(edited({ library, edits: [{ op: "merge_tags", tag: "Nachtisch", into: "Dessert" }] })).tags
     expect(tags.map((tag) => tag.name)).toEqual(["Dessert"])
     expect(new Set(tags[0]?.recipeIds)).toEqual(new Set([...dessertOnly, ...shared, ...nachtischOnly]))
@@ -91,6 +92,7 @@ describe("tags", () => {
         { name: "Herzhaft", filter: { tags: { none: ["Nachtisch"] } } },
       ],
     }
+
     expect(Result.getOrThrow(edited({ library, edits: [{ op: "merge_tags", tag: "Nachtisch", into: "dessert" }] })).smartCollections).toEqual([
       { name: "Süß", filter: { tags: { any: ["Dessert"] } } },
       { name: "Herzhaft", filter: { tags: { none: ["Dessert"] } } },
@@ -169,6 +171,7 @@ describe("smart collections", () => {
       content: zupfkuchen,
       edits: decodeRecipeEdits([{ op: "edit_step", key: "backen", duration: { minutes: 30, maxMinutes: 40, kind: "passive" } }]),
     }).content
+
     expect(recipeMatchesFilter({ content: quick, tags: ["Vegan"], filter: schnellUndVegan })).toBe(true)
     expect(recipeMatchesFilter({ content: zupfkuchen, tags: ["vegan"], filter: schnellUndVegan })).toBe(false)
     expect(recipeMatchesFilter({ content: quick, tags: ["Kuchen"], filter: schnellUndVegan })).toBe(false)
@@ -184,6 +187,7 @@ describe("smart collections", () => {
       collections: [],
       smartCollections: [{ name: "Schnell & vegan", filter: schnellUndVegan }],
     }
+
     expect(edited({ library, edits: [{ op: "delete_tag", tag: "vegan" }] }))
       .toEqual(Result.succeed({ ...emptyLibrary, smartCollections: [{ name: "Schnell & vegan", filter: { maxTotalMinutes: 45 } }] }))
   })
@@ -197,6 +201,7 @@ describe("smart collections", () => {
 describe("EditLibraryService", () => {
   it("a refused batch changes nothing and publishes nothing (rule 1)", async () => {
     const repository = makeInMemoryLibraryRepository({ library: emptyLibrary, recipePlaces })
+
     const result = await Effect.runPromise(Effect.result(EditLibraryService.use((service) =>
       service.editLibrary({
         edits: decodeLibraryEdits([
@@ -206,6 +211,7 @@ describe("EditLibraryService", () => {
         by: claude,
       })
     ).pipe(Effect.provide(EditLibraryService.layer.pipe(Layer.provide(repository.layer))))))
+
     expect(problemsOf(result)).toEqual([{ edit: 2, message: 'no collection "Ostern"' }])
     expect(repository.state.library).toEqual(emptyLibrary)
     expect(repository.state.publishedEvents).toEqual([])

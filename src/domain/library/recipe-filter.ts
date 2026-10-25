@@ -11,6 +11,7 @@ export const TagFilter = Schema.Struct({
   any: Schema.optionalKey(Names),
   none: Schema.optionalKey(Names),
 })
+
 export type TagFilter = typeof TagFilter.Type
 
 // What a smart collection and search filter by (library rule 13, cooking rule 9).
@@ -21,6 +22,7 @@ export const RecipeFilter = Schema.Struct({
   hasFlow: Schema.optionalKey(Schema.Boolean),
   text: Schema.optionalKey(Schema.NonEmptyString),
 })
+
 export type RecipeFilter = typeof RecipeFilter.Type
 
 // Case and accents don't matter: "rühr" finds "verrühren", "zucker" finds "Puderzucker".
@@ -38,6 +40,7 @@ const hasTag = (tags: ReadonlyArray<string>, name: string) => tags.some((tag) =>
 // A recipe without any duration has no total time, so a time limit leaves it out.
 const isWithinMinutes = ({ content, maxTotalMinutes }: { readonly content: RecipeContent; readonly maxTotalMinutes: number }) => {
   const totalMinutes = recipeTotalMinutesFromContent(content)
+
   return totalMinutes !== undefined && totalMinutes <= maxTotalMinutes
 }
 

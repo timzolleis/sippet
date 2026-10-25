@@ -1,24 +1,30 @@
 import { Schema } from "effect"
 
 export const MassUnitCode = Schema.Literals(["g", "kg", "oz", "lb"])
+
 export type MassUnitCode = typeof MassUnitCode.Type
 
 export const VolumeUnitCode = Schema.Literals(["ml", "cl", "l", "tsp", "tbsp", "cup", "fl_oz"])
+
 export type VolumeUnitCode = typeof VolumeUnitCode.Type
 
 export const CountUnitCode = Schema.Literals([
   "piece", "serving", "pinch", "packet", "can", "tub", "bottle", "bunch", "clove", "slice", "sheet", "sprig", "drop", "handful",
 ])
+
 export type CountUnitCode = typeof CountUnitCode.Type
 
 export const UnitCode = Schema.Union([MassUnitCode, VolumeUnitCode, CountUnitCode])
+
 export type UnitCode = typeof UnitCode.Type
 
 // The author's own word: "Messerspitze" (recipe rule 2).
 export const CustomUnit = Schema.Struct({ custom: Schema.NonEmptyString })
+
 export type CustomUnit = typeof CustomUnit.Type
 
 export const Unit = Schema.Union([UnitCode, CustomUnit])
+
 export type Unit = typeof Unit.Type
 
 export const gramsPerMassUnit: Readonly<Record<MassUnitCode, number>> = { g: 1, kg: 1000, oz: 28.349523125, lb: 453.59237 }
@@ -39,7 +45,10 @@ export const valueInUnit = ({ value, from, to }: {
   readonly value: number; readonly from: Unit | undefined; readonly to: Unit | undefined
 }): number | undefined => {
   if (isSameUnit(from, to)) return value
+
   if (isMassUnit(from) && isMassUnit(to)) return value * gramsPerMassUnit[from] / gramsPerMassUnit[to]
+
   if (isVolumeUnit(from) && isVolumeUnit(to)) return value * millilitresPerVolumeUnit[from] / millilitresPerVolumeUnit[to]
+
   return undefined
 }

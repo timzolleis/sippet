@@ -54,6 +54,7 @@ describe("recipe rule 11: the pasta trap", () => {
       { op: "add_section", key: "sauce", name: "Soße" },
       { op: "edit_step", key: "sosse", section: "sauce" },
     ]))))
+
     expect(links["sosse"]?.takes).toEqual([])
     expect(links["abgiessen"]?.takes).toEqual(["kochen (chain)", "sosse (join)"])
   })
@@ -63,6 +64,7 @@ describe("recipe rule 11: the pasta trap", () => {
       content: plainPasta,
       edits: [...pastaUsesEdits, ...decodeRecipeEdits([{ op: "edit_step", key: "sosse", takes: [] }])],
     })
+
     expect(linksOf(flowOf(applied.content))["sosse"]?.takes).toEqual([])
   })
 })

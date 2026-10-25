@@ -9,11 +9,13 @@ export const makeInMemoryLibraryRepository = ({ library, recipePlaces }: {
   readonly library: Library; readonly recipePlaces: ReadonlyMap<RecipeId, RecipePlace>
 }) => {
   const state = { library, publishedEvents: [] as Array<LibraryChangedEvent> }
+
   const layer = Layer.succeed(LibraryRepository, LibraryRepository.of({
     findLibrary: () => Effect.sync(() => state.library),
     findRecipePlacesByIds: ({ recipeIds }) =>
       Effect.sync(() => new Map(recipeIds.flatMap((recipeId) => {
         const place = recipePlaces.get(recipeId)
+
         return place === undefined ? [] : [[recipeId, place] as const]
       }))),
     publishLibraryEvent: (event) =>
@@ -22,5 +24,6 @@ export const makeInMemoryLibraryRepository = ({ library, recipePlaces }: {
         state.publishedEvents.push(event)
       }),
   }))
+
   return { state, layer }
 }

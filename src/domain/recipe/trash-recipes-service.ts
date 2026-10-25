@@ -14,12 +14,14 @@ export class TrashRecipesService extends Context.Service<TrashRecipesService, {
 }>()("TrashRecipesService") {
   static layer = Layer.effect(TrashRecipesService, Effect.gen(function* () {
     const recipeRepository = yield* RecipeRepository
+
     return TrashRecipesService.of({
       trashRecipes: Effect.fn("TrashRecipesService.trashRecipes")(function* ({ recipeIds, by }) {
         const now = yield* DateTime.now
         const recipes = yield* recipeRepository.findRecipesByIds({ recipeIds })
         const event = trashRecipes({ recipes, by, now })
         yield* recipeRepository.publishRecipeEvent(event)
+
         return [...event.trashed, ...event.alreadyTrashed]
       }),
     })

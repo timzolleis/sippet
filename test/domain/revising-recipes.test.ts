@@ -55,6 +55,7 @@ const reviseZupfkuchen = ({ fromRevision, edits, by = iPad }: { readonly fromRev
 
 const latestZupfkuchen = () => {
   const revisions = repository.storedRecipes.get(zupfkuchenId)?.revisions ?? []
+
   return { revision: revisions.length, content: revisions[revisions.length - 1] }
 }
 
@@ -88,6 +89,7 @@ describe("revising, Zupfkuchen at revision 3", () => {
       { op: "edit_ingredient", key: "zucker-teig", amount: { value: 120, unit: "g" } },
       { op: "edit_ingredient", key: "zucker-tieg", amount: { value: 120, unit: "g" } },
     ] })
+
     expect(Result.isFailure(result) && result.failure._tag === "RecipeRefusedError" && result.failure.problems)
       .toEqual([{ edit: 2, message: 'no ingredient "zucker-tieg"' }])
     expect(latestZupfkuchen().revision).toBe(3)
@@ -110,6 +112,7 @@ describe("revising, Zupfkuchen at revision 3", () => {
     const result = await run(ReviseRecipeService.use((service) =>
       service.reviseRecipe({ recipeId: pastaId, fromRevision: 1, edits: pastaUsesEdits, by: claude })
     ))
+
     expect(result).toEqual(Result.succeed(2))
     const revisions = repository.storedRecipes.get(pastaId)?.revisions ?? []
     expect(Option.isSome(recipeFlowFromContent(revisions[1]!))).toBe(true)
@@ -134,9 +137,11 @@ describe("revising, Zupfkuchen at revision 3", () => {
   it("Claude's revision 5 cut the Zucker in Teig to 120 g; the cook restores revision 4: revision 6 with 180 g (rule 5)", async () => {
     await reviseZupfkuchen({ fromRevision: 3, edits: [{ op: "set_title", title: "Zupfkuchen" }] })
     await reviseZupfkuchen({ fromRevision: 4, edits: [{ op: "edit_ingredient", key: "zucker-teig", amount: { value: 120, unit: "g" } }], by: claude })
+
     const restored = await run(RestoreRecipeRevisionService.use((service) =>
       service.restoreRecipeRevision({ recipeId: zupfkuchenId, fromRevision: 5, revision: 4, by: iPad })
     ))
+
     expect(restored).toEqual(Result.succeed(6))
     expect(amountOf(latestZupfkuchen().content, "zucker-teig")).toBe(180)
     expect(repository.storedRecipes.get(zupfkuchenId)?.revisions).toHaveLength(6)
@@ -144,6 +149,7 @@ describe("revising, Zupfkuchen at revision 3", () => {
     const restoredAgain = await run(RestoreRecipeRevisionService.use((service) =>
       service.restoreRecipeRevision({ recipeId: zupfkuchenId, fromRevision: 6, revision: 6, by: iPad })
     ))
+
     expect(restoredAgain).toEqual(Result.succeed(7))
     expect(latestZupfkuchen().content).toEqual(repository.storedRecipes.get(zupfkuchenId)?.revisions[5])
   })
@@ -189,9 +195,11 @@ describe("trash", () => {
 
   it("Claude trashes 5 duplicates, one already trashed last week: 4 trashed now, the fifth keeps its date; one change (rule 10)", () => {
     const now = DateTime.makeUnsafe("2026-10-19T16:00:00Z")
+
     const duplicates = [1, 2, 3, 4].map((n) =>
       LibraryRecipe.make({ recipeId: RecipeId.make(`rcp_duplicate${n}`.padEnd(28, "0")), latestRevision: 1, content: zupfkuchen })
     )
+
     const event = trashRecipes({ recipes: [...duplicates, trashed], by: claude, now })
     expect(event.trashed.map((entry) => entry.recipeId)).toEqual(duplicates.map((recipe) => recipe.recipeId))
     expect(event.alreadyTrashed).toEqual([{ recipeId: zupfkuchenId, purgeAt }])

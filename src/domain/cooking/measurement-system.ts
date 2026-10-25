@@ -14,21 +14,29 @@ const unitInMeasurementSystem = ({ value, unit, system }: {
   readonly value: number; readonly unit: Unit | undefined; readonly system: MeasurementSystem
 }): Unit | undefined => {
   if (system === "as_written" || unit === undefined) return unit
+
   if (system === "metric") {
     if (metricUnits.includes(unit)) return unit
+
     return isMassUnit(unit) ? "g" : isVolumeUnit(unit) ? "ml" : unit
   }
+
   if (usUnits.includes(unit)) return unit
+
   if (isMassUnit(unit)) return "oz"
+
   if (!isVolumeUnit(unit)) return unit
   const millilitres = valueInUnit({ value, from: unit, to: "ml" }) ?? 0
+
   return millilitres < 15 ? "tsp" : millilitres < 60 ? "tbsp" : "cup"
 }
 
 const secondAmountInMeasurementSystem = ({ amount, system }: { readonly amount: SecondAmount; readonly system: MeasurementSystem }): SecondAmount => {
   const unit = unitInMeasurementSystem({ value: amount.value, unit: amount.unit, system })
+
   if (unit === amount.unit) return amount
   const converted = (value: number) => measurableValue({ value: valueInUnit({ value, from: amount.unit, to: unit }) ?? value, unit })
+
   return {
     value: converted(amount.value),
     ...(amount.max === undefined ? {} : { max: converted(amount.max) }),
@@ -51,6 +59,7 @@ export const temperatureInMeasurementSystem = ({ temperature, system }: {
   readonly temperature: Temperature; readonly system: MeasurementSystem
 }): ShownTemperature => {
   const degreesOf = (celsius: number) => system === "us" ? fahrenheitFromCelsius(celsius) : celsius
+
   return {
     degrees: degreesOf(temperature.celsius),
     ...(temperature.maxCelsius === undefined ? {} : { maxDegrees: degreesOf(temperature.maxCelsius) }),

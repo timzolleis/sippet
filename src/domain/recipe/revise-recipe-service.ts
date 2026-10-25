@@ -22,12 +22,14 @@ export class ReviseRecipeService extends Context.Service<ReviseRecipeService, {
 }>()("ReviseRecipeService") {
   static layer = Layer.effect(ReviseRecipeService, Effect.gen(function* () {
     const recipeRepository = yield* RecipeRepository
+
     return ReviseRecipeService.of({
       reviseRecipe: Effect.fn("ReviseRecipeService.reviseRecipe")(function* ({ recipeId, fromRevision, edits, by }) {
         const now = yield* DateTime.now
         const recipe = yield* recipeRepository.findLibraryRecipeById({ recipeId })
         const event = yield* Effect.fromResult(reviseRecipe({ recipe, fromRevision, edits, by, now }))
         yield* recipeRepository.publishRecipeEvent(event)
+
         return event.revision
       }),
     })

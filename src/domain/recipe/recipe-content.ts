@@ -6,16 +6,20 @@ const NonNegativeNumber = Schema.Finite.check(Schema.isGreaterThanOrEqualTo(0))
 
 // The yield, optionally in a vessel from the equipment: "12 Stück", Springform 26 cm (recipe rule 9).
 export const Yield = Schema.Struct({ amount: Amount, vessel: Schema.optionalKey(Key) })
+
 export type Yield = typeof Yield.Type
 
 export const Section = Schema.Struct({ key: Key, name: Schema.NonEmptyString })
+
 export type Section = typeof Section.Type
 
 export const Equipment = Schema.Struct({ key: Key, name: Schema.NonEmptyString })
+
 export type Equipment = typeof Equipment.Type
 
 // What you buy; ingredients refer to it by name, unique ignoring case (recipe rule 3).
 export const ItemName = Schema.NonEmptyString
+
 export type ItemName = typeof ItemName.Type
 
 export const Ingredient = Schema.Struct({
@@ -27,6 +31,7 @@ export const Ingredient = Schema.Struct({
   prep: Schema.optionalKey(Schema.NonEmptyString),
   optional: Schema.optionalKey(Schema.Boolean),
 })
+
 export type Ingredient = typeof Ingredient.Type
 
 export const Duration = Schema.Struct({
@@ -34,9 +39,11 @@ export const Duration = Schema.Struct({
   maxMinutes: Schema.optionalKey(NonNegativeNumber),
   kind: Schema.Literals(["active", "passive"]),
 })
+
 export type Duration = typeof Duration.Type
 
 export const HeatingMode = Schema.Literals(["top_bottom", "fan", "top", "bottom", "grill"])
+
 export type HeatingMode = typeof HeatingMode.Type
 
 export const Temperature = Schema.Struct({
@@ -44,6 +51,7 @@ export const Temperature = Schema.Struct({
   maxCelsius: Schema.optionalKey(Schema.Finite),
   mode: Schema.optionalKey(HeatingMode),
 })
+
 export type Temperature = typeof Temperature.Type
 
 // A named part of a result after a split; at most one is "the rest" (recipe rule 16).
@@ -53,6 +61,7 @@ export const Portion = Schema.Struct({
   amount: Schema.optionalKey(Amount),
   rest: Schema.optionalKey(Schema.Literal(true)),
 })
+
 export type Portion = typeof Portion.Type
 
 export const StepResult = Schema.Struct({
@@ -60,6 +69,7 @@ export const StepResult = Schema.Struct({
   amount: Schema.optionalKey(Amount),
   split: Schema.optionalKey(Schema.Array(Portion)),
 })
+
 export type StepResult = typeof StepResult.Type
 
 // `takes` and `waitsFor` replace the derived links when present (recipe rule 11).
@@ -76,6 +86,7 @@ export const Step = Schema.Struct({
   takes: Schema.optionalKey(Schema.Array(Key)),
   waitsFor: Schema.optionalKey(Schema.Array(Key)),
 })
+
 export type Step = typeof Step.Type
 
 // The content of one revision, as written.
@@ -87,6 +98,7 @@ export const RecipeContent = Schema.Struct({
   ingredients: Schema.Array(Ingredient),
   steps: Schema.Array(Step),
 })
+
 export type RecipeContent = typeof RecipeContent.Type
 
 // What add_recipe applies its edits to (adding rule 1).

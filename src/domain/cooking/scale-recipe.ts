@@ -32,6 +32,7 @@ const scaledStep = ({ step, factor }: { readonly step: Step; readonly factor: nu
  */
 export const scaleRecipeContent = ({ content, yieldValue }: { readonly content: RecipeContent; readonly yieldValue: number }): RecipeContent => {
   const factor = yieldValue / content.yield.amount.value
+
   return {
     ...content,
     yield: { ...content.yield, amount: { ...scaledSecondAmount({ amount: content.yield.amount, factor }), value: yieldValue } },

@@ -8,9 +8,11 @@ import type { RecipeProblem } from "./recipe-problem.ts"
 import { valueInUnit, type Unit } from "./unit.ts"
 
 export type RecipeRuleInput = { readonly content: RecipeContent }
+
 export type RecipeFlowRuleInput = { readonly content: RecipeContent; readonly flow: RecipeFlow }
 
 export type RecipeRule = (input: RecipeRuleInput) => ReadonlyArray<RecipeProblem>
+
 export type RecipeFlowRule = (input: RecipeFlowRuleInput) => ReadonlyArray<RecipeProblem>
 
 const brokenRule = (rule: number, message: string): RecipeProblem => ({ rule: `recipe ${rule}`, message })
@@ -33,9 +35,11 @@ type TakenLink = { readonly takerKey: Key; readonly link: FlowLink }
 // Who takes each result or portion, by its key.
 const takersByKey = (flow: RecipeFlow): ReadonlyMap<Key, ReadonlyArray<TakenLink>> => {
   const takers = new Map<Key, Array<TakenLink>>()
+
   for (const stepFlow of flow.steps) {
     for (const link of stepFlow.takes) takers.set(link.key, [...(takers.get(link.key) ?? []), { takerKey: stepFlow.stepKey, link }])
   }
+
   return takers
 }
 
@@ -63,6 +67,7 @@ export const everythingNamedExistsRule: RecipeRule = ({ content }) => {
   const takeableKeys = stepKeyByLinkKey(content)
   const stepKeys = new Set(content.steps.map((step) => step.key))
   const vessel = content.yield.vessel
+
   return [
     ...(vessel !== undefined && !equipmentKeys.has(vessel)
       ? [brokenRule(12, `the yield's vessel ${quoted(vessel)} is no equipment`)]
@@ -99,13 +104,16 @@ export const everythingNamedExistsRule: RecipeRule = ({ content }) => {
 // 20. Keys are unique in the recipe.
 export const uniqueKeysRule: RecipeRule = ({ content }) => {
   const counts = new Map<Key, number>()
+
   for (const key of keysOfContent(content)) counts.set(key, (counts.get(key) ?? 0) + 1)
+
   return [...counts].flatMap(([key, count]) => count > 1 ? [brokenRule(20, `key ${quoted(key)} is used ${count} times`)] : [])
 }
 
 // 11. A prep step uses and takes nothing, so it makes nothing; 12. a step can't take a result that doesn't exist.
 export const prepStepsMakeNothingRule: RecipeFlowRule = ({ content, flow }) => {
   const makesByStepKey = new Map(flow.steps.map((stepFlow) => [stepFlow.stepKey, stepFlow.makes]))
+
   return [
     ...content.steps.flatMap((step) =>
       makesByStepKey.get(step.key) === false && step.result !== undefined
@@ -127,6 +135,7 @@ type FlowEdge = { readonly fromKey: Key; readonly toKey: Key; readonly link: Flo
 const edgesOfStep = ({ stepFlow, stepKeyByLink }: { readonly stepFlow: StepFlow; readonly stepKeyByLink: ReadonlyMap<Key, Key> }): ReadonlyArray<FlowEdge> => [
   ...stepFlow.takes.flatMap((link): ReadonlyArray<FlowEdge> => {
     const toKey = stepKeyByLink.get(link.key)
+
     return toKey === undefined ? [] : [{ fromKey: stepFlow.stepKey, toKey, link, verb: "takes" }]
   }),
   ...stepFlow.waitsFor.flatMap((link): ReadonlyArray<FlowEdge> =>
@@ -144,9 +153,11 @@ export const noLoopsRule: RecipeFlowRule = ({ content, flow }) => {
   const visited = new Set<Key>()
   const path: Array<FlowEdge> = []
   const loops = new Map<string, ReadonlyArray<FlowEdge>>()
+
   const visit = (stepKey: Key): void => {
     if (visited.has(stepKey)) return
     visiting.add(stepKey)
+
     for (const edge of edgesByStepKey.get(stepKey) ?? []) {
       if (visiting.has(edge.toKey)) {
         const start = path.findIndex((earlier) => earlier.fromKey === edge.toKey)
@@ -154,14 +165,18 @@ export const noLoopsRule: RecipeFlowRule = ({ content, flow }) => {
         loops.set(loop.map((loopEdge) => loopEdge.fromKey).sort().join(" "), loop)
         continue
       }
+
       path.push(edge)
       visit(edge.toKey)
       path.pop()
     }
+
     visiting.delete(stepKey)
     visited.add(stepKey)
   }
+
   for (const step of content.steps) visit(step.key)
+
   return [...loops.values()].map((loop) => brokenRule(13, `loop: ${loop.map(edgeText).join(", ")}`))
 }
 
@@ -169,19 +184,24 @@ export const noLoopsRule: RecipeFlowRule = ({ content, flow }) => {
 export const everyIngredientToOneStepRule: RecipeFlowRule = ({ content }) =>
   content.ingredients.flatMap((ingredient) => {
     const users = content.steps.filter((step) => (step.uses ?? []).includes(ingredient.key)).map((step) => quoted(step.key))
+
     if (users.length === 0) return [brokenRule(14, `ingredient ${quoted(ingredient.key)} is used by no step`)]
+
     if (users.length > 1) return [brokenRule(14, `ingredient ${quoted(ingredient.key)} is used by ${listed(users)}`)]
+
     return []
   })
 
 // 15. A result, or a portion, is taken by at most one step.
 export const resultToOnePlaceRule: RecipeFlowRule = ({ content, flow }) => {
   const takers = takersByKey(flow)
+
   return content.steps.flatMap((step) => [
     ...(isStepResultSplit(step) ? [] : [{ key: step.key, what: "result of" }]),
     ...portionsOfStep(step).map((portion) => ({ key: portion.key, what: "portion" })),
   ]).flatMap(({ key, what }) => {
     const takenBy = takers.get(key) ?? []
+
     return takenBy.length > 1 ? [brokenRule(15, `${what} ${quoted(key)} is taken by ${listed(takenBy.map(takerText))}`)] : []
   })
 }
@@ -189,6 +209,7 @@ export const resultToOnePlaceRule: RecipeFlowRule = ({ content, flow }) => {
 const totalInUnit = ({ amounts, unit }: { readonly amounts: ReadonlyArray<Amount>; readonly unit: Unit | undefined }): number | undefined =>
   amounts.reduce<number | undefined>((total, amount) => {
     const value = valueInUnit({ value: amount.value, from: amount.unit, to: unit })
+
     return total === undefined || value === undefined ? undefined : total + value
   }, 0)
 
@@ -198,6 +219,7 @@ const portionProblemsOfStep = ({ step, takers }: { readonly step: Step; readonly
   const portionAmounts = portions.flatMap((portion) => portion.amount === undefined ? [] : [portion.amount])
   const portionsTotal = resultAmount === undefined ? undefined : totalInUnit({ amounts: portionAmounts, unit: resultAmount.unit })
   const rests = portions.filter((portion) => portion.rest === true)
+
   return [
     ...(takers.get(step.key) ?? []).map((taken) =>
       brokenRule(16, `step ${takerText(taken)} takes the whole result of ${quoted(step.key)}, which is split; take its portions`)
@@ -222,6 +244,7 @@ const portionProblemsOfStep = ({ step, takers }: { readonly step: Step; readonly
 // 16. A split is taken as its portions; each has an amount but the rest; together no more than the result; each taken.
 export const portionsRule: RecipeFlowRule = ({ content, flow }) => {
   const takers = takersByKey(flow)
+
   return content.steps.filter(isStepResultSplit).flatMap((step) => portionProblemsOfStep({ step, takers }))
 }
 
@@ -233,6 +256,7 @@ export const recipeMakesSomethingRule: RecipeFlowRule = ({ flow }) =>
 export const authorsOrderRule: RecipeFlowRule = ({ content, flow }) => {
   const stepKeyByLink = stepKeyByLinkKey(content)
   const indexByStepKey = new Map(content.steps.map((step, index) => [step.key, index]))
+
   return flow.steps.flatMap((stepFlow) =>
     edgesOfStep({ stepFlow, stepKeyByLink }).flatMap((edge) =>
       (indexByStepKey.get(edge.toKey) ?? 0) > (indexByStepKey.get(edge.fromKey) ?? 0)

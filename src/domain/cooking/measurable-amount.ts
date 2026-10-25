@@ -24,8 +24,10 @@ const measuringStepOf = ({ value, unit }: { readonly value: number; readonly uni
 // Other units aren't rounded. A nonzero amount never rounds to 0, only up to the smallest step.
 export const measurableValue = ({ value, unit }: { readonly value: number; readonly unit: Unit | undefined }): number => {
   const step = measuringStepOf({ value, unit })
+
   if (step === undefined) return value
   const rounded = Math.round(value / step) * step
+
   return rounded === 0 && value > 0 ? step : rounded
 }
 
