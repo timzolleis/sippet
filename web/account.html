@@ -1,0 +1,27 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="color-scheme" content="light dark" />
+    <title>Sippet</title>
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+    <link rel="preload" href="/resources/fonts/inter/InterVariable.woff2" as="font" type="font/woff2" crossorigin />
+    <script>
+      // The scheme before the first paint, so a dark preference never flashes light.
+      (function () {
+        var media = matchMedia("(prefers-color-scheme: dark)");
+        var apply = function () {
+          document.documentElement.classList.toggle("dark", media.matches);
+          document.documentElement.style.colorScheme = media.matches ? "dark" : "light";
+        };
+        apply();
+        media.addEventListener("change", apply);
+      })();
+    </script>
+  </head>
+  <body class="bg-background">
+    <div id="root"></div>
+    <script type="module" src="/src/account.tsx"></script>
+  </body>
+</html>

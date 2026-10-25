@@ -11,3 +11,8 @@ minimumReleaseAgeExclude:
   - '@better-auth/telemetry@1.7.13'
   - better-auth@1.7.13
   - auth@1.7.13
+
+allowBuilds:
+  esbuild: true
+  workerd: true
+  '@prisma/client': false

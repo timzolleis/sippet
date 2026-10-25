@@ -9,7 +9,7 @@ const CookLibrary = Cloudflare.DurableObject<CookLibraryClass>("CookLibrary")
 
 const Site = Cloudflare.Worker("sippet", {
   main: "./src/worker.ts",
-  assets: { directory: "./public", runWorkerFirst: ["/mcp", "/api/*", "/.well-known/*"] },
+  assets: { directory: "./dist", runWorkerFirst: ["/mcp", "/api/*", "/.well-known/*"] },
   compatibility: { flags: ["nodejs_compat"] },
   domain: "sippet.bastelboxx.de",
   workersDev: false,
