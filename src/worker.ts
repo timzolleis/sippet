@@ -12,6 +12,10 @@ export { CookLibrary } from "./cook-library.ts"
 // Public keys from the D1 jwks table, cached per isolate.
 let cachedJwks: Promise<JSONWebKeySet> | undefined
 
+// An unknown kid reloads at most once a minute, so random kids can't turn every request into a D1 read.
+const reloadInterval = 60_000
+let lastReload = 0
+
 // The stored public key is a JWK as JSON text. Fields that are absent stay absent.
 const PublicKey = Schema.fromJsonString(
   Schema.Struct({
@@ -46,6 +50,7 @@ const loadJwks = async (db: D1Database): Promise<JSONWebKeySet> => {
 const reloadJwks = (db: D1Database): Promise<JSONWebKeySet> => {
   const loading = loadJwks(db)
   cachedJwks = loading
+  lastReload = Date.now()
   loading.catch(() => {
     if (cachedJwks === loading) cachedJwks = undefined
   })
@@ -59,7 +64,7 @@ const verifyToken = async ({ token, env }: { token: string; env: Env }) => {
   try {
     return await jwtVerify(token, createLocalJWKSet(await (cachedJwks ??= reloadJwks(env.DB))), options)
   } catch (error) {
-    if (!(error instanceof errors.JWKSNoMatchingKey)) throw error
+    if (!(error instanceof errors.JWKSNoMatchingKey) || Date.now() - lastReload < reloadInterval) throw error
 
     return await jwtVerify(token, createLocalJWKSet(await reloadJwks(env.DB)), options) // reload once on an unknown kid
   }
