@@ -7,7 +7,8 @@
     "typecheck": "tsc --noEmit",
     "dev": "alchemy dev --stage dev_$(basename $(git rev-parse --show-toplevel))",
     "invite": "node scripts/invite.ts",
-    "auth:generate": "auth generate --config scripts/auth-schema.ts --output migrations/auth/0001_better_auth.sql -y"
+    "auth:generate": "auth generate --config scripts/auth-schema.ts --output migrations/auth/0001_better_auth.sql -y",
+    "db:generate": "drizzle-kit generate"
   },
   "pnpm": {
     "onlyBuiltDependencies": [
