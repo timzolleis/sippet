@@ -249,6 +249,7 @@ async function connect() {
   const deny = h("button", { class: "btn plain", onclick() {
     redirect.searchParams.set("error", "access_denied");
     if (params.has("state")) redirect.searchParams.set("state", params.get("state"));
+    redirect.searchParams.set("iss", location.origin); // Better Auth advertises the iss parameter (RFC 9207)
     location.assign(redirect);
   } }, T.deny);
   view(

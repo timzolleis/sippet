@@ -25,7 +25,7 @@ Worker (10 ms CPU)
 
 CookLibrary (one per cook, 30 s CPU)
 ├─ fetch          MCP server, McpServer.layerHttp
-├─ connect / disconnect   RPC from the Worker (account rules 4, 5)
+├─ connectClient / disconnectClient   RPC from the Worker (account rules 4, 5)
 └─ alarm          trash purge
 ```
 
@@ -44,7 +44,7 @@ const Site = Cloudflare.Worker("sippet", {
   compatibility: { flags: ["nodejs_compat"] },
   domain: "sippet.bastelboxx.de",
   workersDev: false,
-  env: { DB, COOK_LIBRARY: CookLibrary, BETTER_AUTH_SECRET: Alchemy.Secret("BETTER_AUTH_SECRET"), PUBLIC_URL: Cloudflare.Worker.URL },
+  env: { DB, COOK_LIBRARY: CookLibrary, BETTER_AUTH_SECRET: Config.Redacted("BETTER_AUTH_SECRET"), PUBLIC_URL: Cloudflare.Worker.URL },
 })
 export type Env = Cloudflare.InferEnv<typeof Site>
 ```
@@ -62,13 +62,14 @@ betterAuth({
   baseURL: env.PUBLIC_URL, basePath: "/api/auth",
   emailAndPassword: { enabled: false },
   plugins: [
-    jwt(),                                            // signs access tokens, serves /api/auth/jwks
-    passkey({ rpID: "sippet.bastelboxx.de", rpName: "Sippet",
-      registration: { requireSession: false, resolveUser: joinFromInvitation, createSession: true } }),
+    jwt({ jwt: { issuer: PUBLIC_URL } }),             // EdDSA access tokens, /api/auth/jwks; issuer = PUBLIC_URL so the root /.well-known paths match
+    passkey({ rpID: "sippet.bastelboxx.de", rpName: "Sippet", origin: PUBLIC_URL,
+      registration: { requireSession: false, resolveUser: checkInvitation, afterVerification: joinFromInvitation } }),
     mcp({ resource: `${PUBLIC_URL}/mcp`, loginPage: "/connect", consentPage: "/connect",
       scopes: ["offline_access"],
       allowDynamicClientRegistration: true, allowUnauthenticatedClientRegistration: true,
       clientRegistrationDefaultApplicationType: "infer",          // Claude Code's loopback redirect
+      allowPublicClientPrelogin: true,                            // /connect reads client_name before consent
       accessTokenExpiresIn: 3600 }),
   ],
   hooks: { before: refuseLastPasskey },               // account rule 3
@@ -91,12 +92,18 @@ invitation(id, token_hash, name, email, created_at, expires_at, used_at, user_id
 pnpm invite "Anna" anna@example.com
   → inserts a row via the D1 HTTP API, prints https://sippet.bastelboxx.de/join#<token>    (token: 32 random bytes, stored as SHA-256)
 
-/join → passkey registration with context = token
-  joinFromInvitation({ context })
-  ├─ UPDATE invitation SET used_at = now WHERE token_hash = ? AND used_at IS NULL AND expires_at > now RETURNING *   ← one statement, so one use
+/join → passkey registration with context = token; verify-registration sends createSession: true
+  checkInvitation({ context })          runs at generate-register-options, before the ceremony
+  ├─ SELECT … WHERE token_hash = ? AND used_at IS NULL AND expires_at > now
   ├─ none → refuse: "invitation used, expired, or unknown"
-  └─ createUser({ name, email, emailVerified: false }) → { id, name }
+  └─ → provisional { id: "invitation:<id>", name }
+  joinFromInvitation({ context })       afterVerification, so a failed ceremony leaves the invitation open
+  ├─ UPDATE invitation SET used_at = now WHERE token_hash = ? AND used_at IS NULL AND expires_at > now RETURNING *   ← one statement, so one use
+  ├─ none → refuse, as above
+  └─ createUser({ name, email, emailVerified: false }) → { userId }; if createUser throws, the claim is released
 ```
+
+- D1 has no transactions. If the passkey insert fails after the claim, the invitation is spent and the user has no passkey; the owner re-invites.
 
 - The owner is whoever can deploy, so the app has no owner role and no admin page.
 - The e-mail isn't verified and isn't used for sign-in. It's kept for recovery by e-mail ([later.md](../stories/later.md)).
@@ -106,9 +113,9 @@ pnpm invite "Anna" anna@example.com
 ```text
 refuseLastPasskey          before /passkey/delete-passkey: count(passkey where userId) = 1 → 400   (account rule 3)
 
-/connect approved          → CookLibrary.connect({ clientId, name: client_name })                 (account rule 4)
+/connect approved          → CookLibrary.connectClient({ clientId, name: client_name })                 (account rule 4)
 /account: disconnect       → delete oauthConsent, revoke refresh tokens,
-                             CookLibrary.disconnect({ clientId, at: now })                         (account rule 5)
+                             CookLibrary.disconnectClient({ clientId, at: now })                         (account rule 5)
 ```
 
 - An access token stays valid for up to an hour after a disconnect. The DO closes that gap itself: it refuses a token whose `iat` is before that connection's `disconnected_at`. So "Claude's next request is refused" holds without a D1 read on every request.
@@ -194,7 +201,7 @@ source = the cleaned address;  source_key = the same address without the scheme
 ### Connections
 
 - The DO handles `sippet-connection` and `sippet-issued-at` before MCP: a token from a disconnected connection with `iat < disconnected_at` gets 401.
-- An unknown client is stored as `connection(name: "Claude")` until `connect` names it.
+- An unknown client is stored as `connection(name: "Claude")` until `connectClient` names it. (`connect` clashes with the DurableObject socket handler.)
 
 ## MCP sessions
 
@@ -221,9 +228,9 @@ source = the cleaned address;  source_key = the same address without the scheme
 
 ## Verify before building on it
 
-1. Native D1 plus passkey pre-auth registration: `resolveUser` runs after the WebAuthn verification, so a failed ceremony doesn't use up the invitation. If it runs before, consume the invitation in an after-hook instead.
-2. Which claim of the `mcp()` access token holds the client id (`azp` or `client_id`), and that `iat` is set.
-3. `/.well-known/*` paths and the RFC 9728 document match `resource = <PUBLIC_URL>/mcp` exactly. Claude Code's loopback redirect passes with `"infer"`.
+1. ✅ Native D1 works without transactions. `resolveUser` runs *before* the ceremony, so the invitation is consumed in `afterVerification` (see Invitations).
+2. ✅ Access tokens carry `client_id` and `azp` (both the client id), `iat`, `sub`, `aud = <PUBLIC_URL>/mcp`, `iss`. EdDSA; `jose` verifies in workerd.
+3. ✅ With `issuer = PUBLIC_URL`, the root `/.well-known/*` paths and `resource` match. `"infer"` registers a loopback redirect as native. Better Auth always advertises `authorization_response_iss_parameter_supported`, so `/connect`'s deny redirect adds `iss`.
 4. The Effect `McpServer` handler can be built per DO instance, and tool handlers can read the request's `sippet-*` headers (connection and retry key).
 5. claude.ai starts a new session after a 404 following DO eviction.
 6. Better Auth sign-in and the token endpoint stay near 10 ms CPU cold on the Worker. If they don't, move Better Auth into a singleton `Accounts` DO on its own SQLite.
