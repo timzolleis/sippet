@@ -57,6 +57,12 @@ describe("measurable amounts (rule 7)", () => {
     { value: 1.1, unit: "cup", measured: 1 },
     { value: 1.3, unit: "piece", measured: 1.5 },
     { value: 1.37, unit: "kg", measured: 1.37 },
+    { value: 0.4, unit: "g", measured: 1 },
+    { value: 0.3, unit: "ml", measured: 1 },
+    { value: 0.05, unit: "tsp", measured: 0.125 },
+    { value: 0.1, unit: "oz", measured: 0.25 },
+    { value: 0.2, unit: "packet", measured: 0.5 },
+    { value: 0, unit: "g", measured: 0 },
   ] as const)("$value $unit → $measured", ({ value, unit, measured }) => {
     expect(measurableValue({ value, unit })).toBe(measured)
   })
