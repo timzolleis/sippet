@@ -1,7 +1,7 @@
 // A cook's library in memory: node:sqlite behind the Durable Object storage API, the real migrations, and the real MCP handler.
 import { readFileSync } from "node:fs"
 import { DatabaseSync } from "node:sqlite"
-import { fileURLToPath } from "node:url"
+import { join } from "node:path"
 import { drizzle } from "drizzle-orm/durable-sqlite"
 import { derive } from "../../src/store/derive.ts"
 import { Library } from "../../src/store/library.ts"
@@ -54,7 +54,7 @@ const makeStorage = () => {
 
 const migrate = (database: DatabaseSync) => {
   for (const file of ["0000_library.sql", "0001_recipe_text.sql"]) {
-    for (const statement of readFileSync(fileURLToPath(new URL(`../../migrations/cook-library/${file}`, import.meta.url)), "utf8").split("--> statement-breakpoint")) {
+    for (const statement of readFileSync(join(import.meta.dirname, "../../migrations/cook-library", file), "utf8").split("--> statement-breakpoint")) {
       database.exec(statement)
     }
   }
