@@ -12,12 +12,6 @@
     "auth:generate": "auth generate --config scripts/auth-schema.ts --output migrations/auth/0001_better_auth.sql -y",
     "db:generate": "drizzle-kit generate"
   },
-  "pnpm": {
-    "onlyBuiltDependencies": [
-      "esbuild",
-      "workerd"
-    ]
-  },
   "dependencies": {
     "@better-auth/core": "1.7.13",
     "@better-auth/mcp": "1.7.13",
