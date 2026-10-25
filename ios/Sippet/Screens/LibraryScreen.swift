@@ -163,6 +163,17 @@ struct LibraryScreen: View {
 
     // MARK: banner and offline pill
 
+    /// Built here so it follows the device language (the core's text is German only).
+    private func noticeText(_ notice: ChangeNotice) -> String {
+        if notice.recipeIds.count == 1, let title = store.recipes[notice.recipeIds[0]]?.title {
+            return String(localized: "\(notice.author) changed \(title)")
+        }
+        if notice.recipeIds.count > 1 {
+            return String(localized: "\(notice.author) changed \(notice.recipeIds.count) recipes")
+        }
+        return notice.text
+    }
+
     private var banners: some View {
         VStack(spacing: 8) {
             if let notice = shownNotice {
@@ -170,7 +181,7 @@ struct LibraryScreen: View {
                     recipeId = notice.recipeIds.count == 1 ? notice.recipeIds.first : recipeId
                     shownNotice = nil
                 } label: {
-                    Label(notice.text, systemImage: "sparkles")
+                    Label(noticeText(notice), systemImage: "sparkles")
                         .font(.callout.weight(.medium))
                         .padding(.horizontal, 16).padding(.vertical, 10)
                         .glassEffect(.regular, in: .capsule)
@@ -207,8 +218,18 @@ struct RecipeList: View {
 
     private var canReorder: Bool { collection != nil && search.isEmpty && !model.isOffline }
 
+    /// The dragged order, kept on screen until a catch-up brings the server's order.
+    @State private var pendingOrder: [String]?
+
+    private var serverOrder: [String] {
+        model.store.organization.collections.first { $0.name == collection }?.recipeIds ?? []
+    }
+
     private var shown: [DeviceRecipe] {
-        search.trimmingCharacters(in: .whitespaces).isEmpty ? recipes : model.store.search(search, in: recipes)
+        guard search.trimmingCharacters(in: .whitespaces).isEmpty else { return model.store.search(search, in: recipes) }
+        guard let pendingOrder else { return recipes }
+        let byId = Dictionary(uniqueKeysWithValues: recipes.map { ($0.id, $0) })
+        return pendingOrder.compactMap { byId[$0] } + recipes.filter { !pendingOrder.contains($0.id) }
     }
 
     var body: some View {
@@ -240,6 +261,8 @@ struct RecipeList: View {
                 }
             }
         }
+        .onChange(of: serverOrder) { pendingOrder = nil }
+        .onChange(of: collection) { pendingOrder = nil }
         .navigationTitle(title)
         .searchable(text: $search, prompt: "Search")
         .toolbar {
@@ -273,7 +296,10 @@ struct RecipeList: View {
         guard let collection else { return }
         var ids = shown.map(\.id)
         ids.move(fromOffsets: offsets, toOffset: destination)
-        let rest = (model.store.organization.collections.first { $0.name == collection }?.recipeIds ?? []).filter { !ids.contains($0) }
-        Task { await model.edit([.reorderCollection(collection: collection, recipeIds: ids + rest)]) }
+        let rest = serverOrder.filter { !ids.contains($0) }
+        pendingOrder = ids
+        Task {
+            if await !model.edit([.reorderCollection(collection: collection, recipeIds: ids + rest)]) { pendingOrder = nil }
+        }
     }
 }
