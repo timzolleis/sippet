@@ -8,7 +8,7 @@
     "lint": "oxlint .",
     "build": "vite build",
     "dev": "vite build && (vite build --watch --logLevel warn & alchemy dev --stage dev_$(basename $(git rev-parse --show-toplevel)))",
-    "deploy": "vite build && alchemy deploy --stage prod",
+    "deploy": "vite build && alchemy deploy --stage prod --yes",
     "invite": "node --env-file-if-exists=.env scripts/invite.ts",
     "auth:generate": "auth generate --config scripts/auth-schema.ts --output migrations/auth/0001_better_auth.sql -y",
     "db:generate": "drizzle-kit generate"
