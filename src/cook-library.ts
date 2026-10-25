@@ -1,6 +1,7 @@
 // One CookLibrary per cook. Skeleton: connection table, the connection/iat check, connect/disconnect RPCs.
 // The MCP server and the library tables are added on top of this (specs/hosting.md#cooklibrary).
 import { DurableObject } from "cloudflare:workers"
+import { makeMcpHandler } from "./store/mcp-proof.ts"
 
 export type Connection = { clientId: string; name: string; connectedAt: number }
 
@@ -9,8 +10,11 @@ type ConnectionRow = { client_id: string; name: string; connected_at: number; di
 const unknownClientName = "Claude"
 
 export class CookLibrary extends DurableObject {
+  private readonly mcp: ReturnType<typeof makeMcpHandler>
+
   constructor(ctx: DurableObjectState, env: Cloudflare.Env) {
     super(ctx, env)
+    this.mcp = makeMcpHandler({ sql: ctx.storage.sql })
     ctx.blockConcurrencyWhile(async () => {
       ctx.storage.sql.exec(
         `CREATE TABLE IF NOT EXISTS connection (
@@ -64,9 +68,7 @@ export class CookLibrary extends DurableObject {
     if (connection === null || !Number.isFinite(issuedAt)) return new Response("unauthorized", { status: 401 })
     if (this.isRefused({ connection, issuedAt })) return new Response("unauthorized", { status: 401 })
 
-    const sippetHeaders: Record<string, string> = {}
-    for (const [name, value] of request.headers) if (name.startsWith("sippet-")) sippetHeaders[name] = value
-    return Response.json(sippetHeaders)
+    return this.mcp.handler(request)
   }
 
   // A token from a disconnected connection is refused when it was issued before the disconnect.
