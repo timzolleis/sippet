@@ -1,8 +1,8 @@
 // The storage side of a cook's library (specs/hosting.md#cooklibrary). Sync SQLite over Drizzle, no MCP, no recipe rules.
 // The domain's content is stored as JSON; `derive` (supplied by the wiring) computes the columns and search text from it.
-import { and, asc, eq, inArray, isNotNull, isNull, lte, min, sql, type SQL } from "drizzle-orm"
+import { and, asc, eq, inArray, isNotNull, lte, min, sql, type SQL } from "drizzle-orm"
 import type { DrizzleSqliteDODatabase } from "drizzle-orm/durable-sqlite"
-import { Data, Result } from "effect"
+import { Data, Result, Schema } from "effect"
 import { retryWindowMs, type RetryKey } from "./retry.ts"
 import * as schema from "./schema.ts"
 import type { Actor, Json } from "./schema.ts"
@@ -82,8 +82,6 @@ export type SearchQuery = {
 }
 
 export type SearchHit = RecipeRow & { readonly content: Json }
-
-const rollback = Symbol("rollback")
 
 const likePattern = (text: string) => `%${text.replace(/[\\%_]/g, "\\$&")}%`
 const characters = (text: string) => [...text].length
@@ -271,6 +269,11 @@ export class Library {
     const writes = new Writes(this.db, this.options.derive, now)
     let outcome: Result.Result<A, E>
 
+    // A refused write throws this out of the transaction so SQLite rolls back; it is caught below and returned.
+    class Rollback {
+      constructor(readonly failure: Result.Result<A, E>) {}
+    }
+
     try {
       outcome = this.options.storage.transactionSync(() => {
         this.db.delete(retry).where(lte(retry.expiresAt, now)).run()
@@ -282,12 +285,15 @@ export class Library {
             .where(and(eq(retry.connection, key.connection), eq(retry.tool, key.tool), eq(retry.argsHash, key.argsHash)))
             .get()
 
-          if (hit !== undefined) return Result.succeed(hit.result as A)
+          if (hit !== undefined) {
+            // SAFETY: the key names the same connection, tool, and arguments, so the stored result is what that call returned: an A.
+            return Result.succeed(hit.result as A)
+          }
         }
 
         const result = run(writes)
 
-        if (Result.isFailure(result)) throw { [rollback]: result }
+        if (Result.isFailure(result)) throw new Rollback(result)
 
         if (key !== undefined) {
           this.db.insert(retry).values({ ...key, result: result.success, expiresAt: now + retryWindowMs }).run()
@@ -296,7 +302,7 @@ export class Library {
         return result
       })
     } catch (thrown) {
-      if (typeof thrown === "object" && thrown !== null && rollback in thrown) return thrown[rollback] as Result.Result<A, E>
+      if (thrown instanceof Rollback) return thrown.failure
       throw thrown
     }
 
@@ -315,10 +321,10 @@ export class Library {
 
   // alarm(): purge every due recipe in one change, then set the next alarm. A second run finds nothing due.
   async purgeDue(): Promise<ReadonlyArray<string>> {
-    const purged = await this.transact({ run: (writes) => Result.succeed(writes.purgeDue() as Json) })
+    const purged = await this.transact({ run: (writes) => Result.succeed(writes.purgeDue()) })
     await this.scheduleAlarm()
 
-    return Result.isSuccess(purged) ? (purged.success as ReadonlyArray<string>) : []
+    return Result.isSuccess(purged) ? purged.success : []
   }
 
   getRecipe(id: string, revisionNumber?: number): (RecipeRow & StoredRevision) | undefined {
@@ -347,7 +353,8 @@ export class Library {
       .from(recipe)
       .where(isNotNull(recipe.trashedAt))
       .orderBy(asc(recipe.purgeAt), asc(recipe.id))
-      .all() as Array<{ id: string; title: string; trashedAt: number; purgeAt: number }>
+      .all()
+      .flatMap((row) => (row.trashedAt === null || row.purgeAt === null ? [] : [{ ...row, trashedAt: row.trashedAt, purgeAt: row.purgeAt }]))
   }
 
   listChanges({ after, limit }: { after: number; limit: number }) {
@@ -429,7 +436,7 @@ export class Library {
         totalMinutes: row.total_minutes,
         hasFlow: row.has_flow !== 0,
         createdAt: row.created_at,
-        content: JSON.parse(row.content) as Json,
+        content: Schema.decodeUnknownSync(Schema.Json)(JSON.parse(row.content)),
       }),
     )
 

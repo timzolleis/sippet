@@ -10,7 +10,7 @@ const Whoami = Tool.make("whoami", {
 
 const ProofToolkit = Toolkit.make(Whoami)
 
-export const makeMcpHandler = ({ sql }: { sql: SqlStorage }) => {
+export const mcpWebHandler = ({ sql }: { sql: SqlStorage }) => {
   const ToolsLive = ProofToolkit.toLayer({
     whoami: () =>
       Effect.gen(function* () {

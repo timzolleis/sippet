@@ -5,7 +5,8 @@
 import { createHash, generateKeyPairSync, randomBytes, randomUUID, sign } from "node:crypto"
 import { readdirSync } from "node:fs"
 import { DatabaseSync } from "node:sqlite"
-import { Match, Schema } from "effect"
+import { Schema } from "effect"
+import { cbor, json, JsonObject, Open } from "./support.ts"
 
 const origin = process.argv[2] ?? "http://localhost:1337"
 const rpId = new URL(origin).hostname
@@ -54,24 +55,6 @@ const request = async (path: string, init: RequestInit & { json?: Schema.Json } 
 }
 
 // ── software passkey (ES256, "none" attestation) ───────────────────────────
-
-type Cbor = number | string | Buffer | { readonly [key: string]: Cbor }
-
-const cbor = (value: Cbor): Buffer => {
-  const head = (major: number, length: number) =>
-    length < 24 ? Buffer.from([(major << 5) | length]) : Buffer.from([(major << 5) | 24, length])
-
-  return Match.value(value).pipe(
-    Match.when(Match.number, (number) => (number >= 0 ? head(0, number) : head(1, -1 - number))),
-    Match.when(Match.string, (text) => Buffer.concat([head(3, Buffer.byteLength(text)), Buffer.from(text)])),
-    Match.when(Match.instanceOf(Buffer), (bytes) => Buffer.concat([head(2, bytes.length), bytes])),
-    Match.orElse((map) => {
-      const entries = Object.entries(map)
-
-      return Buffer.concat([head(5, entries.length), ...entries.flatMap(([key, item]) => [cbor(/^-?\d+$/.test(key) ? Number(key) : key), cbor(item)])])
-    }),
-  )
-}
 
 const keys = generateKeyPairSync("ec", { namedCurve: "P-256" })
 const credentialId = randomBytes(16)
@@ -155,11 +138,7 @@ const mcpInitialize = (token: string) =>
     body: JSON.stringify(initialize),
   })
 
-// Every response body is parsed with a schema; `Open` keeps unlisted fields so they can still be shown.
-const Open = <const Fields extends Schema.Struct.Fields>(fields: Fields) =>
-  Schema.StructWithRest(Schema.Struct(fields), [Schema.Record(Schema.String, Schema.Json)])
-
-const JsonObject = Schema.Record(Schema.String, Schema.Json)
+// Every response body is parsed with a schema (support.ts).
 const Challenge = Schema.Struct({ challenge: Schema.String })
 const Invitation = Schema.Struct({ name: Schema.String })
 const Registered = Schema.Struct({ user: Schema.optional(Open({ id: Schema.String })) })
@@ -169,9 +148,6 @@ const ConsentResult = Open({ url: Schema.String })
 const TokenResponse = Open({ access_token: Schema.optional(Schema.String), refresh_token: Schema.optional(Schema.String) })
 const Connections = Schema.Array(Schema.Struct({ clientId: Schema.String, name: Schema.String, connectedAt: Schema.Number }))
 const Redirect = Schema.Struct({ url: Schema.optional(Schema.String) })
-
-const json = async <S extends Schema.ConstraintDecoder<unknown>>(schema: S, response: Response): Promise<S["Type"]> =>
-  Schema.decodeUnknownSync(schema)(await response.json())
 
 const decodeJwt = (token: string) => Schema.decodeUnknownSync(JsonObject)(JSON.parse(Buffer.from(token.split(".")[1]!, "base64url").toString()))
 

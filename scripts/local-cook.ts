@@ -4,23 +4,18 @@
 import { createHash, generateKeyPairSync, randomBytes, randomUUID } from "node:crypto"
 import { readdirSync } from "node:fs"
 import { DatabaseSync } from "node:sqlite"
+import { Schema } from "effect"
+import { cbor, json } from "./support.ts"
 
 const sha256 = (data: Buffer | string) => createHash("sha256").update(data).digest()
 const b64url = (data: Buffer) => data.toString("base64url")
 
-const cbor = (value: unknown): Buffer => {
-  const head = (major: number, length: number) =>
-    length < 24 ? Buffer.from([(major << 5) | length]) : Buffer.from([(major << 5) | 24, length])
-
-  if (typeof value === "number") return value >= 0 ? head(0, value) : head(1, -1 - value)
-
-  if (typeof value === "string") return Buffer.concat([head(3, Buffer.byteLength(value)), Buffer.from(value)])
-
-  if (Buffer.isBuffer(value)) return Buffer.concat([head(2, (value as Buffer).length), value as Buffer])
-  const entries = Object.entries(value as Record<string, unknown>)
-
-  return Buffer.concat([head(5, entries.length), ...entries.flatMap(([key, item]) => [cbor(/^-?\d+$/.test(key) ? Number(key) : key), cbor(item)])])
-}
+const Challenge = Schema.Struct({ challenge: Schema.String })
+const Registered = Schema.Struct({ user: Schema.Struct({ id: Schema.String }) })
+const Client = Schema.Struct({ client_id: Schema.String })
+const Redirect = Schema.Struct({ url: Schema.optional(Schema.String) })
+const Consent = Schema.Struct({ url: Schema.String })
+const Token = Schema.Struct({ access_token: Schema.String })
 
 export type LocalCook = { cookId: string; clientId: string; token: string; connect: (name: string) => Promise<{ clientId: string; token: string }> }
 
@@ -28,7 +23,7 @@ export const signInLocalCook = async (origin = "http://localhost:1337"): Promise
   const rpId = new URL(origin).hostname
   const jar = new Map<string, string>()
 
-  const request = async (path: string, init: RequestInit & { json?: unknown } = {}): Promise<Response> => {
+  const request = async (path: string, init: RequestInit & { json?: Schema.Json } = {}): Promise<Response> => {
     const headers = new Headers(init.headers)
     headers.set("origin", origin)
 
@@ -49,8 +44,6 @@ export const signInLocalCook = async (origin = "http://localhost:1337"): Promise
     return response
   }
 
-  const json = async (response: Response) => (await response.json()) as Record<string, any>
-
   const dir = ".alchemy/local/d1/cloudflare-runtime-D1DatabaseObject"
   const file = readdirSync(dir).find((name) => name.endsWith(".sqlite") && name !== "metadata.sqlite")
 
@@ -66,7 +59,7 @@ export const signInLocalCook = async (origin = "http://localhost:1337"): Promise
   const credentialId = randomBytes(16)
   const jwk = keys.publicKey.export({ format: "jwk" })
   const coseKey = cbor({ 1: 2, 3: -7, "-1": 1, "-2": Buffer.from(jwk.x!, "base64url"), "-3": Buffer.from(jwk.y!, "base64url") })
-  const options = await json(await request(`/api/auth/passkey/generate-register-options?context=${invitation}`))
+  const options = await json(Challenge, await request(`/api/auth/passkey/generate-register-options?context=${invitation}`))
   const clientDataJSON = Buffer.from(JSON.stringify({ type: "webauthn.create", challenge: options.challenge, origin, crossOrigin: false }))
   const authData = Buffer.concat([sha256(rpId), Buffer.from([0x45]), Buffer.alloc(4), Buffer.alloc(16), Buffer.from([0, credentialId.length]), credentialId, coseKey])
 
@@ -83,12 +76,12 @@ export const signInLocalCook = async (origin = "http://localhost:1337"): Promise
   })
 
   if (registered.status !== 200) throw new Error(`registration failed: ${registered.status}`)
-  const cookId: string = (await json(registered)).user.id
+  const cookId = (await json(Registered, registered)).user.id
 
   const connect = async (name: string) => {
     const redirectUri = "https://claude.ai/api/mcp/auth_callback"
 
-    const client = await json(await request(`/api/auth/oauth2/register`, {
+    const client = await json(Client, await request(`/api/auth/oauth2/register`, {
       method: "POST",
       json: { client_name: name, redirect_uris: [redirectUri], token_endpoint_auth_method: "none", grant_types: ["authorization_code", "refresh_token"], response_types: ["code"] },
     }))
@@ -96,18 +89,20 @@ export const signInLocalCook = async (origin = "http://localhost:1337"): Promise
     const verifier = b64url(randomBytes(32))
     const query = new URLSearchParams({ response_type: "code", client_id: client.client_id, redirect_uri: redirectUri, scope: "offline_access", state: "s1", code_challenge: b64url(sha256(verifier)), code_challenge_method: "S256", resource: `${origin}/mcp` })
     const authorize = await request(`/api/auth/oauth2/authorize?${query}`)
-    const location = authorize.headers.get("location") ?? ((await authorize.json()) as { url?: string }).url
-    const next = new URL(location!, origin)
-    const consent = await json(await request(`/api/auth/oauth2/consent`, { method: "POST", json: { accept: true, oauth_query: next.search.slice(1) } }))
+    const location = authorize.headers.get("location") ?? (await json(Redirect, authorize)).url
+
+    if (location === undefined) throw new Error(`authorize answered ${authorize.status} without a redirect`)
+    const next = new URL(location, origin)
+    const consent = await json(Consent, await request(`/api/auth/oauth2/consent`, { method: "POST", json: { accept: true, oauth_query: next.search.slice(1) } }))
     const code = new URL(consent.url).searchParams.get("code")!
 
-    const token = await json(await request(`/api/auth/oauth2/token`, {
+    const token = await json(Token, await request(`/api/auth/oauth2/token`, {
       method: "POST",
       headers: { "content-type": "application/x-www-form-urlencoded" },
       body: new URLSearchParams({ grant_type: "authorization_code", code, redirect_uri: redirectUri, client_id: client.client_id, code_verifier: verifier, resource: `${origin}/mcp` }),
     }))
 
-    return { clientId: client.client_id as string, token: token.access_token as string }
+    return { clientId: client.client_id, token: token.access_token }
   }
 
   const first = await connect("Claude (local)")

@@ -1,6 +1,7 @@
 import { Result } from "effect"
 import { describe, expect, it } from "vitest"
 import { cleanSource, normalizeSource } from "../../src/store/source.ts"
+import { withOptional } from "../../src/domain/with-optional.ts"
 
 const cleaned = (address: string) => {
   const result = normalizeSource(address)
@@ -50,7 +51,7 @@ const fakeFetch = (steps: Record<string, Step>) => {
 
 const sourceOf = async (address: string, steps: Record<string, Step>, budgetMs?: number) => {
   const { fetch, calls } = fakeFetch(steps)
-  const result = await cleanSource({ source: address, fetch, ...(budgetMs === undefined ? {} : { budgetMs }) })
+  const result = await cleanSource(withOptional({ source: address, fetch }, "budgetMs", budgetMs))
 
   if (Result.isFailure(result)) throw new Error("expected a clean address")
 

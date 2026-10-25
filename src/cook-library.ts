@@ -3,10 +3,12 @@
 import { DurableObject } from "cloudflare:workers"
 import { drizzle } from "drizzle-orm/durable-sqlite"
 import { migrate } from "drizzle-orm/durable-sqlite/migrator"
+import { Schema } from "effect"
+import type { Env } from "../alchemy.run.ts"
 import migrations from "../migrations/cook-library/migrations.js"
 import { isLocal, runDevOp } from "./store/dev.ts"
 import { Library, type Db } from "./store/library.ts"
-import { makeMcpHandler } from "./store/mcp-proof.ts"
+import { mcpWebHandler } from "./store/mcp-proof.ts"
 import { placeholderDerive } from "./store/placeholder-derive.ts"
 import * as schema from "./store/schema.ts"
 
@@ -16,16 +18,16 @@ type ConnectionRow = { client_id: string; name: string; connected_at: number; di
 
 const unknownClientName = "Claude"
 
-export class CookLibrary extends DurableObject {
+export class CookLibrary extends DurableObject<Env> {
   private readonly db: Db
   private readonly library: Library
-  private readonly mcp: ReturnType<typeof makeMcpHandler>
+  private readonly mcp: ReturnType<typeof mcpWebHandler>
 
-  constructor(ctx: DurableObjectState, env: Cloudflare.Env) {
+  constructor(ctx: DurableObjectState, env: Env) {
     super(ctx, env)
     this.db = drizzle(ctx.storage, { schema })
     this.library = new Library({ db: this.db, storage: ctx.storage, derive: placeholderDerive })
-    this.mcp = makeMcpHandler({ sql: ctx.storage.sql })
+    this.mcp = mcpWebHandler({ sql: ctx.storage.sql })
     ctx.blockConcurrencyWhile(async () => {
       await migrate(this.db, migrations)
       await this.library.scheduleAlarm() // self-heal: the alarm is set after the commit that changed purge_at
@@ -108,11 +110,11 @@ export class CookLibrary extends DurableObject {
 
   // Local checks only (store/dev.ts): refused unless PUBLIC_URL is localhost.
   private async dev(request: Request, connection: string): Promise<Response> {
-    if (!isLocal(this.env as { PUBLIC_URL?: string })) return new Response("not found", { status: 404 })
+    if (!isLocal(this.env)) return new Response("not found", { status: 404 })
     const op = new URL(request.url).pathname.slice("/api/dev/".length)
 
     if (op === "headers") return Response.json(Object.fromEntries([...request.headers].filter(([name]) => name.startsWith("sippet-"))))
-    const args = request.method === "POST" ? ((await request.json()) as Record<string, unknown>) : {}
+    const args = request.method === "POST" ? Schema.decodeUnknownSync(Schema.Record(Schema.String, Schema.Json))(await request.json()) : {}
 
     const value = await runDevOp({
       op,
