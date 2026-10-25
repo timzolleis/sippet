@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest"
+import { describe, expect, it, vi } from "vitest"
 import { zupfkuchenEdits, zupfkuchenTitle, zupfkuchenYield } from "../domain/fixtures.ts"
 import { makeCook } from "./harness.ts"
 
@@ -9,7 +9,8 @@ const setup = async () => {
   const client = await cook.connect()
   const added = await client.call("add_recipe", zupfkuchen)
   expect(added.isError).toBe(false)
-  return { cook, client, recipeId: added.value.recipeId as string, added: added.value }
+
+  return { cook, client, recipeId: added.value.recipeId, added: added.value }
 }
 
 const stepOf = (recipe: any, key: string) => recipe.steps.find((step: any) => step.key === key)
@@ -24,6 +25,7 @@ describe("the server", () => {
       "add_recipe", "edit_recipe", "restore_revision", "trash_recipes", "restore_recipes", "edit_library",
     ])
     const reads = ["search_recipes", "get_recipe", "list_revisions", "get_library", "list_trash"]
+
     for (const tool of tools) {
       if (reads.includes(tool.name)) expect(tool.annotations.readOnlyHint).toBe(true)
       else expect(tool.annotations).toMatchObject({ readOnlyHint: false, destructiveHint: false })
@@ -74,6 +76,7 @@ describe("adding and reading (adding rules 1, 2; cooking rule 10)", () => {
   it("refuses with every problem, naming the edit and the rule, and writes nothing", async () => {
     const cook = makeCook()
     const client = await cook.connect()
+
     const refused = await client.call("add_recipe", {
       title: "Kaputt",
       yield: { amount: { value: 2, unit: "piece" } },
@@ -84,18 +87,20 @@ describe("adding and reading (adding rules 1, 2; cooking rule 10)", () => {
         { op: "remove_step", key: "gibt-es-nicht" },
       ],
     })
+
     expect(refused.isError).toBe(true)
     expect(refused.value.refused).toBe(true)
     const problems: Array<{ edit?: number; rule?: string; message: string }> = refused.value.problems
-    expect(problems.filter((problem) => problem.edit !== undefined).map((problem) => problem.edit)).toContain(4)
+    expect(problems.flatMap((problem) => (problem.edit === undefined ? [] : [problem.edit]))).toContain(4)
     expect(problems.some((problem) => problem.rule === "recipe 14" && problem.message.includes("kakao"))).toBe(true)
     expect(problems.length).toBeGreaterThanOrEqual(3)
+
     for (const table of ["recipe", "revision", "change", "retry", "recipe_text", "recipe_item"]) expect(cook.count(table), table).toBe(0)
   })
 
   it("refuses a page already in the library, the trash included, and names it (adding rule 6)", async () => {
-    const realFetch = globalThis.fetch
-    globalThis.fetch = (async () => new Response(null, { status: 200 })) as typeof fetch
+    vi.stubGlobal("fetch", async () => new Response(null, { status: 200 }))
+
     try {
       const cook = makeCook()
       const client = await cook.connect()
@@ -110,24 +115,25 @@ describe("adding and reading (adding rules 1, 2; cooking rule 10)", () => {
       expect(third.value.problems[0].message).toContain("in the trash")
       expect((await client.call("add_recipe", { ...zupfkuchen, source: "not a url" })).value.problems[0].message).toContain("not a web address")
     } finally {
-      globalThis.fetch = realFetch
+      vi.unstubAllGlobals()
     }
   })
 
   it("costs no fetch when the batch is refused", async () => {
-    const realFetch = globalThis.fetch
     let fetched = 0
-    globalThis.fetch = (async () => {
+    vi.stubGlobal("fetch", async () => {
       fetched++
+
       return new Response(null, { status: 200 })
-    }) as typeof fetch
+    })
+
     try {
       const client = await makeCook().connect()
       const refused = await client.call("add_recipe", { title: "Leer", yield: { amount: { value: 1 } }, source: "https://example.com/leer", edits: [] })
       expect(refused.isError).toBe(true)
       expect(fetched).toBe(0)
     } finally {
-      globalThis.fetch = realFetch
+      vi.unstubAllGlobals()
     }
   })
 
@@ -171,11 +177,13 @@ describe("revising (revising rules 1–5)", () => {
 
   it("refuses a broken batch with the latest revision and changes nothing (rule 1)", async () => {
     const { cook, client, recipeId } = await setup()
+
     const refused = await client.call("edit_recipe", {
       recipeId,
       fromRevision: 1,
       edits: [{ op: "edit_ingredient", key: "mehl", amount: { value: 1 } }, { op: "remove_ingredient", key: "kakao" }, { op: "edit_ingredient", key: "nix", item: "x" }],
     })
+
     expect(refused.value).toMatchObject({ refused: true, latestRevision: 1 })
     expect(refused.value.problems.some((problem: any) => problem.edit === 3)).toBe(true)
     expect(refused.value.problems.some((problem: any) => problem.rule === "recipe 12")).toBe(true)
@@ -219,7 +227,7 @@ describe("trash (revising rules 4, 6–10)", () => {
     const read = await client.call("get_recipe", { recipeId })
     expect(read.value).toMatchObject({ trashedAt: listed.value.recipes[0].trashedAt, purgeAt: trashed.value.trashed[0].purgeAt })
     expect(cook.count("recipe_text")).toBe(0)
-    expect(await cook.storage.getAlarm()).toBe(purgeAt)
+    expect(await cook.getAlarm()).toBe(purgeAt)
 
     const refused = await client.call("edit_recipe", { recipeId, fromRevision: 1, edits: [{ op: "set_title", title: "Neu" }] })
     expect(refused.value.problems[0]).toMatchObject({ rule: "revising 4" })
@@ -228,14 +236,16 @@ describe("trash (revising rules 4, 6–10)", () => {
     expect(restored.value).toEqual({ recipeIds: [recipeId] })
     expect((await client.call("search_recipes", {})).value.recipes).toHaveLength(1)
     expect((await client.call("list_trash")).value.recipes).toEqual([])
-    expect(await cook.storage.getAlarm()).toBe(null)
+    expect(await cook.getAlarm()).toBe(null)
   })
 
   it("is all or nothing, and keeps the date of one already trashed (rule 10)", async () => {
     const { cook, client, recipeId } = await setup()
+
     const other = (await client.call("add_recipe", { title: "Pfannkuchen", yield: { amount: { value: 4, unit: "serving" } }, edits: [
       { op: "add_ingredient", key: "mehl", item: "Mehl" }, { op: "add_step", key: "braten", label: "braten", uses: ["mehl"] },
-    ] })).value.recipeId as string
+    ] })).value.recipeId
+
     const ghost = "rcp_zzzzzzzzzzzzzzzzzzzzzzzz"
     const refused = await client.call("trash_recipes", { recipeIds: [recipeId, other, ghost] })
     expect(refused.value.problems[0]).toMatchObject({ rule: "revising 10" })
@@ -259,9 +269,11 @@ describe("retries (mcp.md Retries)", () => {
   it("returns the stored first result for the same write from the same connection, and changes nothing", async () => {
     const cook = makeCook()
     const client = await cook.connect()
+
     const args = { title: "Pfannkuchen", yield: { amount: { value: 4, unit: "serving" } }, edits: [
       { op: "add_ingredient", key: "mehl", item: "Mehl" }, { op: "add_step", key: "braten", label: "braten", uses: ["mehl"] },
     ] }
+
     const first = await client.call("add_recipe", args)
     const again = await client.call("add_recipe", { edits: args.edits, yield: args.yield, title: args.title })
     expect(again).toEqual(first)

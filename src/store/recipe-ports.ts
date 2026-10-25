@@ -6,6 +6,7 @@ import { RecipeContent } from "../domain/recipe/recipe-content.ts"
 import { RecipeAlreadyTrashedError, RecipeNotFoundError, RecipeRevisionNotFoundError, RecipesNotFoundError } from "../domain/recipe/recipe-error.ts"
 import { RecipeId } from "../domain/recipe/recipe-id.ts"
 import { RecipeRepository, RecipeSources } from "../domain/recipe/recipe-repository.ts"
+import { withOptional } from "../domain/with-optional.ts"
 import type { Library, RecipeRow, StoredRevision, Writes } from "./library.ts"
 import { normalizeSource } from "./source.ts"
 
@@ -14,16 +15,17 @@ const decodeContent = Schema.decodeUnknownSync(RecipeContent)
 // A failure here is a broken invariant (the domain checked first), so it dies and the transaction rolls back.
 const orDie = <A, E>(result: Result.Result<A, E>): A => {
   if (Result.isFailure(result)) throw result.failure
+
   return result.success
 }
 
 export const recipeFromStored = (row: RecipeRow & StoredRevision): Recipe => {
-  const fields = {
-    recipeId: RecipeId.make(row.id),
-    latestRevision: row.latestRevision,
-    content: decodeContent(row.content),
-    ...(row.source === null ? {} : { source: row.source }),
-  }
+  const fields = withOptional(
+    { recipeId: RecipeId.make(row.id), latestRevision: row.latestRevision, content: decodeContent(row.content) },
+    "source",
+    row.source ?? undefined,
+  )
+
   return row.trashedAt === null || row.purgeAt === null
     ? LibraryRecipe.make(fields)
     : TrashedRecipe.make({ ...fields, trashedAt: DateTime.makeUnsafe(row.trashedAt), purgeAt: DateTime.makeUnsafe(row.purgeAt) })
@@ -33,7 +35,9 @@ export const recipeRepositoryLayer = ({ library, writes }: { readonly library: L
   Layer.succeed(RecipeRepository, RecipeRepository.of({
     findLibraryRecipeById: ({ recipeId }) => {
       const row = library.getRecipe(recipeId)
+
       if (row === undefined) return Effect.fail(new RecipeNotFoundError({ recipeId }))
+
       return Match.valueTags(recipeFromStored(row), {
         LibraryRecipe: (recipe) => Effect.succeed(recipe),
         TrashedRecipe: (recipe) => Effect.fail(new RecipeAlreadyTrashedError({ recipeId, trashedAt: recipe.trashedAt })),
@@ -43,6 +47,7 @@ export const recipeRepositoryLayer = ({ library, writes }: { readonly library: L
       const unique = [...new Set(recipeIds)]
       const rows = unique.map((recipeId) => ({ recipeId, row: library.getRecipe(recipeId) }))
       const missing = rows.flatMap(({ recipeId, row }) => (row === undefined ? [recipeId] : []))
+
       return missing.length > 0
         ? Effect.fail(new RecipesNotFoundError({ recipeIds: missing }))
         : Effect.succeed(rows.flatMap(({ row }) => (row === undefined ? [] : [recipeFromStored(row)])))
@@ -52,10 +57,12 @@ export const recipeRepositoryLayer = ({ library, writes }: { readonly library: L
         const normalized = normalizeSource(source)
         const id = Result.isFailure(normalized) ? undefined : library.findRecipeIdBySourceKey(normalized.success.sourceKey)
         const row = id === undefined ? undefined : library.getRecipe(id)
+
         return Option.map(Option.fromUndefinedOr(row), recipeFromStored)
       }),
     findRecipeRevisionContent: ({ recipeId, revision }) => {
       const row = library.getRecipe(recipeId, revision)
+
       return row === undefined
         ? Effect.fail(new RecipeRevisionNotFoundError({ recipeId, revision }))
         : Effect.succeed(decodeContent(row.content))
@@ -64,6 +71,7 @@ export const recipeRepositoryLayer = ({ library, writes }: { readonly library: L
       Effect.sync(() =>
         library.listTrash().flatMap(({ id }) => {
           const row = library.getRecipe(id)
+
           return row === undefined ? [] : Match.valueTags(recipeFromStored(row), { LibraryRecipe: () => [], TrashedRecipe: (recipe) => [recipe] })
         })
       ),

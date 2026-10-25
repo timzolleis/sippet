@@ -10,6 +10,7 @@ import type {
   RecipeSourceAlreadyAddedError,
   RecipesNotFoundError,
 } from "../domain/recipe/recipe-error.ts"
+import { withOptional } from "../domain/with-optional.ts"
 import type { Refusal } from "./schemas.ts"
 
 export type DomainError =
@@ -24,11 +25,8 @@ export type DomainError =
 
 const quoted = (id: string) => `"${id}"`
 
-export const refuse = ({ message, rule, latestRevision }: { readonly message: string; readonly rule?: string; readonly latestRevision?: number }): Refusal => ({
-  refused: true,
-  problems: [{ ...(rule === undefined ? {} : { rule }), message }],
-  ...(latestRevision === undefined ? {} : { latestRevision }),
-})
+export const refuse = ({ message, rule, latestRevision }: { readonly message: string; readonly rule?: string; readonly latestRevision?: number }): Refusal =>
+  withOptional({ refused: true as const, problems: [withOptional({ message }, "rule", rule)] }, "latestRevision", latestRevision)
 
 export const refusalFromError = (error: DomainError): Refusal =>
   Match.valueTags(error, {

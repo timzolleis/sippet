@@ -11,6 +11,7 @@ const joinedText = (parts: ReadonlyArray<string | undefined>) => parts.filter((p
 
 export const derive: Derive = (json) => {
   const content = decodeContent(json)
+
   return {
     title: content.title,
     totalMinutes: recipeTotalMinutesFromContent(content) ?? null,

@@ -14,6 +14,7 @@ export const Refusal = Schema.Struct({
   problems: Schema.Array(RecipeProblem),
   latestRevision: Schema.optionalKey(Revision),
 })
+
 export type Refusal = typeof Refusal.Type
 
 export const StepView = Schema.Struct({
@@ -21,6 +22,7 @@ export const StepView = Schema.Struct({
   // the derived links merged with what the step names (recipe rule 11); present when the recipe has a flow
   flow: Schema.optionalKey(Schema.Struct({ takes: Schema.Array(Key), waitsFor: Schema.Array(Key), makes: Schema.Boolean })),
 })
+
 export type StepView = typeof StepView.Type
 
 export const RecipeView = Schema.Struct({
@@ -42,6 +44,7 @@ export const RecipeView = Schema.Struct({
   // the steps whose result nobody takes (recipe rule 18)
   makes: Schema.Array(Key),
 })
+
 export type RecipeView = typeof RecipeView.Type
 
 export const RecipeSummary = Schema.Struct({
@@ -55,6 +58,7 @@ export const RecipeSummary = Schema.Struct({
   source: Schema.optionalKey(Schema.String),
   trashedAt: Schema.optionalKey(Schema.String),
 })
+
 export type RecipeSummary = typeof RecipeSummary.Type
 
 export const RevisionView = Schema.Struct({
@@ -67,6 +71,7 @@ export const RevisionView = Schema.Struct({
     Schema.Struct({ restored: Revision }),
   ]),
 })
+
 export type RevisionView = typeof RevisionView.Type
 
 export const LibraryView = Schema.Struct({
@@ -74,4 +79,5 @@ export const LibraryView = Schema.Struct({
   collections: Schema.Array(Schema.Struct({ name: Schema.String, recipes: Schema.Int })),
   smartCollections: Schema.Array(Schema.Struct({ name: Schema.String, filter: RecipeFilter })),
 })
+
 export type LibraryView = typeof LibraryView.Type

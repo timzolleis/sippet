@@ -7,7 +7,7 @@ import { toolsLayer } from "./handlers.ts"
 import { instructions } from "./instructions.ts"
 import { SippetToolkit } from "./tools.ts"
 
-export const makeMcpHandler = ({ library }: { readonly library: Library }) => {
+export const mcpWebHandler = ({ library }: { readonly library: Library }) => {
   const app = McpServer.toolkit(SippetToolkit).pipe(
     Layer.provideMerge(toolsLayer(library)),
     Layer.provideMerge(
@@ -20,5 +20,6 @@ export const makeMcpHandler = ({ library }: { readonly library: Library }) => {
       }),
     ),
   )
+
   return HttpRouter.toWebHandler(app, { disableLogger: true })
 }

@@ -53,6 +53,7 @@ export const inTransaction = <A extends Json, E>({ library, retry, cleanedSource
     retry,
     run: (writes: Writes) => {
       const ports = Layer.mergeAll(recipeRepositoryLayer({ library, writes }), libraryRepositoryLayer({ library, writes }), recipeSourcesLayer(cleanedSource))
+
       const run = Effect.clockWith((clock) =>
         program.pipe(
           Effect.provide(servicesLayer.pipe(Layer.provideMerge(ports))),
@@ -60,6 +61,7 @@ export const inTransaction = <A extends Json, E>({ library, retry, cleanedSource
           Effect.result,
         )
       )
+
       return Effect.runSync(run)
     },
   })
@@ -71,9 +73,11 @@ export const purgeDueRecipes = async (library: Library): Promise<void> => {
     program: Effect.gen(function* () {
       const purge = yield* PurgeTrashedRecipesService
       yield* purge.purgeTrashedRecipes()
+
       return null
     }),
   })
+
   if (Result.isFailure(purged)) throw purged.failure
   await library.scheduleAlarm()
 }

@@ -7,7 +7,7 @@ import { Schema } from "effect"
 import type { Env } from "../alchemy.run.ts"
 import migrations from "../migrations/cook-library/migrations.js"
 import { isLocal, runDevOp } from "./store/dev.ts"
-import { makeMcpHandler } from "./mcp/server.ts"
+import { mcpWebHandler } from "./mcp/server.ts"
 import { purgeDueRecipes } from "./mcp/unit-of-work.ts"
 import { Library, type Db } from "./store/library.ts"
 import { derive } from "./store/derive.ts"
@@ -22,13 +22,13 @@ const unknownClientName = "Claude"
 export class CookLibrary extends DurableObject<Env> {
   private readonly db: Db
   private readonly library: Library
-  private readonly mcp: ReturnType<typeof makeMcpHandler>
+  private readonly mcp: ReturnType<typeof mcpWebHandler>
 
   constructor(ctx: DurableObjectState, env: Env) {
     super(ctx, env)
     this.db = drizzle(ctx.storage, { schema })
     this.library = new Library({ db: this.db, storage: ctx.storage, derive })
-    this.mcp = makeMcpHandler({ library: this.library })
+    this.mcp = mcpWebHandler({ library: this.library })
     ctx.blockConcurrencyWhile(async () => {
       await migrate(this.db, migrations)
       await this.library.scheduleAlarm() // self-heal: the alarm is set after the commit that changed purge_at

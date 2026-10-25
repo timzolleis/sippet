@@ -32,6 +32,7 @@ export const nameKey = (name: string): string => name.toLowerCase() // tags, col
 
 // Durable Object SQLite allows 100 bound parameters per statement.
 const maxBoundParameters = 90
+
 const chunks = <T>(values: ReadonlyArray<T>): ReadonlyArray<ReadonlyArray<T>> =>
   Array.from({ length: Math.ceil(values.length / maxBoundParameters) }, (_, index) => values.slice(index * maxBoundParameters, (index + 1) * maxBoundParameters))
 
@@ -216,6 +217,7 @@ export class Writes {
     this.appendChange({ kind: "recipes_purged", by: { kind: "trash" }, payload: { recipeIds: ids } })
 
     for (const id of ids) this.db.run(sql`DELETE FROM recipe_text WHERE rowid = (SELECT rowid FROM recipe WHERE id = ${id})`)
+
     for (const some of chunks(ids)) {
       this.db.delete(revision).where(inArray(revision.recipeId, [...some])).run()
       this.db.delete(recipeItem).where(inArray(recipeItem.recipeId, [...some])).run()
@@ -223,6 +225,7 @@ export class Writes {
       this.db.delete(schema.collectionRecipe).where(inArray(schema.collectionRecipe.recipeId, [...some])).run()
       this.db.delete(recipe).where(inArray(recipe.id, [...some])).run()
     }
+
     this.alarmDirty = true
 
     return ids
@@ -231,8 +234,10 @@ export class Writes {
   // Library rules 1, 2: the whole library after the batch becomes the tables; the batch is one change that names what is gone.
   applyLibraryChange({ library, edits, by }: { library: LibrarySnapshot; edits: Json; by: Actor }): Result.Result<void, LibraryNameTakenError> {
     const written = writeLibrarySnapshot({ db: this.db, next: library })
+
     if (Result.isFailure(written)) return Result.fail(written.failure)
     this.appendChange({ kind: "library_changed", by, payload: { edits, changed: written.success.changed, deleted: written.success.deleted } })
+
     return Result.succeed(undefined)
   }
 
@@ -263,6 +268,10 @@ export class Writes {
     this.db.run(sql`DELETE FROM recipe_text WHERE rowid = (SELECT rowid FROM recipe WHERE id = ${id})`)
   }
 }
+
+type RecipeCount = { readonly name: string; readonly recipes: number }
+
+type RecipeCounts = { readonly tags: ReadonlyArray<RecipeCount>; readonly collections: ReadonlyArray<RecipeCount> }
 
 export class Library {
   constructor(
@@ -364,11 +373,13 @@ export class Library {
   // Where each recipe is; a purged or unknown one is absent.
   placesOf(ids: ReadonlyArray<string>): Map<string, "library" | "trash"> {
     const places = new Map<string, "library" | "trash">()
+
     for (const some of chunks([...new Set(ids)])) {
       for (const row of this.db.select({ id: recipe.id, trashedAt: recipe.trashedAt }).from(recipe).where(inArray(recipe.id, [...some])).all()) {
         places.set(row.id, row.trashedAt === null ? "library" : "trash")
       }
     }
+
     return places
   }
 
@@ -379,6 +390,7 @@ export class Library {
   // Names of the tags on each recipe, and the collections each is in, for views.
   tagNamesOf(ids: ReadonlyArray<string>): Map<string, Array<string>> {
     const names = new Map<string, Array<string>>()
+
     for (const some of chunks(ids)) {
       const rows = this.db
         .select({ recipeId: schema.recipeTag.recipeId, name: schema.tag.name })
@@ -387,8 +399,10 @@ export class Library {
         .where(inArray(schema.recipeTag.recipeId, [...some]))
         .orderBy(sql`${schema.tag.nameKey}`)
         .all()
+
       for (const row of rows) names.set(row.recipeId, [...(names.get(row.recipeId) ?? []), row.name])
     }
+
     return names
   }
 
@@ -404,7 +418,7 @@ export class Library {
   }
 
   // get_library: recipe counts leave the trash out (revising rule 6).
-  countRecipesByName(): { tags: ReadonlyArray<{ name: string; recipes: number }>; collections: ReadonlyArray<{ name: string; recipes: number }> } {
+  countRecipesByName(): RecipeCounts {
     const count = (table: "tag" | "collection") =>
       this.db.all<{ name: string; recipes: number }>(
         table === "tag"
@@ -417,6 +431,7 @@ export class Library {
               LEFT JOIN recipe r ON r.id = cr.recipe_id AND r.trashed_at IS NULL
               GROUP BY c.id ORDER BY c.name_key`,
       )
+
     return { tags: count("tag"), collections: count("collection") }
   }
 

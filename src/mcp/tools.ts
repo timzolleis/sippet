@@ -18,8 +18,10 @@ type Config = {
   readonly failure: Schema.Constraint
   readonly failureMode: Tool.FailureMode
 }
+
 const read = <const Name extends string, C extends Config>(tool: Tool.Tool<Name, C>) =>
   tool.annotate(Tool.Readonly, true).annotate(Tool.OpenWorld, false)
+
 const write = <const Name extends string, C extends Config>(tool: Tool.Tool<Name, C>) =>
   tool.annotate(Tool.Destructive, false).annotate(Tool.OpenWorld, false)
 

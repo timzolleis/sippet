@@ -1,6 +1,7 @@
 // Views for Claude: a recipe with its derived flow, a search hit, a revision, the library (specs/mcp.md Reading).
-import { Match, Option, Schema } from "effect"
+import { Match, Option, pipe, Schema } from "effect"
 import { RecipeFilter } from "../domain/library/recipe-filter.ts"
+import { withOptional } from "../domain/with-optional.ts"
 import { RecipeContent } from "../domain/recipe/recipe-content.ts"
 import { recipeFlowFromContent, recipeHasFlow } from "../domain/recipe/recipe-flow.ts"
 import type { Library, RecipeRow, SearchHit, StoredRevision } from "../store/library.ts"
@@ -17,22 +18,21 @@ export const iso = (millis: number): string => new Date(millis).toISOString()
 export const recipeViewOf = ({ library, row }: { readonly library: Library; readonly row: RecipeRow & StoredRevision }): RecipeView => {
   const content = decodeContent(row.content)
   const flow = recipeFlowFromContent(content)
-  return {
+
+  const view = {
     id: row.id,
     revision: row.revision,
     latestRevision: row.latestRevision,
     title: content.title,
     yield: content.yield,
-    ...(row.source === null ? {} : { source: row.source }),
     tags: library.tagNamesOf([row.id]).get(row.id) ?? [],
     collections: library.collectionNamesOf(row.id),
-    ...(row.trashedAt === null ? {} : { trashedAt: iso(row.trashedAt) }),
-    ...(row.purgeAt === null ? {} : { purgeAt: iso(row.purgeAt) }),
     sections: content.sections,
     equipment: content.equipment,
     ingredients: content.ingredients,
     steps: content.steps.map((step) => {
       const stepFlow = Option.flatMap(flow, (found) => Option.fromUndefinedOr(found.steps.find((candidate) => candidate.stepKey === step.key)))
+
       return Option.match(stepFlow, {
         onNone: () => step,
         onSome: ({ takes, waitsFor, makes }) => ({
@@ -44,31 +44,45 @@ export const recipeViewOf = ({ library, row }: { readonly library: Library; read
     hasFlow: recipeHasFlow(content),
     makes: Option.match(flow, { onNone: () => [], onSome: (found) => found.makes }),
   }
+
+  return pipe(
+    view,
+    (base) => withOptional(base, "source", row.source ?? undefined),
+    (base) => withOptional(base, "trashedAt", row.trashedAt === null ? undefined : iso(row.trashedAt)),
+    (base) => withOptional(base, "purgeAt", row.purgeAt === null ? undefined : iso(row.purgeAt)),
+  )
 }
 
 export const recipeSummariesOf = ({ library, hits }: { readonly library: Library; readonly hits: ReadonlyArray<SearchHit> }): ReadonlyArray<RecipeSummary> => {
   const tags = library.tagNamesOf(hits.map((hit) => hit.id))
-  return hits.map((hit) => ({
-    id: hit.id,
-    title: hit.title,
-    yield: decodeContent(hit.content).yield,
-    tags: tags.get(hit.id) ?? [],
-    revision: hit.latestRevision,
-    ...(hit.totalMinutes === null ? {} : { totalMinutes: hit.totalMinutes }),
-    hasFlow: hit.hasFlow,
-    ...(hit.source === null ? {} : { source: hit.source }),
-    ...(hit.trashedAt === null ? {} : { trashedAt: iso(hit.trashedAt) }),
-  }))
+
+  return hits.map((hit) =>
+    pipe(
+      {
+        id: hit.id,
+        title: hit.title,
+        yield: decodeContent(hit.content).yield,
+        tags: tags.get(hit.id) ?? [],
+        revision: hit.latestRevision,
+        hasFlow: hit.hasFlow,
+      },
+      (base) => withOptional(base, "totalMinutes", hit.totalMinutes ?? undefined),
+      (base) => withOptional(base, "source", hit.source ?? undefined),
+      (base) => withOptional(base, "trashedAt", hit.trashedAt === null ? undefined : iso(hit.trashedAt)),
+    )
+  )
 }
 
 export const revisionViewsOf = ({ library, recipeId }: { readonly library: Library; readonly recipeId: string }): ReadonlyArray<RevisionView> => {
   const names = library.connectionNames()
+
   const authorOf = (actor: Actor): RevisionView["by"] =>
     Match.value(actor).pipe(Match.discriminatorsExhaustive("kind")({
       claude: ({ connection }) => ({ kind: "claude" as const, name: names.get(connection) ?? "Claude" }),
       device: ({ device }) => ({ kind: "device" as const, name: device }),
       trash: () => ({ kind: "claude" as const, name: "Trash" }), // a revision is never made by the trash
     }))
+
   return library.listRevisions(recipeId).map((stored) => ({
     revision: stored.revision,
     at: iso(stored.at),
@@ -79,6 +93,7 @@ export const revisionViewsOf = ({ library, recipeId }: { readonly library: Libra
 
 export const libraryViewOf = (library: Library): LibraryView => {
   const counts = library.countRecipesByName()
+
   return {
     tags: counts.tags,
     collections: counts.collections,
