@@ -1,5 +1,5 @@
 import type { HeatingMode } from "../recipe/recipe-content.ts"
-import type { Unit, UnitCode } from "../recipe/unit.ts"
+import { isCustomUnit, type Unit, type UnitCode } from "../recipe/unit.ts"
 
 export type Language = "de" | "en"
 
@@ -41,7 +41,7 @@ const heatingModeLabels: Readonly<Record<HeatingMode, Readonly<Record<Language, 
 
 // Unit names are translated; the author's own units stay as written (cooking rule 8).
 export const unitLabel = ({ unit, language }: { readonly unit: Unit; readonly language: Language }): string =>
-  typeof unit === "object" ? unit.custom : unitLabels[unit][language]
+  isCustomUnit(unit) ? unit.custom : unitLabels[unit][language]
 
 export const heatingModeLabel = ({ mode, language }: { readonly mode: HeatingMode; readonly language: Language }): string =>
   heatingModeLabels[mode][language]

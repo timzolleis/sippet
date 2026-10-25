@@ -7,7 +7,9 @@ export const checkRules = <Input, E>(
 ): Result.Result<void, E> => {
   for (const rule of rules) {
     const ruleResult = rule(input)
+
     if (Result.isFailure(ruleResult)) return ruleResult
   }
+
   return Result.succeed(undefined)
 }

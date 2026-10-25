@@ -1,10 +1,13 @@
 import { Result } from "effect"
 import { describe, expect, it } from "vitest"
 import { cleanSource, normalizeSource } from "../../src/store/source.ts"
+import { withOptional } from "../../src/domain/with-optional.ts"
 
 const cleaned = (address: string) => {
   const result = normalizeSource(address)
+
   if (Result.isFailure(result)) throw new Error("expected a clean address")
+
   return result.success
 }
 
@@ -33,19 +36,25 @@ type Step = { status: number; location?: string } | "throw"
 
 const fakeFetch = (steps: Record<string, Step>) => {
   const calls: string[] = []
+
   const fetch = async (input: string) => {
     calls.push(input)
     const step = steps[input]
+
     if (step === undefined || step === "throw") throw new Error("network")
+
     return { status: step.status, headers: new Headers(step.location === undefined ? {} : { location: step.location }), body: null }
   }
+
   return { fetch, calls }
 }
 
 const sourceOf = async (address: string, steps: Record<string, Step>, budgetMs?: number) => {
   const { fetch, calls } = fakeFetch(steps)
-  const result = await cleanSource({ source: address, fetch, ...(budgetMs === undefined ? {} : { budgetMs }) })
+  const result = await cleanSource(withOptional({ source: address, fetch }, "budgetMs", budgetMs))
+
   if (Result.isFailure(result)) throw new Error("expected a clean address")
+
   return { source: result.success.source, calls }
 }
 
@@ -55,6 +64,7 @@ describe("cleanSource", () => {
       "https://short.example/abc": { status: 301, location: "https://www.chefkoch.de/rezepte/1/?utm_source=x" },
       "https://www.chefkoch.de/rezepte/1/?utm_source=x": { status: 200 },
     })
+
     expect(result.source).toBe("https://chefkoch.de/rezepte/1")
     expect(result.calls).toHaveLength(2)
   })
@@ -63,17 +73,20 @@ describe("cleanSource", () => {
       "https://example.com/a": { status: 302, location: "/b/" },
       "https://example.com/b/": { status: 200 },
     })
+
     expect(result.source).toBe("https://example.com/b")
   })
   it("stops at the first non-3xx, whatever its status", async () => {
     const result = await sourceOf("https://example.com/a", {
       "https://example.com/a": { status: 404, location: "https://example.com/never" },
     })
+
     expect(result.source).toBe("https://example.com/a")
     expect(result.calls).toHaveLength(1)
   })
   it("makes at most 5 fetches", async () => {
     const steps: Record<string, Step> = {}
+
     for (let hop = 0; hop < 10; hop++) steps[`https://example.com/${hop}`] = { status: 302, location: `https://example.com/${hop + 1}` }
     const result = await sourceOf("https://example.com/0", steps)
     expect(result.calls).toHaveLength(5)
@@ -84,11 +97,13 @@ describe("cleanSource", () => {
       "https://example.com/a": { status: 302, location: "https://example.com/b?utm_source=x" },
       "https://example.com/b?utm_source=x": "throw",
     })
+
     expect(result.source).toBe("https://example.com/b")
   })
   it("keeps the last address reached when the time is up", async () => {
     const fetch = (_: string, init: { signal: AbortSignal }) =>
       new Promise<never>((_, reject) => init.signal.addEventListener("abort", () => reject(new Error("aborted"))))
+
     const result = await cleanSource({ source: "https://www.example.com/slow/", fetch, budgetMs: 20 })
     expect(Result.isSuccess(result) && result.success.source).toBe("https://example.com/slow")
   })

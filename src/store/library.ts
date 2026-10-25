@@ -1,8 +1,8 @@
 // The storage side of a cook's library (specs/hosting.md#cooklibrary). Sync SQLite over Drizzle, no MCP, no recipe rules.
 // The domain's content is stored as JSON; `derive` (supplied by the wiring) computes the columns and search text from it.
-import { and, asc, eq, inArray, isNotNull, isNull, lte, min, sql, type SQL } from "drizzle-orm"
+import { and, asc, eq, inArray, isNotNull, lte, min, sql, type SQL } from "drizzle-orm"
 import type { DrizzleSqliteDODatabase } from "drizzle-orm/durable-sqlite"
-import { Data, Result } from "effect"
+import { Data, Result, Schema } from "effect"
 import { retryWindowMs, type RetryKey } from "./retry.ts"
 import * as schema from "./schema.ts"
 import type { Actor, Json } from "./schema.ts"
@@ -24,6 +24,7 @@ export type Derived = {
   readonly ingredientsText: string
   readonly stepsText: string
 }
+
 export type Derive = (content: Json) => Derived
 
 export const nameKey = (name: string): string => name.trim().toLowerCase() // tags, collections, items
@@ -41,8 +42,11 @@ export class SourceTakenError extends Data.TaggedError("SourceTakenError")<{
   readonly title: string
   readonly trashed: boolean
 }> {}
+
 export class RecipeNotFoundError extends Data.TaggedError("RecipeNotFoundError")<{ readonly recipeIds: ReadonlyArray<string> }> {}
+
 export class RecipeTrashedError extends Data.TaggedError("RecipeTrashedError")<{ readonly recipeId: string }> {}
+
 export class RevisionConflictError extends Data.TaggedError("RevisionConflictError")<{ readonly latestRevision: number }> {}
 
 export type RecipeRow = {
@@ -56,6 +60,7 @@ export type RecipeRow = {
   readonly hasFlow: boolean
   readonly createdAt: number
 }
+
 export type StoredRevision = {
   readonly revision: number
   readonly content: Json
@@ -64,6 +69,7 @@ export type StoredRevision = {
   readonly at: number
   readonly changeSeq: number
 }
+
 export type SearchQuery = {
   readonly text?: string
   readonly tags?: { readonly all?: ReadonlyArray<string>; readonly any?: ReadonlyArray<string>; readonly none?: ReadonlyArray<string> }
@@ -74,9 +80,8 @@ export type SearchQuery = {
   readonly limit?: number
   readonly cursor?: string
 }
-export type SearchHit = RecipeRow & { readonly content: Json }
 
-const rollback = Symbol("rollback")
+export type SearchHit = RecipeRow & { readonly content: Json }
 
 const likePattern = (text: string) => `%${text.replace(/[\\%_]/g, "\\$&")}%`
 const characters = (text: string) => [...text].length
@@ -102,8 +107,10 @@ export class Writes {
   > {
     if (source !== undefined) {
       const taken = this.db.select({ id: recipe.id, title: recipe.title, trashedAt: recipe.trashedAt }).from(recipe).where(eq(recipe.sourceKey, source.sourceKey)).get()
+
       if (taken !== undefined) return Result.fail(new SourceTakenError({ recipeId: taken.id, title: taken.title, trashed: taken.trashedAt !== null }))
     }
+
     const derived = this.derive(content)
     const changeSeq = this.appendChange({ kind: "recipe_added", by, payload: { recipeId: id, revision: 1, title: derived.title } })
     this.db
@@ -121,6 +128,7 @@ export class Writes {
       .run()
     this.db.insert(revision).values({ recipeId: id, revision: 1, content, was: { added: true }, by, at: this.now, changeSeq }).run()
     this.writeDerived({ id, derived })
+
     return Result.succeed({ revision: 1, changeSeq })
   }
 
@@ -130,8 +138,11 @@ export class Writes {
     RecipeNotFoundError | RecipeTrashedError | RevisionConflictError
   > {
     const current = this.db.select().from(recipe).where(eq(recipe.id, id)).get()
+
     if (current === undefined) return Result.fail(new RecipeNotFoundError({ recipeIds: [id] }))
+
     if (current.trashedAt !== null) return Result.fail(new RecipeTrashedError({ recipeId: id }))
+
     if (current.latestRevision !== fromRevision) return Result.fail(new RevisionConflictError({ latestRevision: current.latestRevision }))
     const derived = this.derive(content)
     const next = fromRevision + 1
@@ -140,47 +151,58 @@ export class Writes {
     this.db.update(recipe).set({ title: derived.title, latestRevision: next, totalMinutes: derived.totalMinutes, hasFlow: derived.hasFlow }).where(eq(recipe.id, id)).run()
     this.deleteDerived(id)
     this.writeDerived({ id, derived })
+
     return Result.succeed({ revision: next, changeSeq })
   }
 
   // Revising rules 6, 7, 10: all or nothing, one change. One already trashed keeps its date.
   trashRecipes({ ids, by }: { ids: ReadonlyArray<string>; by: Actor }): Result.Result<ReadonlyArray<{ id: string; purgeAt: number }>, RecipeNotFoundError> {
     const rows = this.rowsOf(ids)
+
     if (Result.isFailure(rows)) return Result.fail(rows.failure)
     const trashed = this.now
     const purgeAt = trashed + trashMs
     const fresh = rows.success.filter((row) => row.trashedAt === null)
     const all = rows.success.map((row) => ({ id: row.id, purgeAt: row.purgeAt ?? purgeAt }))
     this.appendChange({ kind: "recipes_trashed", by, payload: { recipes: fresh.map((row) => ({ id: row.id, purgeAt })), alreadyTrashed: rows.success.length - fresh.length } })
+
     for (const row of fresh) {
       this.db.update(recipe).set({ trashedAt: trashed, purgeAt }).where(eq(recipe.id, row.id)).run()
       this.db.run(sql`DELETE FROM recipe_text WHERE rowid = (SELECT rowid FROM recipe WHERE id = ${row.id})`)
     }
+
     this.alarmDirty = true
+
     return Result.succeed(all)
   }
 
   // Revising rules 8, 10: tags and collection places were kept, so only the trash columns and the search row change.
   restoreRecipes({ ids, by }: { ids: ReadonlyArray<string>; by: Actor }): Result.Result<ReadonlyArray<string>, RecipeNotFoundError> {
     const rows = this.rowsOf(ids)
+
     if (Result.isFailure(rows)) return Result.fail(rows.failure)
     const trashed = rows.success.filter((row) => row.trashedAt !== null)
     this.appendChange({ kind: "recipes_restored", by, payload: { recipeIds: trashed.map((row) => row.id) } })
+
     for (const row of trashed) {
       this.db.update(recipe).set({ trashedAt: null, purgeAt: null }).where(eq(recipe.id, row.id)).run()
       const latest = this.db.select({ content: revision.content }).from(revision).where(and(eq(revision.recipeId, row.id), eq(revision.revision, row.latestRevision))).get()
       this.writeSearchText({ id: row.id, derived: this.derive(latest!.content) })
     }
+
     this.alarmDirty = true
+
     return Result.succeed(rows.success.map((row) => row.id))
   }
 
   // Revising rules 7, 9. Called by the alarm; the change is by the trash (sync rule 4).
   purgeDue(): ReadonlyArray<string> {
     const due = this.db.select({ id: recipe.id }).from(recipe).where(and(isNotNull(recipe.purgeAt), lte(recipe.purgeAt, this.now))).all()
+
     if (due.length === 0) return []
     const ids = due.map((row) => row.id)
     this.appendChange({ kind: "recipes_purged", by: { kind: "trash" }, payload: { recipeIds: ids } })
+
     for (const id of ids) this.db.run(sql`DELETE FROM recipe_text WHERE rowid = (SELECT rowid FROM recipe WHERE id = ${id})`)
     this.db.delete(revision).where(inArray(revision.recipeId, ids)).run()
     this.db.delete(recipeItem).where(inArray(recipeItem.recipeId, ids)).run()
@@ -188,6 +210,7 @@ export class Writes {
     this.db.delete(schema.collectionRecipe).where(inArray(schema.collectionRecipe.recipeId, ids)).run()
     this.db.delete(recipe).where(inArray(recipe.id, ids)).run()
     this.alarmDirty = true
+
     return ids
   }
 
@@ -196,11 +219,13 @@ export class Writes {
     const rows = unique.length === 0 ? [] : this.db.select().from(recipe).where(inArray(recipe.id, unique)).all()
     const found = new Set(rows.map((row) => row.id))
     const missing = unique.filter((id) => !found.has(id))
+
     return missing.length > 0 ? Result.fail(new RecipeNotFoundError({ recipeIds: missing })) : Result.succeed(rows)
   }
 
   private writeDerived({ id, derived }: { id: string; derived: Derived }) {
     const keys = [...new Set(derived.itemKeys)]
+
     if (keys.length > 0) this.db.insert(recipeItem).values(keys.map((itemKey) => ({ recipeId: id, itemKey }))).run()
     this.writeSearchText({ id, derived })
   }
@@ -243,55 +268,78 @@ export class Library {
     const now = (this.options.now ?? Date.now)()
     const writes = new Writes(this.db, this.options.derive, now)
     let outcome: Result.Result<A, E>
+
+    // A refused write throws this out of the transaction so SQLite rolls back; it is caught below and returned.
+    class Rollback {
+      constructor(readonly failure: Result.Result<A, E>) {}
+    }
+
     try {
       outcome = this.options.storage.transactionSync(() => {
         this.db.delete(retry).where(lte(retry.expiresAt, now)).run()
+
         if (key !== undefined) {
           const hit = this.db
             .select({ result: retry.result })
             .from(retry)
             .where(and(eq(retry.connection, key.connection), eq(retry.tool, key.tool), eq(retry.argsHash, key.argsHash)))
             .get()
-          if (hit !== undefined) return Result.succeed(hit.result as A)
+
+          if (hit !== undefined) {
+            // SAFETY: the key names the same connection, tool, and arguments, so the stored result is what that call returned: an A.
+            return Result.succeed(hit.result as A)
+          }
         }
+
         const result = run(writes)
-        if (Result.isFailure(result)) throw { [rollback]: result }
+
+        if (Result.isFailure(result)) throw new Rollback(result)
+
         if (key !== undefined) {
           this.db.insert(retry).values({ ...key, result: result.success, expiresAt: now + retryWindowMs }).run()
         }
+
         return result
       })
     } catch (thrown) {
-      if (typeof thrown === "object" && thrown !== null && rollback in thrown) return thrown[rollback] as Result.Result<A, E>
+      if (thrown instanceof Rollback) return thrown.failure
       throw thrown
     }
+
     if (writes.alarmDirty) await this.scheduleAlarm()
+
     return outcome
   }
 
   // The single alarm is at the earliest purge_at (revising rule 7); none when nothing is trashed.
   async scheduleAlarm(): Promise<void> {
     const next = this.db.select({ at: min(recipe.purgeAt) }).from(recipe).get()?.at ?? null
+
     if (next === null) await this.options.storage.deleteAlarm()
     else await this.options.storage.setAlarm(next)
   }
 
   // alarm(): purge every due recipe in one change, then set the next alarm. A second run finds nothing due.
   async purgeDue(): Promise<ReadonlyArray<string>> {
-    const purged = await this.transact({ run: (writes) => Result.succeed(writes.purgeDue() as Json) })
+    const purged = await this.transact({ run: (writes) => Result.succeed(writes.purgeDue()) })
     await this.scheduleAlarm()
-    return Result.isSuccess(purged) ? (purged.success as ReadonlyArray<string>) : []
+
+    return Result.isSuccess(purged) ? purged.success : []
   }
 
   getRecipe(id: string, revisionNumber?: number): (RecipeRow & StoredRevision) | undefined {
     const row = this.db.select().from(recipe).where(eq(recipe.id, id)).get()
+
     if (row === undefined) return undefined
+
     const stored = this.db
       .select()
       .from(revision)
       .where(and(eq(revision.recipeId, id), eq(revision.revision, revisionNumber ?? row.latestRevision)))
       .get()
+
     if (stored === undefined) return undefined
+
     return { ...row, revision: stored.revision, content: stored.content, was: stored.was, by: stored.by, at: stored.at, changeSeq: stored.changeSeq }
   }
 
@@ -305,7 +353,8 @@ export class Library {
       .from(recipe)
       .where(isNotNull(recipe.trashedAt))
       .orderBy(asc(recipe.purgeAt), asc(recipe.id))
-      .all() as Array<{ id: string; title: string; trashedAt: number; purgeAt: number }>
+      .all()
+      .flatMap((row) => (row.trashedAt === null || row.purgeAt === null ? [] : [{ ...row, trashedAt: row.trashedAt, purgeAt: row.purgeAt }]))
   }
 
   listChanges({ after, limit }: { after: number; limit: number }) {
@@ -323,6 +372,7 @@ export class Library {
     const terms = text === "" ? [] : text.split(/\s+/)
     const matchTerms = terms.filter((term) => characters(term) >= 3)
     const useFts = matchTerms.length > 0
+
     if (useFts) {
       joins.push(sql`JOIN recipe_text ON recipe_text.rowid = r.rowid`)
       where.push(sql`recipe_text MATCH ${matchTerms.map((term) => `"${term.replace(/"/g, '""')}"`).join(" AND ")}`)
@@ -332,18 +382,27 @@ export class Library {
 
     const hasTag = (names: ReadonlyArray<string>) =>
       sql`EXISTS (SELECT 1 FROM recipe_tag rt JOIN tag t ON t.id = rt.tag_id WHERE rt.recipe_id = r.id AND t.name_key IN (${sql.join(names.map((name) => sql`${nameKey(name)}`), sql`, `)}))`
+
     for (const name of query.tags?.all ?? []) where.push(hasTag([name]))
+
     if ((query.tags?.any ?? []).length > 0) where.push(hasTag(query.tags!.any!))
+
     if ((query.tags?.none ?? []).length > 0) where.push(sql`NOT ${hasTag(query.tags!.none!)}`)
+
     for (const item of query.items ?? []) where.push(sql`EXISTS (SELECT 1 FROM recipe_item i WHERE i.recipe_id = r.id AND i.item_key = ${nameKey(item)})`)
+
     if (query.maxTotalMinutes !== undefined) where.push(sql`r.total_minutes <= ${query.maxTotalMinutes}`)
+
     if (query.hasFlow !== undefined) where.push(sql`r.has_flow = ${query.hasFlow ? 1 : 0}`)
+
     if (query.collection !== undefined) {
       joins.push(sql`JOIN collection_recipe cr ON cr.recipe_id = r.id JOIN collection c ON c.id = cr.collection_id AND c.name_key = ${nameKey(query.collection)}`)
     }
 
     const order: SQL[] = []
+
     if (query.collection !== undefined) order.push(sql`cr.position`)
+
     if (useFts) order.push(sql`bm25(recipe_text)`)
     order.push(sql`r.title COLLATE NOCASE`, sql`r.id`)
 
@@ -377,9 +436,10 @@ export class Library {
         totalMinutes: row.total_minutes,
         hasFlow: row.has_flow !== 0,
         createdAt: row.created_at,
-        content: JSON.parse(row.content) as Json,
+        content: Schema.decodeUnknownSync(Schema.Json)(JSON.parse(row.content)),
       }),
     )
+
     return rows.length > limit ? { recipes, cursor: String(offset + limit) } : { recipes }
   }
 }

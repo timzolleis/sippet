@@ -1,6 +1,7 @@
 "use strict";
 
 const lang = /^de/i.test(navigator.language) ? "de" : "en";
+
 document.documentElement.lang = lang;
 
 const STR = {
@@ -85,6 +86,7 @@ const STR = {
     signOut: "Sign out",
   },
 };
+
 const T = STR[lang];
 
 const MCP_URL = "https://sippet.bastelboxx.de/mcp";
@@ -94,11 +96,14 @@ const foot = document.getElementById("foot");
 
 function h(tag, props, ...kids) {
   const el = document.createElement(tag);
+
   for (const [k, v] of Object.entries(props || {})) {
     if (k.startsWith("on")) el.addEventListener(k.slice(2), v);
     else el.setAttribute(k, v);
   }
+
   el.append(...kids.filter(Boolean));
+
   return el;
 }
 
@@ -106,48 +111,66 @@ function icon(...paths) {
   const s = document.createElementNS(SVG, "svg");
   s.setAttribute("viewBox", "0 0 24 24");
   s.setAttribute("aria-hidden", "true");
+
   for (const d of paths) {
     const p = document.createElementNS(SVG, "path");
     p.setAttribute("d", d);
     s.append(p);
   }
+
   return s;
 }
+
 const glyph = () => icon("M13 7.5a4 4 0 1 0-8 0 4 4 0 0 0 8 0Z", "M3 20c0-3 2.7-5.2 6-5.2 1 0 2 .2 2.8.6", "M18 12.5a2.5 2.5 0 1 0 0 5 2.5 2.5 0 0 0 0-5Z", "M18 17.5V22M18 20h2.5");
+
 const spinner = () => {
   const s = icon("M12 3a9 9 0 1 0 9 9");
   s.setAttribute("class", "spin");
+
   return s;
 };
+
 const check = () => icon("M5 12.5l4.5 4.5L19 7.5");
 
 let shown = false;
+
 function view(...nodes) {
   app.replaceChildren(...nodes);
   const t = app.querySelector("h1");
+
   if (t && shown) {
     t.tabIndex = -1;
     t.focus();
   }
+
   shown = true;
 }
 
-const title = (text) => (document.title = `${text} · Sippet`) && h("h1", {}, text);
+const title = (text) => {
+  document.title = `${text} · Sippet`;
+
+  return h("h1", {}, text);
+};
+
 const note = (text, cls = "body") => h("p", { class: cls, role: "alert" }, text);
 
-async function api(path, { method = "GET", body } = {}) {
-  const res = await fetch(`/api${path}`, {
-    method,
-    credentials: "same-origin",
-    headers: body && { "content-type": "application/json" },
-    body: body && JSON.stringify(body),
-  });
+async function api(path, init) {
+  const res = await fetch(`/api${path}`, { credentials: "same-origin", ...init });
+
   if (!res.ok) throw new Error(res.status);
   const text = await res.text();
+
   return text ? JSON.parse(text) : null;
 }
 
-const post = (path, body) => api(path, { method: "POST", body });
+function post(path, body) {
+  const init = { method: "POST" };
+
+  if (body !== undefined) Object.assign(init, { headers: { "content-type": "application/json" }, body: JSON.stringify(body) });
+
+  return api(path, init);
+}
+
 const isCancel = (e) => e.name === "NotAllowedError" || e.name === "AbortError";
 
 async function registerPasskey(query = "", createSession) {
@@ -166,6 +189,7 @@ async function signInWithPasskey() {
 function passkeyButton(label, run, withGlyph = true) {
   const error = h("p", { class: "err", role: "alert" });
   const mark = h("span");
+
   if (withGlyph) mark.append(glyph());
   const text = h("span", {}, label);
   const button = h("button", { class: "btn primary" }, mark, text);
@@ -175,6 +199,7 @@ function passkeyButton(label, run, withGlyph = true) {
     error.textContent = "";
     text.textContent = T.waiting;
     mark.replaceChildren(spinner());
+
     try {
       await run();
     } catch (e) {
@@ -184,6 +209,7 @@ function passkeyButton(label, run, withGlyph = true) {
       button.ariaDisabled = null;
     }
   });
+
   return h("div", { class: "stack" }, button, error);
 }
 
@@ -193,11 +219,13 @@ const fmtDate = (v) => new Date(v).toLocaleDateString(lang, { day: "numeric", mo
 async function join() {
   const token = decodeURIComponent(location.hash.slice(1));
   let name;
+
   try {
     ({ name } = await api(`/invitation?token=${encodeURIComponent(token)}`));
   } catch {
     return view(note(T.inviteDead));
   }
+
   view(
     title(T.welcome(name)),
     h("p", { class: "body" }, T.joinBody),
@@ -211,9 +239,12 @@ async function join() {
 // The part of Better Auth's query that its oauth_query field takes back.
 function signedQuery(params) {
   const names = new Set(params.getAll("ba_param"));
+
   if (!params.has("sig") || !names.size) return null;
   const out = new URLSearchParams();
+
   for (const [k, v] of params) if (k === "sig" || k === "ba_param" || names.has(k)) out.append(k, v);
+
   return out.toString();
 }
 
@@ -224,6 +255,7 @@ async function connect() {
   const oauthQuery = signedQuery(params);
   const clientId = params.get("client_id");
   let redirect, client, user;
+
   try {
     redirect = new URL(params.get("redirect_uri"));
     [client, user] = await Promise.all([
@@ -233,8 +265,10 @@ async function connect() {
   } catch {
     return view(note(T.requestDead));
   }
+
   const web = /^https?:$/.test(redirect.protocol) && !/^(localhost|\[::1\]|127(\.\d+){3})$/.test(redirect.hostname);
   let signedIn = !!user;
+
   const allow = passkeyButton(
     signedIn ? T.allow : T.allowPasskey,
     async () => {
@@ -245,13 +279,16 @@ async function connect() {
     },
     !signedIn,
   );
+
   // the consent endpoint needs a session, so a refusal is the plain error redirect
   const deny = h("button", { class: "btn plain", onclick() {
     redirect.searchParams.set("error", "access_denied");
+
     if (params.has("state")) redirect.searchParams.set("state", params.get("state"));
     redirect.searchParams.set("iss", location.origin); // Better Auth advertises the iss parameter (RFC 9207)
     location.assign(redirect);
   } }, T.deny);
+
   view(
     h("div", { class: "stack" }, title(T.wants(client.client_name)), h("p", { class: "sec" }, web ? T.backTo(redirect.host) : T.backLocal)),
     h("ul", { class: "perms stack" }, ...[T.perm1, T.perm2].map((p) => h("li", {}, check(), h("span", {}, p)))),
@@ -262,11 +299,13 @@ async function connect() {
 
 async function account() {
   let user;
+
   try {
     user = await currentUser();
   } catch {
     return view(note(T.failed, "err"));
   }
+
   if (!user) return signedOut();
   foot.replaceChildren(h("button", { class: "btn plain", async onclick() {
     await post("/auth/sign-out", {}).catch(() => 0);
@@ -289,11 +328,13 @@ function signedOut() {
 
 function address() {
   const label = h("span", {}, T.copy);
+
   const copy = link(label, async () => {
     if (await navigator.clipboard.writeText(MCP_URL).then(() => 0, () => 1)) return;
     label.textContent = T.copied;
     setTimeout(() => (label.textContent = T.copy), 2000);
   });
+
   return h("div", { class: "stack" }, h("code", {}, MCP_URL), h("span", { "aria-live": "polite", class: "acts" }, copy));
 }
 
@@ -302,17 +343,22 @@ async function fill(box, path, rows, add) {
   const again = () => fill(box, path, rows, add);
   const error = h("p", { class: "err", role: "alert" });
   let items;
+
   try {
     items = await api(path);
   } catch {
     error.textContent = T.failed;
+
     return box.replaceChildren(box.firstChild, error);
   }
+
   const list = rows({ items, error, again });
+
   const addButton = add && passkeyButton(T.add, async () => {
     await registerPasskey();
     again();
   });
+
   box.replaceChildren(box.firstChild, list.length ? h("ul", {}, ...list) : h("p", { class: "sec" }, T.none), error, ...(addButton ? [addButton] : []));
 }
 
@@ -326,10 +372,12 @@ function row(name, meta, ...acts) {
 // Swaps a row for a question with a confirming action and a cancel.
 function swap(li, trigger, content, acts) {
   const before = [...li.childNodes];
+
   const back = () => {
     li.replaceChildren(...before);
     trigger.focus();
   };
+
   li.replaceChildren(content, h("div", { class: "acts" }, ...acts(back)));
 }
 
@@ -351,12 +399,15 @@ function confirmRow(li, trigger, error, ask, label, run) {
 const connectionRows = ({ items, error, again }) =>
   items.map((c) => {
     const li = row(c.name, T.connectedOn(fmtDate(c.connectedAt)));
+
     const trigger = link(T.disconnect, () =>
       confirmRow(li, trigger, error, T.disconnectAsk(c.name), T.disconnect, async () => {
         await post(`/connections/${encodeURIComponent(c.clientId)}/disconnect`);
         again();
       }), "danger", c.name);
+
     li.lastChild.append(trigger);
+
     return li;
   });
 
@@ -364,12 +415,15 @@ function passkeyRows({ items, error, again }) {
   return items.map((p) => {
     const name = p.name || "Passkey";
     const li = row(name, T.addedOn(fmtDate(p.createdAt)));
+
     const rename = link(T.rename, () => {
       const input = h("input", { type: "text", value: name, "aria-label": T.rename });
       swap(li, rename, input, (back) => {
         const save = async () => {
           const next = input.value.trim();
+
           if (!next || next === name) return back();
+
           try {
             await post("/auth/passkey/update-passkey", { id: p.id, name: next });
             again();
@@ -378,19 +432,26 @@ function passkeyRows({ items, error, again }) {
             back();
           }
         };
+
         input.addEventListener("keydown", (e) => e.key === "Enter" ? save() : e.key === "Escape" && back());
+
         return [link(T.save, save), link(T.cancel, back)];
       });
       input.focus();
       input.select();
     }, "", name);
+
     const remove = link(T.remove, () =>
       confirmRow(li, remove, error, T.removeAsk(name), T.remove, async () => {
         await post("/auth/passkey/delete-passkey", { id: p.id });
         again();
       }), "danger", name);
+
     li.lastChild.append(rename);
-    items.length > 1 ? li.lastChild.append(remove) : li.append(h("p", { class: "meta ask" }, T.onlyOne));
+
+    if (items.length > 1) li.lastChild.append(remove);
+    else li.append(h("p", { class: "meta ask" }, T.onlyOne));
+
     return li;
   });
 }

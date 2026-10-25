@@ -10,4 +10,5 @@ export const LibraryChangedEvent = Schema.TaggedStruct("LibraryChangedEvent", {
   by: ChangeAuthor,
   occurredOn: Schema.DateTimeUtc,
 })
+
 export type LibraryChangedEvent = typeof LibraryChangedEvent.Type

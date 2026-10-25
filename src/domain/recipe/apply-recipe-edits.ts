@@ -23,7 +23,9 @@ import type {
 import type { RecipeProblem } from "./recipe-problem.ts"
 
 type Keyed = { readonly key: Key }
+
 type Mutable<T> = { -readonly [K in keyof T]: T[K] }
+
 type OptionalKeys<T> = { [K in keyof T]-?: object extends Pick<T, K> ? K : never }[keyof T]
 
 // `null` clears the field, `undefined` keeps it (specs/mcp.md: edit_* changes only the fields it names).
@@ -52,6 +54,7 @@ const requireFreeKey = ({ content, key }: { readonly content: RecipeContent; rea
 
 const findByKey = <T extends Keyed>({ list, key, kind }: { readonly list: ReadonlyArray<T>; readonly key: Key; readonly kind: string }): Result.Result<T, string> => {
   const found = list.find((entry) => entry.key === key)
+
   return found === undefined ? Result.fail(`no ${kind} "${key}"`) : Result.succeed(found)
 }
 
@@ -62,8 +65,10 @@ const insertAtPosition = <T extends Keyed>({ list, value, at, kind }: {
   readonly kind: string
 }): Result.Result<ReadonlyArray<T>, string> => {
   if (at === undefined || at === "end") return Result.succeed([...list, value])
+
   if (at === "start") return Result.succeed([value, ...list])
   const index = list.findIndex((entry) => entry.key === at.after)
+
   return index < 0
     ? Result.fail(`no ${kind} "${at.after}" to put "${value.key}" after`)
     : Result.succeed([...list.slice(0, index + 1), value, ...list.slice(index + 1)])
@@ -76,13 +81,17 @@ const withoutKey = <T extends Keyed>(list: ReadonlyArray<T>, key: Key): Readonly
 
 const ingredientWithoutSection = (ingredient: Ingredient, sectionKey: Key): Ingredient => {
   const edited: Mutable<Ingredient> = { ...ingredient }
+
   if (edited.section === sectionKey) delete edited.section
+
   return edited
 }
 
 const stepWithoutSection = (step: Step, sectionKey: Key): Step => {
   const edited: Mutable<Step> = { ...step }
+
   if (edited.section === sectionKey) delete edited.section
+
   return edited
 }
 
@@ -91,6 +100,7 @@ const addSection = ({ content, key, name, at }: {
 }) => Result.gen(function* () {
   yield* requireFreeKey({ content, key })
   const sections = yield* insertAtPosition<Section>({ list: content.sections, value: { key, name }, at, kind: "section" })
+
   return { ...content, sections }
 })
 
@@ -113,8 +123,10 @@ const renameItem = ({ content, edit }: { readonly content: RecipeContent; readon
   if (!content.ingredients.some((ingredient) => isSameItemName(ingredient.item, edit.from))) {
     return Result.fail(`no item "${edit.from}"`)
   }
+
   const otherIngredients = content.ingredients.filter((ingredient) => !isSameItemName(ingredient.item, edit.from))
   const item = itemNameInContent({ ingredients: otherIngredients, name: edit.to })
+
   return Result.succeed({
     ...content,
     ingredients: content.ingredients.map((ingredient) => isSameItemName(ingredient.item, edit.from) ? { ...ingredient, item } : ingredient),
@@ -130,21 +142,25 @@ const addIngredient = ({ content, edit }: { readonly content: RecipeContent; rea
   patchOptionalField(ingredient, "prep", edit.prep)
   patchOptionalField(ingredient, "optional", edit.optional === true ? true : undefined)
   const ingredients = yield* insertAtPosition<Ingredient>({ list: content.ingredients, value: ingredient, at: edit.at, kind: "ingredient" })
+
   return { ...content, ingredients }
 })
 
 const editIngredient = ({ content, edit }: { readonly content: RecipeContent; readonly edit: EditIngredientEdit }) =>
   Result.map(findByKey({ list: content.ingredients, key: edit.key, kind: "ingredient" }), (current) => {
     const ingredient: Mutable<Ingredient> = { ...current }
+
     if (edit.item !== undefined) {
       const otherIngredients = content.ingredients.filter((other) => other.key !== edit.key)
       ingredient.item = itemNameInContent({ ingredients: otherIngredients, name: edit.item })
     }
+
     patchOptionalField(ingredient, "amount", edit.amount)
     patchOptionalField(ingredient, "section", edit.section)
     patchOptionalField(ingredient, "note", edit.note)
     patchOptionalField(ingredient, "prep", edit.prep)
     patchOptionalField(ingredient, "optional", edit.optional === false ? null : edit.optional)
+
     return { ...content, ingredients: replaceByKey(content.ingredients, ingredient) }
   })
 
@@ -152,9 +168,11 @@ const moveIngredient = ({ content, edit }: { readonly content: RecipeContent; re
   const current = yield* findByKey({ list: content.ingredients, key: edit.key, kind: "ingredient" })
   const ingredient: Mutable<Ingredient> = { ...current }
   patchOptionalField(ingredient, "section", edit.section)
+
   const ingredients = yield* insertAtPosition<Ingredient>({
     list: withoutKey(content.ingredients, edit.key), value: ingredient, at: edit.at, kind: "other ingredient",
   })
+
   return { ...content, ingredients }
 })
 
@@ -194,6 +212,7 @@ const addStep = ({ content, edit }: { readonly content: RecipeContent; readonly 
   const step: Mutable<Step> = { key: edit.key, label: edit.label }
   patchStepFields(step, edit)
   const steps = yield* insertAtPosition<Step>({ list: content.steps, value: step, at: edit.at, kind: "step" })
+
   return { ...content, steps }
 })
 
@@ -201,6 +220,7 @@ const editStep = ({ content, edit }: { readonly content: RecipeContent; readonly
   Result.map(findByKey({ list: content.steps, key: edit.key, kind: "step" }), (current) => {
     const step: Mutable<Step> = { ...current, label: edit.label ?? current.label }
     patchStepFields(step, edit)
+
     return { ...content, steps: replaceByKey(content.steps, step) }
   })
 
@@ -209,6 +229,7 @@ const moveStep = ({ content, edit }: { readonly content: RecipeContent; readonly
   const step: Mutable<Step> = { ...current }
   patchOptionalField(step, "section", edit.section)
   const steps = yield* insertAtPosition<Step>({ list: withoutKey(content.steps, edit.key), value: step, at: edit.at, kind: "other step" })
+
   return { ...content, steps }
 })
 

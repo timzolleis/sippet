@@ -8,11 +8,13 @@ export class PurgeTrashedRecipesService extends Context.Service<PurgeTrashedReci
 }>()("PurgeTrashedRecipesService") {
   static layer = Layer.effect(PurgeTrashedRecipesService, Effect.gen(function* () {
     const recipeRepository = yield* RecipeRepository
+
     return PurgeTrashedRecipesService.of({
       purgeTrashedRecipes: Effect.fn("PurgeTrashedRecipesService.purgeTrashedRecipes")(function* () {
         const now = yield* DateTime.now
         const recipes = yield* recipeRepository.findTrashedRecipes()
         const event = purgeTrashedRecipes({ recipes, now })
+
         if (event.recipeIds.length > 0) yield* recipeRepository.publishRecipeEvent(event)
       }),
     })

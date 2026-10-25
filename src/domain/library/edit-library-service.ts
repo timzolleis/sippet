@@ -12,6 +12,7 @@ export class EditLibraryService extends Context.Service<EditLibraryService, {
 }>()("EditLibraryService") {
   static layer = Layer.effect(EditLibraryService, Effect.gen(function* () {
     const libraryRepository = yield* LibraryRepository
+
     return EditLibraryService.of({
       editLibrary: Effect.fn("EditLibraryService.editLibrary")(function* ({ edits, by }) {
         const now = yield* DateTime.now

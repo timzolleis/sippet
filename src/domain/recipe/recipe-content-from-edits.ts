@@ -12,5 +12,6 @@ export const recipeContentFromEdits = ({ content, edits }: {
 }): Result.Result<RecipeContent, RecipeRefusedError> => {
   const applied = applyRecipeEdits({ content, edits })
   const problems = [...applied.problems, ...recipeProblemsFromContent(applied.content)]
+
   return problems.length > 0 ? Result.fail(new RecipeRefusedError({ problems })) : Result.succeed(applied.content)
 }

@@ -7,8 +7,10 @@ const nameOfTaken = ({ content, key }: { readonly content: RecipeContent; readon
   for (const step of content.steps) {
     if (step.key === key) return step.result?.name ?? step.label
     const portion = portionsOfStep(step).find((candidate) => candidate.key === key)
+
     if (portion !== undefined) return portion.name
   }
+
   return key
 }
 
@@ -19,10 +21,13 @@ const nameOfTaken = ({ content, key }: { readonly content: RecipeContent; readon
 export const stepSentenceFromStep = ({ content, step }: { readonly content: RecipeContent; readonly step: Step }): string => {
   if (step.sentence !== undefined) return step.sentence
   const used = content.ingredients.filter((ingredient) => (step.uses ?? []).includes(ingredient.key)).map((ingredient) => ingredient.item)
+
   const taken = Option.match(recipeFlowFromContent(content), {
     onNone: () => [],
     onSome: (flow) => (flow.steps.find((stepFlow) => stepFlow.stepKey === step.key)?.takes ?? []).map((link) => nameOfTaken({ content, key: link.key })),
   })
+
   const names = [...new Set([...used, ...taken])]
+
   return names.length === 0 ? step.label : `${step.label} (${names.join(", ")})`
 }
