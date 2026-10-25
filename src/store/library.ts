@@ -327,6 +327,8 @@ export class Library {
         if (Result.isFailure(result)) throw new Rollback(result)
 
         if (key !== undefined) {
+          // Only the connection's latest write can be retried: tagging, untagging, and tagging again must write each time.
+          this.db.delete(retry).where(eq(retry.connection, key.connection)).run()
           this.db.insert(retry).values({ ...key, result: result.success, expiresAt: now + retryWindowMs }).run()
         }
 
