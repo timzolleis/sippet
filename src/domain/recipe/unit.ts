@@ -23,7 +23,7 @@ export const CustomUnit = Schema.Struct({ custom: Schema.NonEmptyString })
 
 export type CustomUnit = typeof CustomUnit.Type
 
-export const Unit = Schema.Union([UnitCode, CustomUnit])
+export const Unit = Schema.Union([UnitCode, CustomUnit]).annotate({ identifier: "Unit" })
 
 export type Unit = typeof Unit.Type
 

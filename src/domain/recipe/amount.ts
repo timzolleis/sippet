@@ -15,11 +15,11 @@ const maxNotBelowValue = Schema.makeFilter(
 )
 
 // A number ("300 g") or a range ("1–2 Zehen"); no unit is a count ("2 Eier") (recipe rule 2).
-export const SecondAmount = Schema.Struct(amountFields).check(maxNotBelowValue)
+export const SecondAmount = Schema.Struct(amountFields).check(maxNotBelowValue).annotate({ identifier: "SecondAmount" })
 
 export type SecondAmount = typeof SecondAmount.Type
 
 // May carry a second amount: "¼ TL (2 g) Salz".
-export const Amount = Schema.Struct({ ...amountFields, second: Schema.optionalKey(SecondAmount) }).check(maxNotBelowValue)
+export const Amount = Schema.Struct({ ...amountFields, second: Schema.optionalKey(SecondAmount) }).check(maxNotBelowValue).annotate({ identifier: "Amount" })
 
 export type Amount = typeof Amount.Type

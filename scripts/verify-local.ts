@@ -6,7 +6,7 @@ import { createHash, generateKeyPairSync, randomBytes, randomUUID, sign } from "
 import { readdirSync } from "node:fs"
 import { DatabaseSync } from "node:sqlite"
 import { Schema } from "effect"
-import { cbor, json, JsonObject, Open } from "./support.ts"
+import { at, cbor, connectMcp, json, JsonObject, Open, textOf } from "./support.ts"
 
 const origin = process.argv[2] ?? "http://localhost:1337"
 const rpId = new URL(origin).hostname
@@ -339,19 +339,19 @@ check("sub = the cook", claims.sub === cookId)
 
 step("/mcp with the token")
 
-// /api/dev/headers goes through the same token check as /mcp and echoes what the DO received (localhost only)
-const mcp = await request(`/api/dev/headers`, { method: "POST", headers: { authorization: `Bearer ${first.token.access_token ?? ""}`, "sippet-cook": "forged" }, json: {} })
-const forwarded = await json(JsonObject, mcp)
+// The tools show what the DO received: a change is made by the connection named in the token, whatever sippet-* headers the client sends.
+const mcp = await connectMcp({ origin, token: first.token.access_token ?? "", headers: { "sippet-cook": "forged", "sippet-connection": "forged" } })
 
-show("DO saw", forwarded)
+check("initialize through the Worker → 200", textOf(at(mcp.initialized, "result", "serverInfo", "name")) === "sippet")
 
-check("200", mcp.status === 200)
+const wrote = await mcp.call("add_recipe", { title: "Probe", yield: { amount: { value: 1 } }, edits: [{ op: "add_ingredient", key: "a", item: "A" }, { op: "add_step", key: "s", label: "s", uses: ["a"] }] })
 
-check("sippet-cook = sub (forged header dropped)", forwarded["sippet-cook"] === cookId)
+check("the cook is the token's sub (a write lands in this cook's library)", !wrote.isError)
 
-check("sippet-connection = client id", forwarded["sippet-connection"] === webClient.client_id)
+const probeId = textOf(at(wrote.value, "recipeId"))
+const probeRevisions = await mcp.call("list_revisions", { recipeId: probeId })
 
-check("sippet-issued-at = iat", forwarded["sippet-issued-at"] === String(claims.iat))
+check("the connection is the token's client id (forged header dropped)", at(probeRevisions.value, "revisions", 0, "by", "name") === "Claude (claude.ai)")
 
 check("garbage token → 401", (await request(`/mcp`, { headers: { authorization: "Bearer abc.def.ghi" } })).status === 401)
 

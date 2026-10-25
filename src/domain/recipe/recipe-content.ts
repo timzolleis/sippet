@@ -5,7 +5,7 @@ import { Key } from "./key.ts"
 const NonNegativeNumber = Schema.Finite.check(Schema.isGreaterThanOrEqualTo(0))
 
 // The yield, optionally in a vessel from the equipment: "12 Stück", Springform 26 cm (recipe rule 9).
-export const Yield = Schema.Struct({ amount: Amount, vessel: Schema.optionalKey(Key) })
+export const Yield = Schema.Struct({ amount: Amount, vessel: Schema.optionalKey(Key) }).annotate({ identifier: "Yield" })
 
 export type Yield = typeof Yield.Type
 
@@ -38,7 +38,7 @@ export const Duration = Schema.Struct({
   minutes: NonNegativeNumber,
   maxMinutes: Schema.optionalKey(NonNegativeNumber),
   kind: Schema.Literals(["active", "passive"]),
-})
+}).annotate({ identifier: "Duration" })
 
 export type Duration = typeof Duration.Type
 
@@ -50,7 +50,7 @@ export const Temperature = Schema.Struct({
   celsius: Schema.Finite,
   maxCelsius: Schema.optionalKey(Schema.Finite),
   mode: Schema.optionalKey(HeatingMode),
-})
+}).annotate({ identifier: "Temperature" })
 
 export type Temperature = typeof Temperature.Type
 
@@ -60,7 +60,7 @@ export const Portion = Schema.Struct({
   name: Schema.NonEmptyString,
   amount: Schema.optionalKey(Amount),
   rest: Schema.optionalKey(Schema.Literal(true)),
-})
+}).annotate({ identifier: "Portion" })
 
 export type Portion = typeof Portion.Type
 
@@ -68,7 +68,7 @@ export const StepResult = Schema.Struct({
   name: Schema.optionalKey(Schema.NonEmptyString),
   amount: Schema.optionalKey(Amount),
   split: Schema.optionalKey(Schema.Array(Portion)),
-})
+}).annotate({ identifier: "StepResult" })
 
 export type StepResult = typeof StepResult.Type
 

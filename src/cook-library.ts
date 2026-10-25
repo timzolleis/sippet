@@ -3,13 +3,12 @@
 import { DurableObject } from "cloudflare:workers"
 import { drizzle } from "drizzle-orm/durable-sqlite"
 import { migrate } from "drizzle-orm/durable-sqlite/migrator"
-import { Schema } from "effect"
 import type { Env } from "../alchemy.run.ts"
 import migrations from "../migrations/cook-library/migrations.js"
-import { isLocal, runDevOp } from "./store/dev.ts"
+import { mcpWebHandler } from "./mcp/server.ts"
+import { purgeDueRecipes } from "./mcp/unit-of-work.ts"
 import { Library, type Db } from "./store/library.ts"
-import { mcpWebHandler } from "./store/mcp-proof.ts"
-import { placeholderDerive } from "./store/placeholder-derive.ts"
+import { derive } from "./store/derive.ts"
 import * as schema from "./store/schema.ts"
 
 export type Connection = { clientId: string; name: string; connectedAt: number }
@@ -26,8 +25,8 @@ export class CookLibrary extends DurableObject<Env> {
   constructor(ctx: DurableObjectState, env: Env) {
     super(ctx, env)
     this.db = drizzle(ctx.storage, { schema })
-    this.library = new Library({ db: this.db, storage: ctx.storage, derive: placeholderDerive })
-    this.mcp = mcpWebHandler({ sql: ctx.storage.sql })
+    this.library = new Library({ db: this.db, storage: ctx.storage, derive })
+    this.mcp = mcpWebHandler({ library: this.library })
     ctx.blockConcurrencyWhile(async () => {
       await migrate(this.db, migrations)
       await this.library.scheduleAlarm() // self-heal: the alarm is set after the commit that changed purge_at
@@ -36,7 +35,7 @@ export class CookLibrary extends DurableObject<Env> {
 
   // Revising rules 7, 9: purge every due recipe, then set the next alarm. Alarms retry on failure; a second run finds nothing due.
   override async alarm(): Promise<void> {
-    await this.library.purgeDue()
+    await purgeDueRecipes(this.library)
   }
 
   // account rule 4: the cook approved this client. A later connectClient keeps disconnected_at, so older tokens stay refused.
@@ -82,8 +81,6 @@ export class CookLibrary extends DurableObject<Env> {
 
     if (this.isRefused({ connection, issuedAt })) return new Response("unauthorized", { status: 401 })
 
-    if (new URL(request.url).pathname.startsWith("/api/dev/")) return this.dev(request, connection)
-
     return this.mcp.handler(request)
   }
 
@@ -106,26 +103,5 @@ export class CookLibrary extends DurableObject<Env> {
     }
 
     return row.disconnected_at !== null && issuedAt * 1000 < row.disconnected_at
-  }
-
-  // Local checks only (store/dev.ts): refused unless PUBLIC_URL is localhost.
-  private async dev(request: Request, connection: string): Promise<Response> {
-    if (!isLocal(this.env)) return new Response("not found", { status: 404 })
-    const op = new URL(request.url).pathname.slice("/api/dev/".length)
-
-    if (op === "headers") return Response.json(Object.fromEntries([...request.headers].filter(([name]) => name.startsWith("sippet-"))))
-    const args = request.method === "POST" ? Schema.decodeUnknownSync(Schema.Record(Schema.String, Schema.Json))(await request.json()) : {}
-
-    const value = await runDevOp({
-      op,
-      args,
-      library: this.library,
-      db: this.db,
-      storage: this.ctx.storage,
-      connection,
-      setAlarmNow: () => this.library.scheduleAlarm(),
-    })
-
-    return Response.json(value)
   }
 }
