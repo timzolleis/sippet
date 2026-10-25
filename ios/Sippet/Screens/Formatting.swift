@@ -16,12 +16,7 @@ enum Format {
         }
     }
 
-    static func duration(_ d: StepDuration) -> String {
-        let upper = d.maxMinutes.map { max($0, d.minutes) }
-        guard let upper, upper != d.minutes else { return minutes(d.minutes) }
-        let number = { (v: Double) in v.formatted(.number.precision(.fractionLength(0...1)).locale(Locale(identifier: language.rawValue))) }
-        return "\(number(d.minutes))–\(number(upper)) " + (language == .de ? "Min." : "min")
-    }
+    static func duration(_ d: StepDuration) -> String { durationText(d, language: language) }
 
     static func temperature(_ t: Temperature, system: MeasurementSystem) -> String {
         let shown = temperatureInMeasurementSystem(t, system: system)

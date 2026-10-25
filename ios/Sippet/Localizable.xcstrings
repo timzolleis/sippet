@@ -1072,6 +1072,38 @@
           }
         }
       }
+    },
+    "%@ changed %@": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$@ hat %2$@ geändert"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$@ changed %2$@"
+          }
+        }
+      }
+    },
+    "%@ changed %lld recipes": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$@ hat %2$lld Rezepte geändert"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$@ changed %2$lld recipes"
+          }
+        }
+      }
     }
   },
   "version": "1.0"

@@ -71,7 +71,7 @@ final class AppModel {
         #if DEBUG
         if let token = ProcessInfo.processInfo.environment["SIPPET_REFRESH_TOKEN"], !token.isEmpty,
            (try? await tokens.refreshToken()) == nil {
-            try? await tokens.store(accessToken: "", refreshToken: token)
+            try? await tokens.storeRefreshToken(token)
         }
         #endif
         guard (try? await tokens.refreshToken()) != nil else { phase = .signedOut; return }
