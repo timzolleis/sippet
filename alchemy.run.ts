@@ -29,6 +29,7 @@ export default Alchemy.Stack(
   Effect.gen(function* () {
     const db = yield* DB
     const site = yield* Site
+
     return { url: site.url, databaseId: db.databaseId }
   }),
 )

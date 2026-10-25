@@ -16,6 +16,7 @@ const provisionalUserPrefix = "invitation:"
 
 const sha256Hex = async (text: string): Promise<string> => {
   const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(text))
+
   return [...new Uint8Array(digest)].map((byte) => byte.toString(16).padStart(2, "0")).join("")
 }
 
@@ -32,7 +33,9 @@ const joinFromInvitation =
   (env: AuthEnv) =>
   async ({ context }: { context?: string | null | undefined }) => {
     const invitation = context ? await findOpenInvitation({ db: env.DB, token: context }) : null
+
     if (invitation === null) throw new APIError("GONE", { message: invitationGone })
+
     return { id: `${provisionalUserPrefix}${invitation.id}`, name: invitation.name }
   }
 
@@ -42,18 +45,23 @@ const consumeInvitation =
   async ({ ctx, user }) => {
     if (!user.id.startsWith(provisionalUserPrefix)) return // a signed-in cook adding a passkey
     const id = user.id.slice(provisionalUserPrefix.length)
+
     const claimed = await env.DB.prepare(
       `UPDATE invitation SET used_at = ?1 WHERE id = ?2 AND used_at IS NULL AND expires_at > ?1 RETURNING name, email`,
     )
       .bind(Date.now(), id)
       .first<{ name: string; email: string }>()
+
     if (claimed === null) throw new APIError("GONE", { message: invitationGone })
+
     try {
       const created = await ctx.context.internalAdapter.createUser(
         { name: claimed.name, email: claimed.email, emailVerified: false },
         { method: "invitation" },
       )
+
       await env.DB.prepare(`UPDATE invitation SET user_id = ?1 WHERE id = ?2`).bind(created.id, id).run()
+
       return { userId: created.id }
     } catch (error) {
       await env.DB.prepare(`UPDATE invitation SET used_at = NULL WHERE id = ?1`).bind(id).run() // release the claim
@@ -67,8 +75,10 @@ const consumeInvitation =
 const refuseLastPasskey = createAuthMiddleware(async (ctx) => {
   if (ctx.path !== "/passkey/delete-passkey") return
   const session = await getSessionFromCtx(ctx)
+
   if (session === null) return // the endpoint answers 401
   const count = await ctx.context.adapter.count({ model: "passkey", where: [{ field: "userId", value: session.user.id }] })
+
   if (count <= 1) throw new APIError("BAD_REQUEST", { message: "the last passkey can't be removed" })
 })
 
@@ -78,7 +88,9 @@ const connectApproved = (env: AuthEnv) =>
     if (ctx.path !== "/oauth2/consent" || ctx.body?.accept !== true) return
     const session = await getSessionFromCtx(ctx)
     const clientId = new URLSearchParams(ctx.body.oauth_query ?? "").get("client_id")
+
     if (session === null || clientId === null) return
+
     // the consent row proves the endpoint accepted
     const consent = await ctx.context.adapter.findOne({
       model: "oauthConsent",
@@ -87,11 +99,14 @@ const connectApproved = (env: AuthEnv) =>
         { field: "userId", value: session.user.id },
       ],
     })
+
     if (consent === null) return
+
     const client = await ctx.context.adapter.findOne<{ name?: string | null }>({
       model: "oauthClient",
       where: [{ field: "clientId", value: clientId }],
     })
+
     await env.COOK_LIBRARY.getByName(session.user.id).connectClient({ clientId, name: client?.name ?? "Claude" })
   })
 

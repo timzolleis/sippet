@@ -61,11 +61,15 @@ export class CookLibrary extends DurableObject {
   override async fetch(request: Request): Promise<Response> {
     const connection = request.headers.get("sippet-connection")
     const issuedAt = Number(request.headers.get("sippet-issued-at"))
+
     if (connection === null || !Number.isFinite(issuedAt)) return new Response("unauthorized", { status: 401 })
+
     if (this.isRefused({ connection, issuedAt })) return new Response("unauthorized", { status: 401 })
 
     const sippetHeaders: Record<string, string> = {}
+
     for (const [name, value] of request.headers) if (name.startsWith("sippet-")) sippetHeaders[name] = value
+
     return Response.json(sippetHeaders)
   }
 
@@ -75,6 +79,7 @@ export class CookLibrary extends DurableObject {
     const [row] = this.ctx.storage.sql
       .exec<ConnectionRow>(`SELECT client_id, name, connected_at, disconnected_at FROM connection WHERE client_id = ?`, connection)
       .toArray()
+
     if (row === undefined) {
       this.ctx.storage.sql.exec(
         `INSERT INTO connection (client_id, name, connected_at) VALUES (?, ?, ?) ON CONFLICT (client_id) DO NOTHING`,
@@ -82,8 +87,10 @@ export class CookLibrary extends DurableObject {
         unknownClientName,
         Date.now(),
       )
+
       return false
     }
+
     return row.disconnected_at !== null && issuedAt * 1000 < row.disconnected_at
   }
 }

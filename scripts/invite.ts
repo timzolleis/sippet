@@ -9,6 +9,7 @@ const defaultAccountId = "dfbe39d3621591908c9d962e0e644a6b"
 const joinOrigin = "https://sippet.bastelboxx.de"
 
 const [name, email] = process.argv.slice(2)
+
 if (!name || !email || process.argv.length > 4) {
   console.error('usage: pnpm invite "Anna" anna@example.com')
   process.exit(2)
@@ -16,10 +17,12 @@ if (!name || !email || process.argv.length > 4) {
 
 const require = (key: string): string => {
   const value = process.env[key]
+
   if (!value) {
     console.error(`${key} is not set`)
     process.exit(2)
   }
+
   return value
 }
 
@@ -44,8 +47,10 @@ const response = await fetch(
     }),
   },
 )
+
 if (!response.ok) {
   console.error(`D1 query failed: ${response.status} ${await response.text()}`)
   process.exit(1)
 }
+
 console.log(`${joinOrigin}/join#${token}`)
