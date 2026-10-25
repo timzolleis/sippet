@@ -10,6 +10,7 @@ import {
 import type { RecipeEvent } from "../../src/domain/recipe/recipe-event.ts"
 import type { RecipeId } from "../../src/domain/recipe/recipe-id.ts"
 import { RecipeRepository, RecipeSources } from "../../src/domain/recipe/recipe-repository.ts"
+import { withOptional } from "../../src/domain/with-optional.ts"
 
 export type StoredRecipe = {
   readonly recipeId: RecipeId
@@ -24,12 +25,11 @@ export const makeInMemoryRecipeRepository = () => {
   const publishedEvents: Array<RecipeEvent> = []
 
   const recipeFromStored = (stored: StoredRecipe): Recipe => {
-    const fields = {
-      recipeId: stored.recipeId,
-      latestRevision: stored.revisions.length,
-      content: stored.revisions[stored.revisions.length - 1]!,
-      ...(stored.source === undefined ? {} : { source: stored.source }),
-    }
+    const fields = withOptional(
+      { recipeId: stored.recipeId, latestRevision: stored.revisions.length, content: stored.revisions[stored.revisions.length - 1]! },
+      "source",
+      stored.source,
+    )
 
     return stored.trash === undefined
       ? LibraryRecipe.make(fields)
@@ -39,11 +39,7 @@ export const makeInMemoryRecipeRepository = () => {
   const applyRecipeEvent = (event: RecipeEvent): void =>
     Match.valueTags(event, {
       RecipeAddedEvent: (added) => {
-        storedRecipes.set(added.recipeId, {
-          recipeId: added.recipeId,
-          revisions: [added.content],
-          ...(added.source === undefined ? {} : { source: added.source }),
-        })
+        storedRecipes.set(added.recipeId, withOptional({ recipeId: added.recipeId, revisions: [added.content] }, "source", added.source))
       },
       RecipeRevisedEvent: (revised) => {
         storedRecipes.get(revised.recipeId)?.revisions.push(revised.content)
@@ -118,7 +114,7 @@ export const inMemoryRecipeSourcesLayer = Layer.succeed(RecipeSources, RecipeSou
     Effect.sync(() => {
       const url = new URL(address)
 
-      for (const name of [...url.searchParams.keys()]) if (name.startsWith("utm_")) url.searchParams.delete(name)
+      for (const name of Array.from(url.searchParams.keys())) if (name.startsWith("utm_")) url.searchParams.delete(name)
 
       return url.toString()
     }),

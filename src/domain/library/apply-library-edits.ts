@@ -23,10 +23,12 @@ const quoted = (name: string) => `"${name}"`
 
 const unique = <T>(values: ReadonlyArray<T>): ReadonlyArray<T> => [...new Set(values)]
 
+type RecipeIdsInLibrary = { readonly recipeIds: ReadonlyArray<RecipeId>; readonly messages: ReadonlyArray<string> }
+
 // A recipe that doesn't exist or is in the trash can't be named (library rule 1).
 const recipeIdsInLibrary = ({ recipePlaces, recipeIds }: {
   readonly recipePlaces: ReadonlyMap<RecipeId, RecipePlace>; readonly recipeIds: ReadonlyArray<RecipeId>
-}): { readonly recipeIds: ReadonlyArray<RecipeId>; readonly messages: ReadonlyArray<string> } => ({
+}): RecipeIdsInLibrary => ({
   recipeIds: unique(recipeIds.filter((recipeId) => recipePlaces.get(recipeId) === "library")),
   messages: recipeIds.flatMap((recipeId) =>
     Match.value(recipePlaces.get(recipeId)).pipe(

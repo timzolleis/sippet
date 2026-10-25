@@ -1,27 +1,28 @@
 import type { Amount, SecondAmount } from "../recipe/amount.ts"
 import type { Portion, RecipeContent, Step, StepResult } from "../recipe/recipe-content.ts"
 import { measurableAmount } from "./measurable-amount.ts"
+import { withOptional } from "../with-optional.ts"
 
-const scaledSecondAmount = ({ amount, factor }: { readonly amount: SecondAmount; readonly factor: number }): SecondAmount => ({
-  ...amount,
-  value: amount.value * factor,
-  ...(amount.max === undefined ? {} : { max: amount.max * factor }),
-})
+const scaledSecondAmount = ({ amount, factor }: { readonly amount: SecondAmount; readonly factor: number }): SecondAmount =>   withOptional({ ...amount, value: amount.value * factor }, "max", amount.max === undefined ? undefined : amount.max * factor)
 
 export const scaledAmount = ({ amount, factor }: { readonly amount: Amount; readonly factor: number }): Amount =>
-  measurableAmount({
-    ...scaledSecondAmount({ amount, factor }),
-    ...(amount.second === undefined ? {} : { second: scaledSecondAmount({ amount: amount.second, factor }) }),
-  })
+  measurableAmount(
+    withOptional(
+      scaledSecondAmount({ amount, factor }),
+      "second",
+      amount.second === undefined ? undefined : scaledSecondAmount({ amount: amount.second, factor }),
+    ),
+  )
 
 const scaledPortion = ({ portion, factor }: { readonly portion: Portion; readonly factor: number }): Portion =>
   portion.amount === undefined ? portion : { ...portion, amount: scaledAmount({ amount: portion.amount, factor }) }
 
-const scaledResult = ({ result, factor }: { readonly result: StepResult; readonly factor: number }): StepResult => ({
-  ...result,
-  ...(result.amount === undefined ? {} : { amount: scaledAmount({ amount: result.amount, factor }) }),
-  ...(result.split === undefined ? {} : { split: result.split.map((portion) => scaledPortion({ portion, factor })) }),
-})
+const scaledResult = ({ result, factor }: { readonly result: StepResult; readonly factor: number }): StepResult =>
+  withOptional(
+    withOptional({ ...result }, "amount", result.amount === undefined ? undefined : scaledAmount({ amount: result.amount, factor })),
+    "split",
+    result.split === undefined ? undefined : result.split.map((portion) => scaledPortion({ portion, factor })),
+  )
 
 const scaledStep = ({ step, factor }: { readonly step: Step; readonly factor: number }): Step =>
   step.result === undefined ? step : { ...step, result: scaledResult({ result: step.result, factor }) }

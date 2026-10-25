@@ -8,7 +8,8 @@ import type { RecipeId } from "../../src/domain/recipe/recipe-id.ts"
 export const makeInMemoryLibraryRepository = ({ library, recipePlaces }: {
   readonly library: Library; readonly recipePlaces: ReadonlyMap<RecipeId, RecipePlace>
 }) => {
-  const state = { library, publishedEvents: [] as Array<LibraryChangedEvent> }
+  const publishedEvents: Array<LibraryChangedEvent> = []
+  const state = { library, publishedEvents }
 
   const layer = Layer.succeed(LibraryRepository, LibraryRepository.of({
     findLibrary: () => Effect.sync(() => state.library),

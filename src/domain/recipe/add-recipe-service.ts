@@ -7,6 +7,7 @@ import type { RecipeEdit } from "./recipe-edit.ts"
 import type { RecipeRefusedError, RecipeSourceAlreadyAddedError } from "./recipe-error.ts"
 import { generateRecipeId, type RecipeId } from "./recipe-id.ts"
 import { RecipeRepository, RecipeSources } from "./recipe-repository.ts"
+import { withOptional } from "../with-optional.ts"
 
 export type AddRecipeCommand = {
   readonly title: string
@@ -37,14 +38,9 @@ export class AddRecipeService extends Context.Service<AddRecipeService, {
         const recipeWithSameSource = source === undefined ? Option.none() : yield* recipeRepository.findRecipeBySource({ source })
         const recipeId = generateRecipeId()
 
-        const event = yield* Effect.fromResult(addRecipe({
-          recipeId,
-          content,
-          ...(source === undefined ? {} : { source }),
-          recipeWithSameSource,
-          by: command.by,
-          now,
-        }))
+        const event = yield* Effect.fromResult(addRecipe(
+          withOptional({ recipeId, content, recipeWithSameSource, by: command.by, now }, "source", source),
+        ))
 
         yield* recipeRepository.publishRecipeEvent(event)
 

@@ -13,6 +13,7 @@ import {
   RecipesTrashedEvent,
 } from "./recipe-event.ts"
 import { RecipeId } from "./recipe-id.ts"
+import { withOptional } from "../with-optional.ts"
 
 const recipeFields = {
   recipeId: RecipeId,
@@ -76,14 +77,13 @@ export const addRecipe = (input: AddRecipeInput): Result.Result<RecipeAddedEvent
   Result.gen(function* () {
     yield* checkRules(addRecipeRules, input)
 
-    return RecipeAddedEvent.make({
-      recipeId: input.recipeId,
-      revision: 1,
-      content: input.content,
-      ...(input.source === undefined ? {} : { source: input.source }),
-      by: input.by,
-      occurredOn: input.now,
-    })
+    return RecipeAddedEvent.make(
+      withOptional(
+        { recipeId: input.recipeId, revision: 1, content: input.content, by: input.by, occurredOn: input.now },
+        "source",
+        input.source,
+      ),
+    )
   })
 
 // Revising

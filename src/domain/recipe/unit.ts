@@ -27,6 +27,8 @@ export const Unit = Schema.Union([UnitCode, CustomUnit])
 
 export type Unit = typeof Unit.Type
 
+export const isCustomUnit = (unit: Unit | undefined): unit is CustomUnit => Schema.is(CustomUnit)(unit)
+
 export const gramsPerMassUnit: Readonly<Record<MassUnitCode, number>> = { g: 1, kg: 1000, oz: 28.349523125, lb: 453.59237 }
 
 // tsp, tbsp, cup as in the spec; fl_oz as an eighth of that cup.
@@ -38,7 +40,7 @@ export const isMassUnit = (unit: Unit | undefined): unit is MassUnitCode => Sche
 export const isVolumeUnit = (unit: Unit | undefined): unit is VolumeUnitCode => Schema.is(VolumeUnitCode)(unit)
 
 export const isSameUnit = (a: Unit | undefined, b: Unit | undefined): boolean =>
-  typeof a === "object" && typeof b === "object" ? a.custom === b.custom : a === b
+  isCustomUnit(a) && isCustomUnit(b) ? a.custom === b.custom : a === b
 
 // A value in another unit of the same kind: mass within mass, volume within volume, otherwise only the same unit.
 export const valueInUnit = ({ value, from, to }: {

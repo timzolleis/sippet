@@ -5,7 +5,7 @@ import type { Key } from "./key.ts"
 import { isStepResultSplit, portionsOfStep, type RecipeContent, type Step } from "./recipe-content.ts"
 import { recipeFlowFromContent, type FlowLink, type RecipeFlow, type StepFlow } from "./recipe-flow.ts"
 import type { RecipeProblem } from "./recipe-problem.ts"
-import { valueInUnit, type Unit } from "./unit.ts"
+import { isCustomUnit, valueInUnit, type Unit } from "./unit.ts"
 
 export type RecipeRuleInput = { readonly content: RecipeContent }
 
@@ -25,7 +25,7 @@ const listed = (words: ReadonlyArray<string>) =>
 // "(derived: join)" for a link a derivation made (specs/mcp.md, Refusals).
 const derivedNote = (link: FlowLink) => link.source === "named" ? "" : ` (derived: ${link.source})`
 
-const unitText = (unit: Unit | undefined) => unit === undefined ? "" : typeof unit === "object" ? ` ${unit.custom}` : ` ${unit}`
+const unitText = (unit: Unit | undefined) => unit === undefined ? "" : isCustomUnit(unit) ? ` ${unit.custom}` : ` ${unit}`
 
 const amountText = ({ value, unit }: { readonly value: number; readonly unit: Unit | undefined }) =>
   `${Math.round(value * 100) / 100}${unitText(unit)}`
