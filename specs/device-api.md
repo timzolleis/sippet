@@ -99,7 +99,7 @@ POST /api/device/recipes/trash {recipeIds}   trashRecipes       200 {recipes: De
 POST /api/device/recipes/restore {recipeIds} restoreRecipes     200 {recipes: DeviceRecipe[]} | 404        revising 8–10
 ```
 
-Every request carries `x-device-id` (a UUID, made once per install) and `x-device-name` (1–40 characters, "iPad"). `DeviceMiddleware` decodes them into `CurrentDevice { connection, deviceId, deviceName }`. Missing or malformed: `DeviceUnknownHttpError` 400.
+Every request carries `x-device-id` (a UUID, made once per install) and `x-device-name` (1–40 characters, "iPad", percent-encoded UTF-8 so "Tim’s iPhone" survives the header). `DeviceMiddleware` decodes them into `CurrentDevice { connection, deviceId, deviceName }`. Missing or malformed: `DeviceUnknownHttpError` 400.
 
 ## Views (`src/device/device-views.ts`)
 

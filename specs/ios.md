@@ -163,7 +163,7 @@ apply(ChangesAfter)
 stop()                                            scene goes to background: close the socket
 ```
 
-- Every request sends `x-device-id` (a UUID created once and kept in the Keychain) and `x-device-name` (from Settings; the default is `UIDevice.current.model`: "iPhone" or "iPad").
+- Every request sends `x-device-id` (a UUID created once and kept in the Keychain) and `x-device-name` (from Settings, percent-encoded UTF-8; the default is `UIDevice.current.model`: "iPhone" or "iPad").
 - 401 → refresh once, single flight, then retry once. If the refresh fails → `signedOut`: the app shows `SignInScreen` and keeps `library.json` until the cook signs in again or signs out.
 - Writes return the server's answer, but the store changes only through catch-up. The device's own change arrives as `{"seq"}` like any other, so there's one path into the store.
 - Offline (sync rule 5): reads work. Write buttons are disabled with "Offline". Nothing is queued (later.md).
