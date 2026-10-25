@@ -85,7 +85,9 @@ struct RecipeScreen: View {
     private var yieldText: String {
         let amount = Amount(value: yield, unit: recipe.yield.amount.unit)
         let text = amountText(amount, language: Format.language)
-        return recipe.yield.vessel.map { "\(text) (\($0))" } ?? text
+        // The vessel is an equipment key; show its name.
+        guard let key = recipe.yield.vessel else { return text }
+        return "\(text) · \(recipe.equipment.first { $0.key == key }?.name ?? key)"
     }
 
     // MARK: steps
