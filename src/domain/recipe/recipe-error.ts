@@ -36,7 +36,6 @@ export class RecipeRevisionNotFoundError extends Data.TaggedError("RecipeRevisio
 
 // One recipe per page, trashed recipes included (adding rule 6).
 export class RecipeSourceAlreadyAddedError extends Data.TaggedError("RecipeSourceAlreadyAddedError")<{
-  readonly source: string
   readonly recipeId: RecipeId
   readonly title: string
   readonly trashed: boolean
