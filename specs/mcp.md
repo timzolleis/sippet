@@ -20,16 +20,18 @@ Claude gets no tool for what it may not do (account rule 6): emptying the trash,
 | `list_revisions` | `recipeId` | `{revisions: Revision[]}`, newest first | revising 3 |
 | `get_library` | — | `tags: {name, recipes}[]`, `collections: {name, recipes}[]`, `smartCollections: {name, filter}[]` | library |
 | `list_trash` | — | `{recipes: {id, title, trashedAt, purgeAt}[]}` | revising 6, 7 |
-| `add_recipe` | `title`, `yield`, `source?`, `edits: RecipeEdit[]` | `recipeId`, `revision: 1`, `recipe: RecipeView` | adding 1–4, 6 (photos, rule 5, later) |
-| `edit_recipe` | `recipeId`, `fromRevision`, `edits: RecipeEdit[]` | `revision`, `recipe: RecipeView` | revising 1–4 |
-| `restore_revision` | `recipeId`, `fromRevision`, `revision` | `revision`, `recipe: RecipeView` | revising 5 |
+| `add_recipe` | `title`, `yield`, `source?`, `edits: NewRecipeEdit[]`, `dryRun?` | `RecipeView` (revision 1) | adding 1–4, 6 (photos, rule 5, later) |
+| `edit_recipe` | `recipeId`, `fromRevision`, `edits: RecipeEdit[]`, `dryRun?` | `RecipeView` | revising 1–4 |
+| `restore_revision` | `recipeId`, `fromRevision`, `revision` | `RecipeView` | revising 5 |
 | `trash_recipes` | `recipeIds` | `{trashed: {id, purgeAt}[]}` | revising 6, 7, 10 |
 | `restore_recipes` | `recipeIds` | `recipeIds` | revising 8–10 |
 | `edit_library` | `edits: LibraryEdit[]` | as `get_library` | library 1–15 |
 
 - Reads are `readOnlyHint: true`. Writes are `destructiveHint: false`: everything Claude does is undoable (account rule 6).
-- `search_recipes` with `collection` returns the collection's order; with `text`, relevance; otherwise by title.
+- `search_recipes`: every filter given holds (AND), a `smartCollection`'s saved filter included. `items` are all of, by item name ignoring case. `text`: every word of 3+ letters appears in the title, ingredients (item, note, prep), or steps (label, sentence); not source or tags. With `collection`, the collection's order; with `text`, relevance; otherwise by title.
 - `add_recipe`, `edit_recipe`, and `restore_revision` return the recipe with its derived flow, so Claude sees what followed from its steps (recipe rule 11) and can fix it right away.
+- `dryRun: true` on `add_recipe` and `edit_recipe` runs every check (the source lookup too) in a transaction that rolls back: it returns the `RecipeView` or the refusal, writes nothing, and is never stored for a retry. A dry-run `add_recipe`'s `id` isn't kept.
+- `source` is normalized (https, `www.` stripped, tracking parameters dropped, redirects followed). A page already added, trash included, is refused (`one-recipe-per-page`) naming the existing recipe's id and whether it's trashed.
 - Results are objects: MCP structured content can't be a bare list.
 - `list_trash` and `get_recipe` show trashed recipes; `search_recipes` doesn't.
 
@@ -74,6 +76,8 @@ Total time is the sum of each step's `maxMinutes ?? minutes`.
 
 Applied in order to the base revision (an empty recipe for `add_recipe`), checked once at the end (revising rule 1). Keys may point at things added later in the batch.
 
+`add_recipe` takes `NewRecipeEdit`: only `add_section`, `add_ingredient`, `add_equipment`, `add_step`. A new recipe has nothing to change or remove, and its title and yield are top-level. `edit_recipe` takes every op below.
+
 | `op` | Fields |
 |---|---|
 | `set_title` | `title` |
@@ -95,7 +99,9 @@ Applied in order to the base revision (an empty recipe for `add_recipe`), checke
 | `remove_step` | `key` |
 
 - `edit_*` changes only the fields it names. `null` clears an optional field.
-- `takes` and `waitsFor` replace the derived links (recipe rule 11). Absent or `null`: derived. `[]`: nothing.
+- `uses`: ingredient keys only. `takes`: step keys (their results) and portion keys only, never ingredients.
+- `takes` and `waitsFor` replace the derived links (recipe rule 11). In `add_step`, absent or `null`: derived; `[]`: nothing; a list: exactly these. In `edit_step`, absent: unchanged; `null`: back to derived; `[]`: nothing.
+- The chain stays: "Eier unterrühren" is `uses: ["eier"]` and chains the previous result. A second bowl in the same section needs `takes: []` or its own section; a prep step after a step with a result in its section chains it unless it has `takes: []`.
 - `at` defaults to `"end"` on `add_*`.
 - `add_ingredient` with a new item name adds the item (recipe rule 3).
 
@@ -192,26 +198,63 @@ Revision = { revision, at, by: { kind: "device" | "claude", name },
 ```
 
 - Steps come as written, in the same fields edits use, so Claude copies values from what it read.
+- Output schemas leave the content's parts open (`object`): the input schemas describe them. Write tools return "the recipe as get_recipe returns it"; `list_revisions` carries no edit schemas.
 - `flow` is present when the recipe has one: the derived links merged with what the step names.
 
 ## Refusals
 
-A refused write is a tool result with `isError: true`, so Claude reads it:
+A refused call is a tool result with `isError: true`, so Claude reads it. Every write's output schema declares it beside the result (`anyOf: [result, Refusal]`):
+
+```ts
+Refusal = { refused: true, problems: { edit?: number, rule: string, message: string, fix: string }[], latestRevision?: number }
+```
 
 ```json
 { "refused": true,
   "problems": [
-    { "edit": 2, "message": "no ingredient \"zucker-tieg\"" },
-    { "rule": "recipe 14", "message": "ingredient \"kakao\" is used by no step" },
-    { "rule": "recipe 15", "message": "result of \"verkneten\" is taken by \"boden\" and \"giessen\" (derived: join)" }
-  ],
-  "latestRevision": 4 }
+    { "rule": "everything-named-exists", "message": "step \"eier-unterruehren\" takes the ingredient \"eier\"; takes is for results of earlier steps and portions",
+      "fix": "move \"eier\" from takes to uses on \"eier-unterruehren\", and omit takes there (null in edit_step) so \"eier-unterruehren\" keeps the derived chain" },
+    { "rule": "every-ingredient-goes-to-one-step", "message": "ingredient \"eier\" is used by no step",
+      "fix": "add \"eier\" to the uses of the step it goes into, or remove it" },
+    { "rule": "result-goes-to-one-place", "message": "result of \"eier-unterruehren\" is taken by \"mehl-mischen\" (derived: chain) and \"teig\"",
+      "fix": "set takes: [] on \"mehl-mischen\" to stop it chaining \"eier-unterruehren\"; or split the result of \"eier-unterruehren\" (result.split) into one portion per step, and let each take its portion" }
+  ] }
 ```
 
-- Every problem at once (revising rule 1, library rule 1). `edit` is the 1-based position in the batch.
-- A problem from a derived link says which derivation made it (chain, join, prep step).
+- Every problem at once (revising rule 1, library rule 1). `edit` is the 1-based position in the batch, when an edit can't apply.
+- `rule` is a name, not a number; the table below maps it to its story. `fix` says what to change: an ingredient key in `takes` (or a result key in `uses`) says what to move where.
+- A problem from a derived link says which derivation made it (chain, join, prep step) and how to opt out (`set takes: [] on "s3" to stop it chaining "s2"`).
 - A stale `fromRevision` (revising rule 2) returns `latestRevision`; Claude reads it with `get_recipe` and rebuilds the batch.
-- A protocol error is for a bad session or token, and for input that doesn't decode (a bad key or unit: `-32602` naming the path, no edit number).
+- A protocol error is for a bad session or token, and for input that doesn't decode (a bad key or unit, an op `add_recipe` doesn't take: `-32602` naming the path, no edit number).
+
+### Rule names
+
+Slugs of the bold rule names in `stories/`; a few name a refusal no story rule numbers.
+
+| `rule` | Story rule |
+|---|---|
+| `title-ingredient-step` | recipe 1 |
+| `flow-is-derived` | recipe 11 (a prep step makes nothing, can't be taken) |
+| `everything-named-exists` | recipe 12; also an edit naming a key, item, or position that doesn't exist (revising 1) |
+| `no-loops` | recipe 13 |
+| `every-ingredient-goes-to-one-step` | recipe 14 |
+| `result-goes-to-one-place` | recipe 15 |
+| `portions` | recipe 16 |
+| `what-the-recipe-makes` | recipe 18 |
+| `authors-order` | recipe 19 |
+| `keys` | recipe 20; also an edit adding a key already used (revising 1) |
+| `source-kept` | adding 4 (not a web address) |
+| `one-recipe-per-page` | adding 6 |
+| `revise-what-you-saw` | revising 2 |
+| `not-in-the-trash` | revising 4 |
+| `trashed-recipes-leave-the-library` | revising 6 (edit_library names a trashed recipe) |
+| `several-at-once` | revising 10 |
+| `rename-to-a-free-name` | library 6 |
+| `merging` | library 7 |
+| `one-collection-per-name` | library 9 |
+| `reorder-names-everything` | library 11 |
+| `unknown-recipe`, `unknown-revision` | — (no such id; purged is gone, revising 9) |
+| `unknown-tag`, `unknown-collection`, `unknown-smart-collection` | library 1 |
 
 ## Retries
 
@@ -225,11 +268,18 @@ Sent once per session as the server's `instructions`, not repeated in each tool:
 
 > Sippet is the cook's recipe library. Read before you write: `get_recipe` gives the revision to pass as `fromRevision`.
 >
-> Write recipes as steps, the way the source has them. Give every section, ingredient, step, equipment, and portion a short key (`zucker-teig`, `verkneten`). Name the ingredients each step uses; the flow follows: a step takes the result of the previous step in its section, a step without a section joins the sections before it, and a step that uses nothing (vorheizen) is waited for by the next step with the same equipment. Put parallel parts in sections. Put one-ingredient work (auspressen, schmelzen) on the ingredient as `prep`. Name `takes` only where the derived flow is wrong, as for split portions. Check the returned `flow`.
+> Write recipes as steps, the way the source has them, in the recipe's language. Give every section, ingredient, step, equipment, and portion a short key (`zucker-teig`, `verkneten`). A step's `uses` names the ingredients it adds; `takes` names earlier steps' results and portions, never ingredients. Leave `takes` out and the flow is derived: a step takes the previous result in its section, a step without a section joins the sections before it, and a step that uses nothing (vorheizen) is waited for by the next step with the same equipment. Put parallel parts in sections. Put one-ingredient work (auspressen, schmelzen) on the ingredient as `prep`. Name `takes` only where the derived flow is wrong, as for split portions. Check the returned `flow`.
 >
-> Use unit codes (`g`, `tsp`, `packet`, `tub`, …); `{ "custom": "Messerspitze" }` for anything else. Durations in minutes; none if the source gives no length.
+> Units are codes (`g`, `tsp`, `packet`, `tub`, …) whatever the language; `{ "custom": "Messerspitze" }` only when none fits. Durations in minutes; none if the source gives no length.
 >
-> A refusal lists every problem. Fix them all and send the batch again.
+> A refusal lists every problem with its `rule` and a `fix`. Fix them all and send the batch again; `dryRun: true` checks without writing.
+
+## Tool descriptions and schema size
+
+- `add_recipe`'s description carries the recipe model (ingredient, item, step, result, flow, section, keys) and the derivation defaults. Every field has a one-line description; shared types (`Key`, `Unit`, `Amount`, `Yield`, `Duration`, `Temperature`, `StepResult`, `Portion`, `Position`) go out once per tool as `$defs` (Effect `identifier` → `$defs`).
+- `Unit`'s description maps the source's words to codes: EL→`tbsp`, TL→`tsp`, Pck./Packung→`packet`, Prise→`pinch`, Becher→`tub`, Zehe→`clove`, …; devices translate them back (cooking rule 8).
+- Before tools/list goes out (`src/mcp/compact-tool-schema.ts`): `additionalProperties: true`, safe-integer bounds, and `allOf`-wrapped descriptions are dropped or flattened, a one-value `enum` becomes `const`, and a description already sent by an earlier tool isn't repeated (`add_recipe` documents the edits, `edit_recipe` repeats their shape).
+- Size: 54,146 bytes before, 31,482 after (legacy Claude tokenizer: 13.7k → 8.1k tokens). `test/mcp/first-call.test.ts` holds a 33,000-byte ceiling.
 
 ## Transport and auth
 
