@@ -1,16 +1,13 @@
 // cleanSource (adding rule 6): the address a recipe is compared by. specs/hosting.md#source.
 // Follows redirects by hand, then normalizes. Pure apart from the injected fetch.
-import { Result } from "effect"
+import { Data, Result } from "effect"
 
 export const maxRedirectFetches = 5 // hosting.md#limits-on-free: source cleaning uses at most 5 subrequests
 export const redirectBudgetMs = 3000
 
 const trackingParameters = /^(utm_.*|fbclid|gclid|mc_cid|mc_eid)$/i
 
-export class InvalidSourceError {
-  readonly _tag = "InvalidSourceError"
-  constructor(readonly source: string) {}
-}
+export class InvalidSourceError extends Data.TaggedError("InvalidSourceError")<{ readonly source: string }> {}
 
 export type CleanedSource = { readonly source: string; readonly sourceKey: string }
 
@@ -20,9 +17,9 @@ export const normalizeSource = (address: string | URL): Result.Result<CleanedSou
   try {
     url = new URL(address)
   } catch {
-    return Result.fail(new InvalidSourceError(String(address)))
+    return Result.fail(new InvalidSourceError({ source: String(address) }))
   }
-  if (url.protocol !== "http:" && url.protocol !== "https:") return Result.fail(new InvalidSourceError(String(address)))
+  if (url.protocol !== "http:" && url.protocol !== "https:") return Result.fail(new InvalidSourceError({ source: String(address) }))
   url.protocol = "https:"
   url.hash = ""
   url.hostname = url.hostname.replace(/^www\./i, "")

@@ -2,6 +2,7 @@
 // /mcp never builds betterAuth(); auth.ts loads on the first request that needs it.
 import { createLocalJWKSet, errors, jwtVerify, type JSONWebKeySet } from "jose"
 import type { Env } from "../alchemy.run.ts"
+import { isLocal } from "./store/dev.ts"
 
 export { CookLibrary } from "./cook-library.ts"
 
@@ -119,6 +120,7 @@ export default {
   async fetch(request: Request, env: Env): Promise<Response> {
     const { pathname } = new URL(request.url)
     if (pathname === "/mcp") return handleMcp(request, env)
+    if (pathname.startsWith("/api/dev/")) return isLocal(env) ? handleMcp(request, env) : new Response("not found", { status: 404 }) // local checks only
     if (pathname === "/api/invitation") return handleInvitation(request, env)
     if (pathname === "/api/connections" || pathname.startsWith("/api/connections/")) return handleConnections(request, env)
     if (pathname.startsWith("/api/auth/") || pathname.startsWith("/.well-known/")) {
