@@ -1,0 +1,25 @@
+{
+  "name": "sippet-spike",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "bench": "node bench.ts",
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy"
+  },
+  "dependencies": {
+    "effect": "4.0.5",
+    "jose": "6.2.13"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "latest",
+    "typescript": "latest",
+    "wrangler": "4.152.0"
+  },
+  "pnpm": {
+    "onlyBuiltDependencies": [
+      "esbuild",
+      "workerd"
+    ]
+  }
+}

@@ -1,0 +1,68 @@
+// The Zupfkuchen as one add_recipe edit batch, and a small revision batch.
+import type { RecipeEdit } from "./recipe.ts"
+
+const g = (value: number, unit = "g") => ({ value, unit })
+
+export const zupfkuchenEdits: Array<RecipeEdit> = [
+  { type: "set_yield", yield: g(12, "Stück") },
+  { type: "add_section", key: "teig", name: "Teig" },
+  { type: "add_section", key: "fuellung", name: "Füllung" },
+  { type: "add_equipment", key: "springform", name: "Springform 26 cm" },
+  { type: "add_equipment", key: "ofen", name: "Ofen" },
+  { type: "add_equipment", key: "mixer", name: "Mixer" },
+  { type: "add_ingredient", key: "mehl", item: "Mehl", amount: g(300), section: "teig" },
+  { type: "add_ingredient", key: "zucker-teig", item: "Zucker", amount: g(180), section: "teig" },
+  { type: "add_ingredient", key: "vanillezucker", item: "Vanillezucker", amount: g(1, "Pck."), section: "teig" },
+  { type: "add_ingredient", key: "backpulver", item: "Backpulver", amount: g(1, "Pck."), section: "teig" },
+  { type: "add_ingredient", key: "kakao", item: "Kakao", amount: g(50), section: "teig" },
+  { type: "add_ingredient", key: "salz", item: "Salz", amount: { value: 0.25, unit: "TL", second: g(2) }, section: "teig" },
+  { type: "add_ingredient", key: "butter-teig", item: "vegane Butter", amount: g(200), section: "teig" },
+  { type: "add_ingredient", key: "skyr", item: "Vanille-Skyr", amount: { value: 800, unit: "g", second: g(2, "Becher") }, section: "fuellung" },
+  { type: "add_ingredient", key: "zucker-fuellung", item: "Zucker", amount: g(200), section: "fuellung" },
+  { type: "add_ingredient", key: "zitronensaft", item: "Zitronensaft", amount: g(30), section: "fuellung", note: "frisch gepresst" },
+  { type: "add_ingredient", key: "zitronenaroma", item: "Zitronenaroma", amount: g(0.5, "Fl."), section: "fuellung", optional: true },
+  { type: "add_ingredient", key: "zitronenschale", item: "Zitronenschale", amount: g(1, "Pck."), section: "fuellung", optional: true },
+  { type: "add_ingredient", key: "butter-fuellung", item: "vegane Butter", amount: g(100), section: "fuellung" },
+  { type: "add_ingredient", key: "puddingpulver", item: "Puddingpulver", amount: { value: 2, unit: "Pck.", second: g(74) }, section: "fuellung" },
+  { type: "add_step", key: "einfetten", label: "Springform einfetten", sentence: "Springform einfetten, optional mit Backpapier auslegen.", equipment: ["springform"] },
+  { type: "add_step", key: "mischen", label: "mischen", section: "teig" },
+  { type: "add_step", key: "verkneten", label: "verkneten", section: "teig" },
+  { type: "add_step", key: "boden", label: "als Boden in die Form drücken, Rand ca. 2,5 cm", section: "teig", equipment: ["springform"] },
+  { type: "add_step", key: "vorheizen", label: "Ofen vorheizen", section: "fuellung", equipment: ["ofen"], temperature: { celsius: 170, mode: "Ober-/Unterhitze" } },
+  { type: "add_step", key: "schmelzen", label: "Butter schmelzen", section: "fuellung" },
+  { type: "add_step", key: "verruehren", label: "mit dem Mixer gut verrühren", section: "fuellung", equipment: ["mixer"] },
+  { type: "add_step", key: "untermixen", label: "Puddingpulver untermixen, bis die Masse glatt ist", section: "fuellung", equipment: ["mixer"] },
+  { type: "add_step", key: "giessen", label: "Füllung auf den Boden gießen" },
+  { type: "add_step", key: "zupfen", label: "restlichen Teig als Zupfen darauf verteilen" },
+  { type: "add_step", key: "backen", label: "backen", equipment: ["ofen"], duration: { min: 60, max: 65, unit: "min", kind: "passive" }, temperature: { celsius: 170, mode: "Ober-/Unterhitze" } },
+  { type: "add_step", key: "auskuehlen", label: "im geöffneten Ofen vollständig auskühlen", duration: { kind: "passive" } },
+  { type: "turn_into_flow" },
+  { type: "set_consumes", step: "mischen", consumes: ["mehl", "zucker-teig", "vanillezucker", "backpulver", "kakao", "salz"] },
+  { type: "set_result", step: "mischen", name: "Mischung" },
+  { type: "set_consumes", step: "verkneten", consumes: ["mischen", "butter-teig"] },
+  { type: "set_result", step: "verkneten", name: "Teig", amount: g(750) },
+  { type: "split_result", step: "verkneten", portions: [{ key: "boden-teig", name: "Boden", amount: g(500) }, { key: "zupfteig", name: "Zupfteig", rest: true }] },
+  { type: "set_consumes", step: "boden", consumes: ["boden-teig"] },
+  { type: "set_waits_for", step: "boden", waitsFor: ["einfetten"] },
+  { type: "set_result", step: "boden", name: "Boden in Form" },
+  { type: "set_consumes", step: "schmelzen", consumes: ["butter-fuellung"] },
+  { type: "set_result", step: "schmelzen", name: "geschmolzene Butter" },
+  { type: "set_consumes", step: "verruehren", consumes: ["skyr", "zucker-fuellung", "zitronensaft", "zitronenaroma", "zitronenschale", "schmelzen"] },
+  { type: "set_result", step: "verruehren", name: "Masse" },
+  { type: "set_consumes", step: "untermixen", consumes: ["verruehren", "puddingpulver"] },
+  { type: "set_result", step: "untermixen", name: "Füllung" },
+  { type: "set_consumes", step: "giessen", consumes: ["boden", "untermixen"] },
+  { type: "set_result", step: "giessen", name: "Kuchen roh" },
+  { type: "set_consumes", step: "zupfen", consumes: ["giessen", "zupfteig"] },
+  { type: "set_result", step: "zupfen", name: "Kuchen" },
+  { type: "set_consumes", step: "backen", consumes: ["zupfen"] },
+  { type: "set_waits_for", step: "backen", waitsFor: ["vorheizen"] },
+  { type: "set_result", step: "backen", name: "gebackener Kuchen" },
+  { type: "set_consumes", step: "auskuehlen", consumes: ["backen"] },
+  { type: "set_result", step: "auskuehlen", name: "Zupfkuchen" }
+]
+
+export const lessSugarEdits: Array<RecipeEdit> = [
+  { type: "edit_ingredient", key: "zucker-teig", amount: g(120) },
+  { type: "edit_step", key: "backen", duration: { min: 65, max: 70, unit: "min", kind: "passive" } }
+]
