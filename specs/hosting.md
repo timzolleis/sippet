@@ -143,6 +143,22 @@ Rejected: `requireMcpAuth`. It fetches the JWKS over HTTP, which here would be t
 - Rejected: one module-scope handler, as in the spike. Several DOs can share an isolate, and their sessions and storage would mix.
 - Writes run in `ctx.storage.transactionSync`: the content, the derived columns, the FTS row, the change, and the retry row commit together.
 
+### Built (`src/store/`)
+
+```text
+schema.ts       Drizzle tables; migrations/cook-library: 0000 (tables, generated), 0001 (recipe_text FTS5, hand-written; drizzle-kit can't model virtual tables)
+library.ts      Library: reads, search, transact({ retry?, run: (writes) => Result }); Writes: addRecipe, addRevision, trashRecipes, restoreRecipes, purgeDue, appendChange
+source.ts       cleanSource, normalizeSource      retry.ts   retryKey, canonicalJson
+mcp-proof.ts    Verify 4 proof; replaced by the real toolkit
+dev.ts          localhost-only ops behind /api/dev/*, for scripts/verify-library.ts
+```
+
+- `pnpm db:generate` after a schema change. The generated `migrations.js` imports `.sql` files; Alchemy's bundler inlines them.
+- `Library` gets a `derive(content)` from the wiring: it returns the title, `total_minutes`, `has_flow`, item keys, and the ingredient and step text. The store never reads the recipe's shape. `placeholder-derive.ts` stands in until the domain's Recipe exists.
+- `transact` is one `transactionSync`: expired retry rows deleted, retry hit returns the stored result, `run`, change rows, retry row. A `Result` failure or a throw rolls back everything. The alarm is set after the commit and again on activation.
+- `addRevision` is compare-and-set on `latest_revision`, and refuses a trashed recipe (the FTS row would break its invariant).
+- Library edits (tags, collections, smart collections) aren't written. `name_key` across `collection` and `smart_collection` (library rule 9) is the writer's to check.
+
 ### Tables
 
 ```sql
@@ -231,7 +247,7 @@ source = the cleaned address;  source_key = the same address without the scheme
 1. ✅ Native D1 works without transactions. `resolveUser` runs *before* the ceremony, so the invitation is consumed in `afterVerification` (see Invitations).
 2. ✅ Access tokens carry `client_id` and `azp` (both the client id), `iat`, `sub`, `aud = <PUBLIC_URL>/mcp`, `iss`. EdDSA; `jose` verifies in workerd.
 3. ✅ With `issuer = PUBLIC_URL`, the root `/.well-known/*` paths and `resource` match. `"infer"` registers a loopback redirect as native. Better Auth always advertises `authorization_response_iss_parameter_supported`, so `/connect`'s deny redirect adds `iss`.
-4. The Effect `McpServer` handler can be built per DO instance, and tool handlers can read the request's `sippet-*` headers (connection and retry key).
+4. ✅ The `McpServer` handler is built per DO instance (`HttpRouter.toWebHandler` in the constructor, storage closed over in the tool layer); two cooks keep separate state. A tool handler reads the current request's headers with `Context.getOrUndefined(yield* Effect.context<never>(), HttpServerRequest.HttpServerRequest)`. Typed `yield* HttpServerRequest` doesn't compile: `toLayer` handlers can't require it. Headers are per request, not per session (a second connection on the same session shows its own). Checked on 2025-06-18 and 2025-11-25; not 2026-07-28. `layerHttp` answers 403 to any request with an `Origin` header (set `allowedOrigins` if a browser client is ever needed); Claude's connectors send none.
 5. claude.ai starts a new session after a 404 following DO eviction.
 6. Better Auth sign-in and the token endpoint stay near 10 ms CPU cold on the Worker. If they don't, move Better Auth into a singleton `Accounts` DO on its own SQLite.
 

@@ -1,6 +1,14 @@
 // One CookLibrary per cook. Skeleton: connection table, the connection/iat check, connect/disconnect RPCs.
 // The MCP server and the library tables are added on top of this (specs/hosting.md#cooklibrary).
 import { DurableObject } from "cloudflare:workers"
+import { drizzle } from "drizzle-orm/durable-sqlite"
+import { migrate } from "drizzle-orm/durable-sqlite/migrator"
+import migrations from "../migrations/cook-library/migrations.js"
+import { isLocal, runDevOp } from "./store/dev.ts"
+import { Library, type Db } from "./store/library.ts"
+import { makeMcpHandler } from "./store/mcp-proof.ts"
+import { placeholderDerive } from "./store/placeholder-derive.ts"
+import * as schema from "./store/schema.ts"
 
 export type Connection = { clientId: string; name: string; connectedAt: number }
 
@@ -9,18 +17,24 @@ type ConnectionRow = { client_id: string; name: string; connected_at: number; di
 const unknownClientName = "Claude"
 
 export class CookLibrary extends DurableObject {
+  private readonly db: Db
+  private readonly library: Library
+  private readonly mcp: ReturnType<typeof makeMcpHandler>
+
   constructor(ctx: DurableObjectState, env: Cloudflare.Env) {
     super(ctx, env)
+    this.db = drizzle(ctx.storage, { schema })
+    this.library = new Library({ db: this.db, storage: ctx.storage, derive: placeholderDerive })
+    this.mcp = makeMcpHandler({ sql: ctx.storage.sql })
     ctx.blockConcurrencyWhile(async () => {
-      ctx.storage.sql.exec(
-        `CREATE TABLE IF NOT EXISTS connection (
-           client_id TEXT PRIMARY KEY,
-           name TEXT NOT NULL,
-           connected_at INTEGER NOT NULL,
-           disconnected_at INTEGER
-         )`,
-      )
+      await migrate(this.db, migrations)
+      await this.library.scheduleAlarm() // self-heal: the alarm is set after the commit that changed purge_at
     })
+  }
+
+  // Revising rules 7, 9: purge every due recipe, then set the next alarm. Alarms retry on failure; a second run finds nothing due.
+  override async alarm(): Promise<void> {
+    await this.library.purgeDue()
   }
 
   // account rule 4: the cook approved this client. A later connectClient keeps disconnected_at, so older tokens stay refused.
@@ -64,9 +78,8 @@ export class CookLibrary extends DurableObject {
     if (connection === null || !Number.isFinite(issuedAt)) return new Response("unauthorized", { status: 401 })
     if (this.isRefused({ connection, issuedAt })) return new Response("unauthorized", { status: 401 })
 
-    const sippetHeaders: Record<string, string> = {}
-    for (const [name, value] of request.headers) if (name.startsWith("sippet-")) sippetHeaders[name] = value
-    return Response.json(sippetHeaders)
+    if (new URL(request.url).pathname.startsWith("/api/dev/")) return this.dev(request, connection)
+    return this.mcp.handler(request)
   }
 
   // A token from a disconnected connection is refused when it was issued before the disconnect.
@@ -85,5 +98,23 @@ export class CookLibrary extends DurableObject {
       return false
     }
     return row.disconnected_at !== null && issuedAt * 1000 < row.disconnected_at
+  }
+
+  // Local checks only (store/dev.ts): refused unless PUBLIC_URL is localhost.
+  private async dev(request: Request, connection: string): Promise<Response> {
+    if (!isLocal(this.env as { PUBLIC_URL?: string })) return new Response("not found", { status: 404 })
+    const op = new URL(request.url).pathname.slice("/api/dev/".length)
+    if (op === "headers") return Response.json(Object.fromEntries([...request.headers].filter(([name]) => name.startsWith("sippet-"))))
+    const args = request.method === "POST" ? ((await request.json()) as Record<string, unknown>) : {}
+    const value = await runDevOp({
+      op,
+      args,
+      library: this.library,
+      db: this.db,
+      storage: this.ctx.storage,
+      connection,
+      setAlarmNow: () => this.library.scheduleAlarm(),
+    })
+    return Response.json(value)
   }
 }
