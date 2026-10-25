@@ -15,7 +15,6 @@ Host mapping:
 - Free Apple account: Simulator, and personal-team builds on a phone (7 days). Nothing needs a paid entitlement.
 
 Out of scope:
-- The table view (cooking rule 1).
 - Recipe edits, smart-collection editing, emptying the trash.
 - Mac, Watch, Live Activities, background sync, photo import.
 
@@ -29,6 +28,7 @@ Stories: [cooking](../stories/cooking.md), [sync](../stories/sync.md), [library]
 | The cook signs a device out. | account 8 | `SettingsScreen` |
 | A device loads the library, catches up, and hears about changes. | sync 1–4, 6 | `SyncEngine` |
 | A device reads, searches, and filters the library offline. | sync 5, cooking 9, library 13, 14 | `LibraryStore`, `LibraryScreen` |
+| The cook reads a recipe as a table. | cooking 1 | `recipeTable`, `RecipeTableScreen` |
 | The cook reads a recipe as numbered steps, with its ingredients. | cooking 2, 3 | `RecipeScreen` |
 | The cook sees what to buy for a recipe. | cooking 3 | `RecipeScreen` |
 | The cook cooks along in cook mode. | cooking 4, 5 | `CookModeScreen` |
@@ -198,25 +198,92 @@ SippetApp
    ├─ CollectionSheet    toggles per collection + new collection → add_to_collection / remove_from_collection / create_collection
    ├─ TrashScreen        "wird am 24. Nov. gelöscht"; swipe → wiederherstellen (revising 7, 8)
    ├─ tag and collection rows: context menu → umbenennen, löschen (library 6, 8, 12); "name taken" shows the refusal's message
-   └─ RecipeScreen
-      ├─ header      title, yield stepper (cooking 6), units menu: wie geschrieben | metrisch | US (cooking 8), source link
-      ├─ picker      Schritte | Zutaten | Einkauf
-      │    Schritte  numbered stepSentence; duration, temperature, equipment per step (cooking 2)
-      │    Zutaten   by section: "Teig: 180 g Zucker" (cooking 3)
-      │    Einkauf   itemTotals: "380 g Zucker (180 g Teig, 200 g Füllung)" (cooking 3)
+   └─ RecipeScreen                one scroll, no tab picker (see Look)
+      ├─ header      large title; a row of chips: yield stepper "12 Stück · Springform 26 cm" (cooking 6), total time,
+      │              units menu: wie geschrieben | metrisch | US (cooking 8); source link
+      ├─ Zutaten     by section, amount column bold and aligned, item and note after it (cooking 3);
+      │              tap a row to check it off (struck through, dimmed); checks live as long as the screen
+      ├─ Zubereitung numbered steps: the sentence, then the ingredients it uses with amounts in one quiet line,
+      │              duration, temperature, equipment as small chips (cooking 2)
+      │              iPad and landscape: Zutaten in a left column, Zubereitung right, each scrolling on its own
+      ├─ toolbar     Kochen (primary) · Ablauf (only when recipeTable(recipe) isn't nil) · Einkaufen
+      ├─ Einkaufen → sheet: itemTotals "380 g Zucker (180 g Teig, 200 g Füllung)", checkable like Zutaten (cooking 3)
+      ├─ Ablauf → RecipeTableScreen (full screen, see Table)
       └─ Kochen → CookModeScreen (full screen)
-           one step per page, large type; the ingredients it uses with amounts, the results and portions it takes (cooking 4)
-           a step with a duration: timer button; countdown in the page, local notification at the end (cooking 5)
-           a step a later step waits for (flow.waitsFor) stays pinned as a reminder from the step after it until the step that waits:
-             at "mit dem Mixer gut verrühren": "Ofen auf 170 °C O/U vorheizen" (cooking 5 example)
+           chrome: a thin segmented progress bar (one segment per step) and a close button; nothing else at the top
+           page: "Schritt 3 von 11" small; the step's ingredients with amounts large and bold, the results and portions it
+             takes ("+ Masse"), then the sentence in large type (title, wraps freely); duration and temperature as chips (cooking 4)
+           navigation: swipe, or tap the right or left third of the page; the last page ends with "Fertig"
+           timer: a large pill on a step with a duration; tapped, it counts down in place; running timers stay in a bar
+             at the bottom across pages, tap one to jump to its step; local notification at the end (cooking 5)
+           reminders: a step a later step waits for (flow.waitsFor) shows as a quiet banner under the progress bar, from the
+             step after it until the step that waits: at "mit dem Mixer gut verrühren": "Ofen auf 170 °C O/U vorheizen" (cooking 5)
+           "Alle Zutaten": a button at the bottom opens the full checked list as a sheet
            the screen stays awake while open
 SettingsScreen     units default, device name, "Konto verwalten" (opens <server>/account), abmelden
 banner             SyncEngine.lastNotice, 4 s (sync 4); "Offline" pill while offline (sync 5)
 ```
 
-- Look: system SwiftUI, with no custom chrome. Accent is the paprika from account-ui.md. Use SF Symbols, Dynamic Type, and dark mode.
+- Look: like Crouton. Calm, typographic, much white space, content over chrome. Large titles; amounts bold. No grouped-list boxes on the recipe and cook mode: plain backgrounds, hairline dividers, generous line height. One accent (paprika, account-ui.md) for the primary action, step numbers, and checks. SF Symbols, Dynamic Type up to accessibility sizes, dark mode. Library, sidebar, sheets, and settings stay standard SwiftUI.
+- Cook mode is for a phone propped on the counter at arm's length: the step text is the largest thing on screen, targets are at least 60 pt, and nothing needs precise taps.
 - Scaling and units are view state per recipe screen. The units default comes from Settings.
 - Refusals (`DeviceAPIError.refused`) show each problem's `message` in an alert. The app has no "fix" UI; the cook changes the input.
+
+## Table (cooking rule 1, `SippetCore/Cooking/RecipeTable.swift`, `Screens/RecipeTableScreen.swift`)
+
+The [Zupfkuchen-Ablauf](../stories/zupfkuchen-table.png), drawn from the recipe's content and its flow (`step.flow`). Swift only: no other client draws it yet.
+
+```swift
+func recipeTable(_ recipe: DeviceRecipe) -> RecipeTable?      // nil: no flow (recipe rule 10), or the flow can't be drawn (cooking 1)
+
+struct RecipeTable: Sendable, Equatable { columns: Int; rows: [TableRow]; cells: [TableCell] }
+enum TableRow: Sendable, Equatable { case prepStep(stepKey), section(sectionKey), ingredient(ingredientKey) }
+struct TableCell: Sendable, Equatable { row: Int; rowSpan: Int; column: Int; columnSpan: Int; content: TableCellContent }
+enum TableCellContent: Sendable, Equatable {
+  case prepStep(stepKey)                          // full width: "Springform einfetten (optional mit Backpapier auslegen)"
+  case section(sectionKey, prepStepKeys: [String])   // "FÜLLUNG · jetzt Ofen auf 170 °C O/U vorheizen"
+  case ingredient(ingredientKey)
+  case prep(ingredientKey)                        // "auspressen", next to its ingredient (recipe rule 5)
+  case step(stepKey, passingPortionKeys: [String])   // "verkneten (ergibt 750 g)"; a portion passing this column is written in it: "250 g für Zupfen"
+  case empty                                      // an ingredient skipping a column
+}
+```
+
+The table holds keys only. `RecipeTableScreen` renders text with the same functions as the rest of the app (scaled recipe, units, `amountText`), so the table follows the yield stepper and units.
+
+```text
+recipeTable(recipe)
+├─ !recipe.hasFlow → nil
+├─ rows
+│    prep steps without a section (no uses, nothing taken, no section): full-width rows, at the top when they come
+│      before every step in a section in the author's order, else at the bottom
+│    per section in order: a section row, then its ingredients, reordered so the ingredients each step uses
+│      directly sit together (stable: by the first step that uses them, then author's order)
+│    ingredients without a section: last, without a section row
+├─ columns
+│    ingredient 0; its prep 1; a step 1 + the largest column of what it uses (an ingredient: 0, or 1 with prep)
+│      and takes (a step, or the step that made a portion). waitsFor doesn't move a step.
+├─ cells
+│    a step spans the rows of every ingredient that reaches it through uses and takes, plus the section rows between them;
+│      those rows must be contiguous, else nil
+│    a section row spans from column 0 up to the first column a step crossing that row occupies
+│    an ingredient row gets an empty cell for each column between its last filled one and the step that uses it
+│    a portion from step A taken by step B is written in each column strictly between A and B, in the cell over its rows
+│    a step that takes a portion shows the portion's amount before its text: "500 g als Boden in die Form drücken"
+└─ step text: label or sentence as in stepSentence, without the ingredient list; temperature, duration, "(ergibt 750 g)" from the result
+```
+
+Cases (`swift test`, the Zupfkuchen from the golden file; expected is the picture)
+  Zupfkuchen                 → 7 columns; rows: einfetten, TEIG, Mehl … Teigbutter, FÜLLUNG (vorheizen), Skyr … Puddingpulver
+  mischen                    → column 1, rows Mehl … Salz;  verkneten → column 2, rows Mehl … Teigbutter; Teigbutter column 1 empty
+  auspressen, schmelzen      → prep cells in column 1;  verrühren → column 2, rows Skyr … Füllbutter
+  untermixen                 → column 3, rows Skyr … Puddingpulver; Puddingpulver columns 1, 2 empty
+  boden                      → column 3, rows Mehl … Teigbutter, passing portion zupfteig ("250 g …")
+  giessen, backen, auskühlen → columns 4, 5, 6, rows Mehl … Puddingpulver with the FÜLLUNG row; FÜLLUNG spans columns 0–3
+  pasta with plain steps     → nil (recipe rule 10)
+  a step whose ingredients sit in two sections with another section between them and no step joining it → nil
+
+`RecipeTableScreen`: full screen, landscape-friendly; scrolls both ways and zooms with a pinch; title line "Veganer Russischer Zupfkuchen (26 cm Springform, 12 Stück)"; hairline grid in the accent's muted tint, section rows tinted, text centred in step cells and leading in ingredient cells, as in the picture. A custom SwiftUI `Layout` places cells by row, column, and spans (`Grid` has no row spans).
 
 ## Golden files (`scripts/golden.ts`, `test/golden/`)
 

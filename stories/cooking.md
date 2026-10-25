@@ -26,7 +26,7 @@ Views, not use cases: nothing in the library changes. All of them follow from th
 
 ## Rules
 
-1. **Table.** Like the [Zupfkuchen-Ablauf](zupfkuchen-ablauf.png). Only for recipes with a flow (recipe rule 10).
+1. **Table.** Like the [Zupfkuchen-Ablauf](zupfkuchen-table.png). Shown when the cook asks for it, only for recipes with a flow (recipe rule 10).
    - Header: title, vessel, and yield.
    - Ingredients in the left column, by section. A step spans the rows of every ingredient that reaches it, and stands in the column of its longest path from them. An ingredient that skips a column leaves its cell empty.
    - An ingredient's prep stands in the column next to it (recipe rule 5).
