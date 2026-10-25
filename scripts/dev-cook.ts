@@ -58,6 +58,7 @@ const added = async (title: string, result: Awaited<ReturnType<typeof call>>) =>
 
 const zupfkuchen = await added(zupfkuchenTitle, await call("add_recipe", { title: zupfkuchenTitle, yield: zupfkuchenYield, edits: zupfkuchenEdits }))
 const pasta = await added(pastaTitle, await call("add_recipe", { title: pastaTitle, yield: pastaYield, edits: [...pastaIngredientEdits, ...pastaPlainStepEdits] }))
+
 await call("edit_recipe", { recipeId: pasta, fromRevision: 1, edits: pastaUsesEdits }) // a second revision, as Claude would name each step's ingredients
 
 await call("edit_library", {
@@ -72,6 +73,9 @@ await call("edit_library", {
 const { tokens } = await signInDevice(cook)
 
 console.log(`cook:         ${cook.cookId}`)
+
 console.log(`recipes:      ${zupfkuchenTitle} (${zupfkuchen}), ${pastaTitle} (${pasta})`)
+
 console.log(`claude token: ${claudeToken}`)
+
 console.log(`\nSIPPET_REFRESH_TOKEN=${tokens.refresh_token}`)
