@@ -257,7 +257,11 @@ live (scripts/verify-device.ts against pnpm dev; WebSocketPair isn't in node)
 
 ## Verify before building on it
 
-1. `ensureDeviceClient` works on native D1, and authorize → token works with PKCE, `offline_access`, and the redirect `de.bastelboxx.sippet:/oauth`. Better Auth's native-client check accepts the authority-free reverse-domain form.
-2. `/connect` shows "Sippet app" and approves in one tap, unchanged. The `iss` parameter reaches the custom-scheme redirect.
-3. A refresh rotates the refresh token and keeps `azp`. A refresh after the disconnect fails.
+1. ✅ `ensureDeviceClient` works on native D1, and authorize → token works with PKCE, `offline_access`, and the redirect `de.bastelboxx.sippet:/oauth`. Better Auth's native-client check accepts the authority-free reverse-domain form. Facts (`pnpm verify:device-sign-in`):
+   - It writes through Better Auth's adapter after `await auth.$context`. The plugin's `init` seeds the `oauthResource` row there, and `oauthClientResource.resourceId` has a foreign key to it.
+   - The row equals a DCR row for the same metadata, except `userId` (null; DCR stores the signed-in registrant), `requirePKCE` 1 and `skipConsent` 0 (DCR leaves both null).
+   - Seeding skips DCR's redirect validation; authorize only matches the stored URI exactly. Authorize without PKCE redirects with `error=invalid_request` ("pkce is required for public clients").
+   - Authorize answers a `fetch()` (`Sec-Fetch-Mode: cors`) or `Accept: application/json` request with `200 {redirect, url}` instead of a 302. A navigation in `ASWebAuthenticationSession` gets the 302.
+2. ✅ `/connect` shows "Sippet app" and approves in one tap, unchanged. The `iss` parameter reaches the custom-scheme redirect: `de.bastelboxx.sippet:/oauth?code=…&state=…&iss=<PUBLIC_URL>`. The approval creates the connection "Sippet app".
+3. ✅ A refresh rotates the refresh token and keeps `azp`. A refresh after the disconnect fails (400). The access token issued before the disconnect is forwarded by the Worker and refused by the DO (401).
 4. A WebSocket upgrade passes through the Worker to the DO in `alchemy dev` and in production. Hibernation keeps the socket across a DO eviction (wait for eviction, then send a change).
