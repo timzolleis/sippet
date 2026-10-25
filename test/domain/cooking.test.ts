@@ -3,6 +3,7 @@ import { itemTotalsFromContent } from "../../src/domain/cooking/item-total.ts"
 import { measurableValue } from "../../src/domain/cooking/measurable-amount.ts"
 import { amountInMeasurementSystem, temperatureInMeasurementSystem } from "../../src/domain/cooking/measurement-system.ts"
 import { scaleRecipeContent } from "../../src/domain/cooking/scale-recipe.ts"
+import { stepSentenceFromStep } from "../../src/domain/cooking/step-sentence.ts"
 import { heatingModeLabel, unitLabel } from "../../src/domain/cooking/unit-label.ts"
 import type { Amount } from "../../src/domain/recipe/amount.ts"
 import type { RecipeContent } from "../../src/domain/recipe/recipe-content.ts"
@@ -64,5 +65,16 @@ describe("measurable amounts (rule 7)", () => {
     const messerspitze: Amount = { value: 1, unit: { custom: "Messerspitze" } }
     expect(amountInMeasurementSystem({ amount: { value: 1, unit: "cup" }, system: "metric" })).toEqual({ value: 240, unit: "ml" })
     expect(amountInMeasurementSystem({ amount: messerspitze, system: "us" })).toEqual(messerspitze)
+  })
+})
+
+describe("step sentences (recipe rule 8)", () => {
+  it.each([
+    { stepKey: "einfetten", sentence: "Springform einfetten, optional mit Backpapier auslegen." },
+    { stepKey: "verkneten", sentence: "verkneten (vegane Butter, mischen)" },
+    { stepKey: "giessen", sentence: "Füllung auf den Boden gießen, restlichen Teig als Zupfen darauf verteilen (als Boden in die Form drücken, Rand ca. 2,5 cm, Füllung, Zupfteig)" },
+    { stepKey: "vorheizen", sentence: "Ofen vorheizen" },
+  ])("$stepKey → $sentence", ({ stepKey, sentence }) => {
+    expect(stepSentenceFromStep({ content: zupfkuchen, step: stepOf(zupfkuchen, stepKey)! })).toBe(sentence)
   })
 })
