@@ -61,10 +61,15 @@ const reloadJwks = (db: D1Database): Promise<JSONWebKeySet> => {
 const verifyToken = async ({ token, env }: { token: string; env: Env }) => {
   const options = { issuer: env.PUBLIC_URL, audience: `${env.PUBLIC_URL}/mcp` }
 
+  const jwks = await (cachedJwks ??= reloadJwks(env.DB))
+
   try {
-    return await jwtVerify(token, createLocalJWKSet(await (cachedJwks ??= reloadJwks(env.DB))), options)
+    return await jwtVerify(token, createLocalJWKSet(jwks), options)
   } catch (error) {
-    if (!(error instanceof errors.JWKSNoMatchingKey) || Date.now() - lastReload < reloadInterval) throw error
+    if (!(error instanceof errors.JWKSNoMatchingKey)) throw error
+
+    // the table is empty until the first token is signed, so an empty set always reloads
+    if (jwks.keys.length > 0 && Date.now() - lastReload < reloadInterval) throw error
 
     return await jwtVerify(token, createLocalJWKSet(await reloadJwks(env.DB)), options) // reload once on an unknown kid
   }
