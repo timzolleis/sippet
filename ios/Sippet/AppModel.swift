@@ -4,12 +4,24 @@ import SippetCore
 import UIKit
 
 enum AppConfig {
+    static let productionURL = URL(string: "https://sippet.bastelboxx.de")!
+
     static var serverURL: URL {
         #if DEBUG
-        if let text = ProcessInfo.processInfo.environment["SIPPET_URL"], let url = URL(string: text) { return url }
+        // Xcode passes SIPPET_URL only when it launches the app; remember it for launches from the home screen.
+        let key = "debugServerURL"
+        if let text = ProcessInfo.processInfo.environment["SIPPET_URL"], let url = URL(string: text) {
+            UserDefaults.standard.set(text, forKey: key)
+            return url
+        }
+        if let text = UserDefaults.standard.string(forKey: key), let url = URL(string: text) { return url }
+        #if targetEnvironment(simulator)
         return URL(string: "http://localhost:1337")!
         #else
-        return URL(string: "https://sippet.bastelboxx.de")!
+        return productionURL // a phone can't reach the Mac's localhost
+        #endif
+        #else
+        return productionURL
         #endif
     }
 

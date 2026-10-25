@@ -51,6 +51,9 @@ struct SignInScreen: View {
             return
         } catch {
             model.signInError = String(localized: "Sign-in failed. Try again.")
+            #if DEBUG
+            model.signInError? += "\n\(AppConfig.serverURL.absoluteString): \(error.localizedDescription)"
+            #endif
         }
     }
 }
