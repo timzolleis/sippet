@@ -3,7 +3,7 @@ import type { ChangeAuthor } from "../shared/change-author.ts"
 import { addRecipe } from "./recipe.ts"
 import { emptyRecipeContent, type Yield } from "./recipe-content.ts"
 import { recipeContentFromEdits } from "./recipe-content-from-edits.ts"
-import type { RecipeEdit } from "./recipe-edit.ts"
+import type { NewRecipeEdit } from "./recipe-edit.ts"
 import type { RecipeRefusedError, RecipeSourceAlreadyAddedError } from "./recipe-error.ts"
 import { generateRecipeId, type RecipeId } from "./recipe-id.ts"
 import { RecipeRepository, RecipeSources } from "./recipe-repository.ts"
@@ -13,7 +13,7 @@ export type AddRecipeCommand = {
   readonly title: string
   readonly yield: Yield
   readonly source?: string
-  readonly edits: ReadonlyArray<RecipeEdit>
+  readonly edits: ReadonlyArray<NewRecipeEdit>
   readonly by: ChangeAuthor
 }
 

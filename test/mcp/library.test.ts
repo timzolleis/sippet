@@ -16,7 +16,7 @@ const simple = (title: string, extra: ReadonlyArray<string> = []) => ({
 const setup = async () => {
   const cook = makeCook()
   const client = await cook.connect()
-  const add = async (title: string, extra: ReadonlyArray<string> = []) => (await client.call("add_recipe", simple(title, extra))).value.recipeId
+  const add = async (title: string, extra: ReadonlyArray<string> = []) => (await client.call("add_recipe", simple(title, extra))).value.id
 
   return { cook, client, add }
 }
@@ -65,8 +65,8 @@ describe("edit_library (library rules 1–15)", () => {
 
     expect(refused.isError).toBe(true)
     expect(refused.value.problems).toEqual([
-      { edit: 2, message: expect.stringContaining("in the trash") },
-      { edit: 3, message: 'no collection "Nirgends"' },
+      { edit: 2, rule: "trashed-recipes-leave-the-library", message: expect.stringContaining("in the trash"), fix: expect.stringContaining("restore_recipes") },
+      { edit: 3, rule: "unknown-collection", message: 'no collection "Nirgends"', fix: expect.any(String) },
     ])
     expect(cook.count("change")).toBe(before)
     expect(cook.count("collection")).toBe(0)
@@ -101,7 +101,7 @@ describe("edit_library (library rules 1–15)", () => {
     const clash = await client.call("edit_library", { edits: [{ op: "rename_tag", tag: "Nachtisch", to: "dessert" }] })
 
     expect(clash.isError).toBe(true)
-    expect(clash.value.problems[0].message).toContain("merge")
+    expect(clash.value.problems[0]).toMatchObject({ rule: "rename-to-a-free-name", fix: expect.stringContaining("merge_tags") })
     const merged = await client.call("edit_library", { edits: [{ op: "merge_tags", tag: "Nachtisch", into: "Dessert" }] })
 
     expect(merged.value.tags).toEqual([{ name: "Dessert", recipes: 2 }])
@@ -229,7 +229,7 @@ describe("search_recipes (cooking rule 9)", () => {
     expect(await ids({ smartCollection: "Skyr-Sachen", hasFlow: false })).toEqual([])
     const unknown = await client.call("search_recipes", { smartCollection: "Nix" })
 
-    expect(unknown).toEqual({ isError: true, value: { refused: true, problems: [{ message: 'no smart collection "Nix"' }] } })
+    expect(unknown).toEqual({ isError: true, value: { refused: true, problems: [{ rule: "unknown-smart-collection", message: 'no smart collection "Nix"', fix: "name a smart collection get_library lists" }] } })
     expect((await client.call("search_recipes", { collection: "Nix" })).isError).toBe(true)
   })
 

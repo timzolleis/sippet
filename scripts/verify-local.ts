@@ -348,7 +348,7 @@ const wrote = await mcp.call("add_recipe", { title: "Probe", yield: { amount: { 
 
 check("the cook is the token's sub (a write lands in this cook's library)", !wrote.isError)
 
-const probeId = textOf(at(wrote.value, "recipeId"))
+const probeId = textOf(at(wrote.value, "id"))
 const probeRevisions = await mcp.call("list_revisions", { recipeId: probeId })
 
 check("the connection is the token's client id (forged header dropped)", at(probeRevisions.value, "revisions", 0, "by", "name") === "Claude (claude.ai)")

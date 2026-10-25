@@ -25,7 +25,8 @@ const revisedZupfkuchen = (edits: ReadonlyArray<unknown>) => problemsOf({ conten
 const takesOf = (content: RecipeContent, stepKey: string) =>
   Option.getOrThrow(recipeFlowFromContent(content)).steps.find((step) => step.stepKey === stepKey)?.takes.map((link) => link.key)
 
-const rule = (number: number, message: string) => ({ rule: `recipe ${number}`, message })
+// A problem names its rule and says how to fix it (specs/mcp.md Refusals).
+const rule = (name: RecipeProblem["rule"], message: string) => expect.objectContaining({ rule: name, message, fix: expect.any(String) })
 
 describe("recipe rules, Zupfkuchen unless named", () => {
   it("Zitronensaft and Füllbutter with prep; verrühren is the first step in Füllung that makes something (rules 5, 11)", () => {
@@ -54,23 +55,23 @@ describe("recipe rules, Zupfkuchen unless named", () => {
   it("no step uses Kakao: refused (rule 14)", () => {
     expect(revisedZupfkuchen([
       { op: "edit_step", key: "mischen", uses: ["mehl", "zucker-teig", "vanillezucker", "backpulver", "salz"] },
-    ])).toEqual([rule(14, 'ingredient "kakao" is used by no step')])
+    ])).toEqual([rule("every-ingredient-goes-to-one-step", 'ingredient "kakao" is used by no step')])
   })
 
   it("mischen and verrühren both use the 180 g Zucker: refused (rule 14)", () => {
     expect(revisedZupfkuchen([
       { op: "edit_step", key: "verruehren", uses: ["skyr", "zucker-teig", "zitronensaft", "zitronenaroma", "zitronenschale", "butter-fuellung"] },
     ])).toEqual([
-      rule(14, 'ingredient "zucker-teig" is used by "mischen" and "verruehren"'),
-      rule(14, 'ingredient "zucker-fuellung" is used by no step'),
+      rule("every-ingredient-goes-to-one-step", 'ingredient "zucker-teig" is used by "mischen" and "verruehren"'),
+      rule("every-ingredient-goes-to-one-step", 'ingredient "zucker-fuellung" is used by no step'),
     ])
   })
 
   it("mischen names verkneten as what it takes: refused (rules 13, 19)", () => {
     expect(revisedZupfkuchen([{ op: "edit_step", key: "mischen", takes: ["verkneten"] }])).toEqual([
-      rule(13, 'loop: "mischen" takes "verkneten", "verkneten" takes "mischen" (derived: chain)'),
-      rule(16, 'step "mischen" takes the whole result of "verkneten", which is split; take its portions'),
-      rule(19, 'step "mischen" takes "verkneten", which comes after it'),
+      rule("no-loops", 'loop: "mischen" takes "verkneten", "verkneten" takes "mischen" (derived: chain)'),
+      rule("portions", 'step "mischen" takes the whole result of "verkneten", which is split'),
+      rule("authors-order", 'step "mischen" takes "verkneten", which comes after it'),
     ])
   })
 
@@ -78,7 +79,7 @@ describe("recipe rules, Zupfkuchen unless named", () => {
     expect(revisedZupfkuchen([
       { op: "edit_step", key: "vorheizen", waitsFor: ["backen"] },
       { op: "edit_step", key: "backen", waitsFor: ["vorheizen"] },
-    ])).toContainEqual(rule(13, 'loop: "vorheizen" waits for "backen", "backen" waits for "vorheizen"'))
+    ])).toContainEqual(rule("no-loops", 'loop: "vorheizen" waits for "backen", "backen" waits for "vorheizen"'))
   })
 
   it("two steps name the whole Teig as what they take: refused, split it (rule 15)", () => {
@@ -86,7 +87,7 @@ describe("recipe rules, Zupfkuchen unless named", () => {
       { op: "edit_step", key: "verkneten", result: { name: "Teig", amount: { value: 750, unit: "g" } } },
       { op: "edit_step", key: "boden", takes: ["verkneten"] },
       { op: "edit_step", key: "giessen", takes: ["verkneten", "untermixen"] },
-    ])).toEqual([rule(15, 'result of "verkneten" is taken by "boden" and "giessen"')])
+    ])).toEqual([rule("result-goes-to-one-place", 'result of "verkneten" is taken by "boden" and "giessen"')])
   })
 
   it("names the derivation that made a link (specs/mcp.md, Refusals)", () => {
@@ -94,7 +95,7 @@ describe("recipe rules, Zupfkuchen unless named", () => {
       { op: "edit_step", key: "verkneten", result: { name: "Teig", amount: { value: 750, unit: "g" } } },
       { op: "move_step", key: "boden", at: { after: "giessen" } },
       { op: "edit_step", key: "boden", takes: ["verkneten"] },
-    ])).toEqual([rule(15, 'result of "verkneten" is taken by "giessen" (derived: join) and "boden"')])
+    ])).toEqual([rule("result-goes-to-one-place", 'result of "verkneten" is taken by "giessen" (derived: join) and "boden"')])
   })
 
   it('"500 g als Boden, den Rest für Zupfen": valid (rule 16)', () => {
@@ -112,7 +113,7 @@ describe("recipe rules, Zupfkuchen unless named", () => {
         { key: "boden-teig", name: "Boden", amount: { value: 500, unit: "g" } },
         { key: "zupfteig", name: "Zupfteig", amount: { value: 300, unit: "g" } },
       ] } },
-    ])).toEqual([rule(16, 'portions of "verkneten" (800 g) exceed its result (750 g)')])
+    ])).toEqual([rule("portions", 'portions of "verkneten" (800 g) exceed its result (750 g)')])
   })
 
   it("split, but no later step takes Zupfteig and no join follows: refused (rule 16)", () => {
@@ -121,7 +122,7 @@ describe("recipe rules, Zupfkuchen unless named", () => {
       { op: "edit_step", key: "backen", takes: ["giessen"] },
       { op: "edit_step", key: "auskuehlen", takes: ["backen"] },
     ]))
-      .toEqual([rule(16, 'portion "zupfteig" of "verkneten" is taken by no step')])
+      .toEqual([rule("portions", 'portion "zupfteig" of "verkneten" is taken by no step')])
   })
 
   it("a later step naming Zupfteig keeps it out of the join (rule 11)", () => {
@@ -139,26 +140,26 @@ describe("recipe rules, Zupfkuchen unless named", () => {
   it("every result taken or waited for: refused (rule 18)", () => {
     expect(revisedZupfkuchen([
       { op: "add_step", key: "ausschalten", label: "Ofen ausschalten", takes: [], waitsFor: ["auskuehlen"] },
-    ])).toEqual([rule(18, "the flow makes nothing: every result is taken or waited for")])
+    ])).toEqual([rule("what-the-recipe-makes", "the flow makes nothing: every result is taken or waited for")])
   })
 
   it("remove kakao while mischen still uses it: refused (rule 12)", () => {
     expect(revisedZupfkuchen([{ op: "remove_ingredient", key: "kakao" }]))
-      .toEqual([rule(12, 'step "mischen" uses no ingredient "kakao"')])
+      .toEqual([rule("everything-named-exists", 'step "mischen" uses no ingredient "kakao"')])
   })
 
   it("two ingredients with the key zucker: refused (rule 20)", () => {
     expect(revisedZupfkuchen([{ op: "add_ingredient", key: "mehl", item: "Zucker" }]))
-      .toEqual([{ edit: 1, message: 'key "mehl" is already used' }])
+      .toEqual([{ edit: 1, rule: "keys", message: 'key "mehl" is already used', fix: expect.stringContaining('"mehl-2"') }])
     expect(revisedZupfkuchen([{ op: "edit_step", key: "untermixen", result: { split: [{ key: "mehl", name: "Mehl", rest: true }] } }]))
-      .toContainEqual(rule(20, 'key "mehl" is used 2 times'))
+      .toContainEqual(rule("keys", 'key "mehl" is used 2 times'))
   })
 
   it("no title, ingredient, or step: refused (rule 1)", () => {
     expect(problemsOf({ content: emptyPasta, edits: decodeRecipeEdits([{ op: "set_title", title: " " }]) })).toEqual([
-      rule(1, "the recipe has no title"),
-      rule(1, "the recipe has no ingredient"),
-      rule(1, "the recipe has no step"),
+      rule("title-ingredient-step", "the recipe has no title"),
+      rule("title-ingredient-step", "the recipe has no ingredient"),
+      rule("title-ingredient-step", "the recipe has no step"),
     ])
   })
 })
@@ -170,6 +171,54 @@ describe("recipe rules, Pasta", () => {
 
   it("5 of 6 ingredients named in steps: refused, Parmesan is used by no step (rule 14)", () => {
     expect(problemsOf({ content: plainPasta, edits: pastaUsesEdits.slice(0, 3) }))
-      .toEqual([rule(14, 'ingredient "parmesan" is used by no step')])
+      .toEqual([rule("every-ingredient-goes-to-one-step", 'ingredient "parmesan" is used by no step')])
+  })
+})
+
+describe("fix hints (specs/mcp.md Refusals)", () => {
+  const fixOf = (problems: ReadonlyArray<RecipeProblem>, name: RecipeProblem["rule"]) => problems.find((problem) => problem.rule === name)?.fix
+
+  it("an ingredient in takes: move it to uses, and omit takes so the chain stays", () => {
+    const problems = revisedZupfkuchen([{ op: "edit_step", key: "verkneten", uses: [], takes: ["butter-teig"] }])
+    expect(problems).toContainEqual({
+      rule: "everything-named-exists",
+      message: 'step "verkneten" takes the ingredient "butter-teig"; takes is for results of earlier steps and portions',
+      fix: 'move "butter-teig" from takes to uses on "verkneten", and omit takes there (null in edit_step) so "verkneten" keeps the derived chain',
+    })
+  })
+
+  it("an ingredient beside a result in takes: move only the ingredient", () => {
+    const problems = revisedZupfkuchen([{ op: "edit_step", key: "verkneten", uses: [], takes: ["mischen", "butter-teig"] }])
+    expect(fixOf(problems, "everything-named-exists")).toBe('move "butter-teig" from takes to uses on "verkneten"')
+  })
+
+  it("a result in uses: move it to takes", () => {
+    const problems = revisedZupfkuchen([{ op: "edit_step", key: "verkneten", uses: ["butter-teig", "mischen"] }])
+    expect(problems).toContainEqual(expect.objectContaining({ rule: "everything-named-exists", fix: 'move "mischen" from uses to takes on "verkneten"' }))
+  })
+
+  it("a result taken twice through the chain: says how to stop the chain, or split", () => {
+    const problems = revisedZupfkuchen([
+      { op: "add_step", key: "zweite-schuessel", label: "Kakao extra anrühren", section: "teig", uses: ["kakao"], at: { after: "mischen" } },
+      { op: "edit_step", key: "mischen", uses: ["mehl", "zucker-teig", "vanillezucker", "backpulver", "salz"] },
+      { op: "edit_step", key: "verkneten", takes: ["mischen", "zweite-schuessel"] },
+    ])
+
+    expect(problems).toEqual([{
+      rule: "result-goes-to-one-place",
+      message: 'result of "mischen" is taken by "zweite-schuessel" (derived: chain) and "verkneten"',
+      fix: 'set takes: [] on "zweite-schuessel" to stop it chaining "mischen"; or split the result of "mischen" (result.split) into one portion per step, and let each take its portion',
+    }])
+  })
+
+  it("a prep step taken: wait for it instead", () => {
+    expect(fixOf(revisedZupfkuchen([{ op: "edit_step", key: "backen", takes: ["giessen", "vorheizen"] }]), "flow-is-derived"))
+      .toBe('move "vorheizen" from takes to waitsFor on "backen"')
+  })
+
+  it("a step that takes a later one: move it, or drop the link", () => {
+    const problems = revisedZupfkuchen([{ op: "edit_step", key: "mischen", takes: ["verkneten"] }])
+    expect(fixOf(problems, "authors-order")).toBe('move_step "mischen" to after "verkneten", or drop "verkneten" from the takes of "mischen"')
+    expect(fixOf(problems, "no-loops")).toBe('a step can only take or wait for earlier steps: drop "verkneten" from the takes of "mischen"')
   })
 })

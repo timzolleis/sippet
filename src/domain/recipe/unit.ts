@@ -23,7 +23,13 @@ export const CustomUnit = Schema.Struct({ custom: Schema.NonEmptyString })
 
 export type CustomUnit = typeof CustomUnit.Type
 
-export const Unit = Schema.Union([UnitCode, CustomUnit]).annotate({ identifier: "Unit" })
+// Names and sentences stay in the recipe's language; units are codes, which devices translate back (cooking rule 8).
+export const Unit = Schema.Union([UnitCode, CustomUnit]).annotate({
+  identifier: "Unit",
+  description: "A code, whatever the recipe's language: EL→tbsp, TL→tsp, Pck./Packung→packet, Prise→pinch, Becher→tub, Zehe→clove, Bund→bunch, " +
+    "Dose→can, Fl.→bottle, Scheibe→slice, Blatt→sheet, Zweig→sprig, Stück→piece. {custom} only when no code fits (Messerspitze). " +
+    "Devices translate units for the cook.",
+})
 
 export type Unit = typeof Unit.Type
 

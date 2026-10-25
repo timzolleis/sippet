@@ -22,6 +22,9 @@ import type {
 } from "./recipe-edit.ts"
 import type { RecipeProblem } from "./recipe-problem.ts"
 
+// Why one edit can't apply; the batch adds which edit it was.
+type EditProblem = Omit<RecipeProblem, "edit">
+
 type Keyed = { readonly key: Key }
 
 type Mutable<T> = { -readonly [K in keyof T]: T[K] }
@@ -49,13 +52,25 @@ const isSameItemName = (a: ItemName, b: ItemName) => a.toLowerCase() === b.toLow
 const itemNameInContent = ({ ingredients, name }: { readonly ingredients: ReadonlyArray<Ingredient>; readonly name: ItemName }): ItemName =>
   ingredients.find((ingredient) => isSameItemName(ingredient.item, name))?.item ?? name
 
-const requireFreeKey = ({ content, key }: { readonly content: RecipeContent; readonly key: Key }): Result.Result<void, string> =>
-  keysOfContent(content).includes(key) ? Result.fail(`key "${key}" is already used`) : Result.succeed(undefined)
+const requireFreeKey = ({ content, key }: { readonly content: RecipeContent; readonly key: Key }): Result.Result<void, EditProblem> =>
+  keysOfContent(content).includes(key)
+    ? Result.fail({
+      rule: "keys",
+      message: `key "${key}" is already used`,
+      fix: `pick a key no section, ingredient, equipment, step, or portion has yet, e.g. "${key}-2"`,
+    })
+    : Result.succeed(undefined)
 
-const findByKey = <T extends Keyed>({ list, key, kind }: { readonly list: ReadonlyArray<T>; readonly key: Key; readonly kind: string }): Result.Result<T, string> => {
+const noSuchKey = ({ kind, key }: { readonly kind: string; readonly key: Key }): EditProblem => ({
+  rule: "everything-named-exists",
+  message: `no ${kind} "${key}"`,
+  fix: `use a key the recipe has (get_recipe lists them), or add the ${kind} in an earlier edit`,
+})
+
+const findByKey = <T extends Keyed>({ list, key, kind }: { readonly list: ReadonlyArray<T>; readonly key: Key; readonly kind: string }): Result.Result<T, EditProblem> => {
   const found = list.find((entry) => entry.key === key)
 
-  return found === undefined ? Result.fail(`no ${kind} "${key}"`) : Result.succeed(found)
+  return found === undefined ? Result.fail(noSuchKey({ kind, key })) : Result.succeed(found)
 }
 
 const insertAtPosition = <T extends Keyed>({ list, value, at, kind }: {
@@ -63,14 +78,18 @@ const insertAtPosition = <T extends Keyed>({ list, value, at, kind }: {
   readonly value: T
   readonly at: Position | undefined
   readonly kind: string
-}): Result.Result<ReadonlyArray<T>, string> => {
+}): Result.Result<ReadonlyArray<T>, EditProblem> => {
   if (at === undefined || at === "end") return Result.succeed([...list, value])
 
   if (at === "start") return Result.succeed([value, ...list])
   const index = list.findIndex((entry) => entry.key === at.after)
 
   return index < 0
-    ? Result.fail(`no ${kind} "${at.after}" to put "${value.key}" after`)
+    ? Result.fail({
+      rule: "everything-named-exists",
+      message: `no ${kind} "${at.after}" to put "${value.key}" after`,
+      fix: `put it after an existing ${kind}, or use "start" or "end"`,
+    })
     : Result.succeed([...list.slice(0, index + 1), value, ...list.slice(index + 1)])
 }
 
@@ -119,9 +138,13 @@ const removeSection = ({ content, key }: { readonly content: RecipeContent; read
   }))
 
 // Every ingredient follows; to an existing name, the ingredients join that item.
-const renameItem = ({ content, edit }: { readonly content: RecipeContent; readonly edit: RenameItemEdit }): Result.Result<RecipeContent, string> => {
+const renameItem = ({ content, edit }: { readonly content: RecipeContent; readonly edit: RenameItemEdit }): Result.Result<RecipeContent, EditProblem> => {
   if (!content.ingredients.some((ingredient) => isSameItemName(ingredient.item, edit.from))) {
-    return Result.fail(`no item "${edit.from}"`)
+    return Result.fail({
+      rule: "everything-named-exists",
+      message: `no item "${edit.from}"`,
+      fix: "name an item as an ingredient has it (items go by name, ignoring case)",
+    })
   }
 
   const otherIngredients = content.ingredients.filter((ingredient) => !isSameItemName(ingredient.item, edit.from))
@@ -237,7 +260,7 @@ const moveStep = ({ content, edit }: { readonly content: RecipeContent; readonly
 const removeStep = ({ content, key }: { readonly content: RecipeContent; readonly key: Key }) =>
   Result.map(findByKey({ list: content.steps, key, kind: "step" }), () => ({ ...content, steps: withoutKey(content.steps, key) }))
 
-const applyRecipeEdit = ({ content, edit }: { readonly content: RecipeContent; readonly edit: RecipeEdit }): Result.Result<RecipeContent, string> =>
+const applyRecipeEdit = ({ content, edit }: { readonly content: RecipeContent; readonly edit: RecipeEdit }): Result.Result<RecipeContent, EditProblem> =>
   Match.value(edit).pipe(Match.discriminatorsExhaustive("op")({
     set_title: ({ title }) => Result.succeed({ ...content, title }),
     set_yield: (setYield) => Result.succeed({ ...content, yield: setYield.yield }),
@@ -269,7 +292,7 @@ export const applyRecipeEdits = ({ content, edits }: {
   edits.reduce<{ content: RecipeContent; problems: ReadonlyArray<RecipeProblem> }>(
     (applied, edit, index) => Result.match(applyRecipeEdit({ content: applied.content, edit }), {
       onSuccess: (editedContent) => ({ content: editedContent, problems: applied.problems }),
-      onFailure: (message) => ({ content: applied.content, problems: [...applied.problems, { edit: index + 1, message }] }),
+      onFailure: (problem) => ({ content: applied.content, problems: [...applied.problems, { edit: index + 1, ...problem }] }),
     }),
     { content, problems: [] },
   )
