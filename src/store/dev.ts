@@ -24,21 +24,26 @@ type Args = Record<string, any>
 export const runDevOp = async ({ op, args, library, db, storage, connection, setAlarmNow }: { op: string; args: Args; library: Library; db: Db; storage: DurableObjectStorage; connection: string; setAlarmNow: () => Promise<void> }): Promise<unknown> => {
   const by: Actor = { kind: "claude", connection }
   const retry = args.retryTool === undefined ? undefined : retryKey({ connection, tool: args.retryTool, args: args.retryArgs ?? args })
+
   switch (op) {
     case "add": {
       // cleanSource runs before the transaction (hosting.md#source)
       const cleaned = args.source === undefined ? undefined : await cleanSource({ source: args.source })
+
       if (cleaned !== undefined && Result.isFailure(cleaned)) return outcome(cleaned)
+
       return outcome(
         await library.transact({
           retry,
           run: (writes) => {
             const added = writes.addRecipe({ id: args.id, content: args.content, source: cleaned?.success, by })
+
             return Result.map(added, (value): Json => ({ recipeId: args.id, ...value }))
           },
         }),
       )
     }
+
     case "revise":
       return outcome(
         await library.transact({
@@ -65,16 +70,23 @@ export const runDevOp = async ({ op, args, library, db, storage, connection, set
       const key = args.name.trim().toLowerCase()
       db.insert(schema.tag).values({ name: args.name, nameKey: key }).onConflictDoNothing().run()
       const row = db.select().from(schema.tag).where(eq(schema.tag.nameKey, key)).get()!
+
       for (const id of args.ids as string[]) db.insert(schema.recipeTag).values({ recipeId: id, tagId: row.id }).onConflictDoNothing().run()
+
       return { tagId: row.id }
     }
+
     case "collect": {
       const key = args.name.trim().toLowerCase()
       db.insert(schema.collection).values({ name: args.name, nameKey: key }).onConflictDoNothing().run()
+
       const row = db.select().from(schema.collection).where(eq(schema.collection.nameKey, key)).get()!
+
       ;(args.ids as string[]).forEach((id, position) => db.insert(schema.collectionRecipe).values({ collectionId: row.id, recipeId: id, position }).onConflictDoNothing().run())
+
       return { collectionId: row.id }
     }
+
     case "positions":
       return db.select().from(schema.collectionRecipe).where(and(eq(schema.collectionRecipe.collectionId, args.collectionId))).all()
     case "backdate": {
@@ -82,17 +94,23 @@ export const runDevOp = async ({ op, args, library, db, storage, connection, set
       const purgeAt = Date.now() - args.pastMs
       db.update(schema.recipe).set({ purgeAt, trashedAt: purgeAt - 720 * 3600 * 1000 }).where(eq(schema.recipe.id, args.id)).run()
       await setAlarmNow()
+
       return { purgeAt }
     }
+
     case "counts": {
       const count = (table: string) => storage.sql.exec<{ n: number }>(`SELECT count(*) AS n FROM ${table}`).one().n
+
       return Object.fromEntries(["recipe", "revision", "recipe_item", "recipe_text", "recipe_tag", "collection_recipe", "change", "retry"].map((table) => [table, count(table)]))
     }
+
     case "sql":
       if (!/^\s*select\s/i.test(args.statement)) return { error: "select only" }
+
       return storage.sql.exec(args.statement, ...(args.params ?? [])).toArray()
     case "ageRetries":
       storage.sql.exec(`UPDATE retry SET expires_at = 0`)
+
       return { aged: true }
     case "alarm":
       return { alarm: await storage.getAlarm() }

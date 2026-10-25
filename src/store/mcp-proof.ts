@@ -7,6 +7,7 @@ const Whoami = Tool.make("whoami", {
   description: "Proof: returns the sippet-* headers of this request and a counter from this instance's storage.",
   success: Schema.Struct({ headers: Schema.Record(Schema.String, Schema.String), calls: Schema.Number }),
 })
+
 const ProofToolkit = Toolkit.make(Whoami)
 
 export const makeMcpHandler = ({ sql }: { sql: SqlStorage }) => {
@@ -15,13 +16,16 @@ export const makeMcpHandler = ({ sql }: { sql: SqlStorage }) => {
       Effect.gen(function* () {
         const request = Context.getOrUndefined(yield* Effect.context<never>(), HttpServerRequest.HttpServerRequest)
         const headers: Record<string, string> = {}
+
         for (const [name, value] of Object.entries(request?.headers ?? {})) if (name.startsWith("sippet-")) headers[name] = value
         sql.exec(`CREATE TABLE IF NOT EXISTS proof (n INTEGER)`)
         sql.exec(`INSERT INTO proof VALUES (1)`)
         const calls = sql.exec<{ n: number }>(`SELECT count(*) AS n FROM proof`).one().n
+
         return { headers, calls }
       }),
   })
+
   const App = McpServer.toolkit(ProofToolkit).pipe(
     Layer.provideMerge(ToolsLive),
     Layer.provideMerge(
@@ -33,5 +37,6 @@ export const makeMcpHandler = ({ sql }: { sql: SqlStorage }) => {
       }),
     ),
   )
+
   return HttpRouter.toWebHandler(App, { disableLogger: true })
 }

@@ -160,7 +160,9 @@ export default {
     const { pathname } = new URL(request.url)
 
     if (pathname === "/mcp") return handleMcp(request, env)
+
     if (pathname.startsWith("/api/dev/")) return isLocal(env) ? handleMcp(request, env) : new Response("not found", { status: 404 }) // local checks only
+
     if (pathname === "/api/invitation") return handleInvitation(request, env)
 
     if (pathname === "/api/connections" || pathname.startsWith("/api/connections/")) return handleConnections(request, env)
