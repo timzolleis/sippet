@@ -91,10 +91,9 @@ public actor TokenStore {
 
     public func setAccessToken(_ token: String) { access = token }
 
-    /// Debug: store a refresh token when there is none (SIPPET_REFRESH_TOKEN).
-    public func seedRefreshToken(_ token: String) throws {
-        if try storage.read("refreshToken") == nil { try storage.write(token, for: "refreshToken") }
-    }
+    /// Debug (SIPPET_REFRESH_TOKEN): store a refresh token alone; the first request refreshes. Writes unconditionally,
+    /// so the caller checks `refreshToken() == nil` first.
+    public func storeRefreshToken(_ token: String) throws { try storage.write(token, for: "refreshToken") }
 
     /// Sign out: delete the refresh token and the access token; the device id stays.
     public func clear() throws {

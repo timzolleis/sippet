@@ -73,3 +73,14 @@ private func makeSignIn(host: String = "signin.test", tokens: TokenStore = Token
     #expect(revoked.with { $0 } && refresh == nil && access == nil)
     #expect(idAfter == id)
 }
+
+@Test func aSeededRefreshTokenAloneSignsIn() async throws {
+    let host = "seed.test"
+    StubProtocol.register(host: host) { _, _ in (200, Data(#"{"access_token":"B","refresh_token":"R2"}"#.utf8)) }
+    let tokens = TokenStore(storage: MemoryStorage())
+    try await tokens.storeRefreshToken("R1")
+    try await makeSignIn(host: host, tokens: tokens, session: StubProtocol.session()).refresh()
+    let access = await tokens.accessToken()
+    let refresh = try await tokens.refreshToken()
+    #expect(access == "B" && refresh == "R2")
+}
