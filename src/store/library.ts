@@ -3,6 +3,7 @@
 import { and, asc, eq, inArray, isNotNull, isNull, lte, min, sql, type SQL } from "drizzle-orm"
 import type { DrizzleSqliteDODatabase } from "drizzle-orm/durable-sqlite"
 import { Data, Result } from "effect"
+import { LibraryNameTakenError, readLibrarySnapshot, writeLibrarySnapshot, type LibrarySnapshot } from "./library-change.ts"
 import { retryWindowMs, type RetryKey } from "./retry.ts"
 import * as schema from "./schema.ts"
 import type { Actor, Json } from "./schema.ts"
@@ -26,7 +27,12 @@ export type Derived = {
 }
 export type Derive = (content: Json) => Derived
 
-export const nameKey = (name: string): string => name.trim().toLowerCase() // tags, collections, items
+export const nameKey = (name: string): string => name.toLowerCase() // tags, collections, items: the domain's libraryNameKey
+
+// Durable Object SQLite allows 100 bound parameters per statement.
+const maxBoundParameters = 90
+const chunks = <T>(values: ReadonlyArray<T>): ReadonlyArray<ReadonlyArray<T>> =>
+  Array.from({ length: Math.ceil(values.length / maxBoundParameters) }, (_, index) => values.slice(index * maxBoundParameters, (index + 1) * maxBoundParameters))
 
 export type ChangeKind =
   | "recipe_added"
@@ -66,7 +72,13 @@ export type StoredRevision = {
 }
 export type SearchQuery = {
   readonly text?: string
-  readonly tags?: { readonly all?: ReadonlyArray<string>; readonly any?: ReadonlyArray<string>; readonly none?: ReadonlyArray<string> }
+  // every name in `all`; one of `any`, and one of each of `anyGroups` (two filters combined); none of `none`
+  readonly tags?: {
+    readonly all?: ReadonlyArray<string>
+    readonly any?: ReadonlyArray<string>
+    readonly anyGroups?: ReadonlyArray<ReadonlyArray<string>>
+    readonly none?: ReadonlyArray<string>
+  }
   readonly items?: ReadonlyArray<string>
   readonly maxTotalMinutes?: number
   readonly hasFlow?: boolean
@@ -182,18 +194,28 @@ export class Writes {
     const ids = due.map((row) => row.id)
     this.appendChange({ kind: "recipes_purged", by: { kind: "trash" }, payload: { recipeIds: ids } })
     for (const id of ids) this.db.run(sql`DELETE FROM recipe_text WHERE rowid = (SELECT rowid FROM recipe WHERE id = ${id})`)
-    this.db.delete(revision).where(inArray(revision.recipeId, ids)).run()
-    this.db.delete(recipeItem).where(inArray(recipeItem.recipeId, ids)).run()
-    this.db.delete(schema.recipeTag).where(inArray(schema.recipeTag.recipeId, ids)).run()
-    this.db.delete(schema.collectionRecipe).where(inArray(schema.collectionRecipe.recipeId, ids)).run()
-    this.db.delete(recipe).where(inArray(recipe.id, ids)).run()
+    for (const some of chunks(ids)) {
+      this.db.delete(revision).where(inArray(revision.recipeId, [...some])).run()
+      this.db.delete(recipeItem).where(inArray(recipeItem.recipeId, [...some])).run()
+      this.db.delete(schema.recipeTag).where(inArray(schema.recipeTag.recipeId, [...some])).run()
+      this.db.delete(schema.collectionRecipe).where(inArray(schema.collectionRecipe.recipeId, [...some])).run()
+      this.db.delete(recipe).where(inArray(recipe.id, [...some])).run()
+    }
     this.alarmDirty = true
     return ids
   }
 
+  // Library rules 1, 2: the whole library after the batch becomes the tables; the batch is one change that names what is gone.
+  applyLibraryChange({ library, edits, by }: { library: LibrarySnapshot; edits: Json; by: Actor }): Result.Result<void, LibraryNameTakenError> {
+    const written = writeLibrarySnapshot({ db: this.db, next: library })
+    if (Result.isFailure(written)) return Result.fail(written.failure)
+    this.appendChange({ kind: "library_changed", by, payload: { edits, changed: written.success.changed, deleted: written.success.deleted } })
+    return Result.succeed(undefined)
+  }
+
   private rowsOf(ids: ReadonlyArray<string>): Result.Result<ReadonlyArray<typeof recipe.$inferSelect>, RecipeNotFoundError> {
     const unique = [...new Set(ids)]
-    const rows = unique.length === 0 ? [] : this.db.select().from(recipe).where(inArray(recipe.id, unique)).all()
+    const rows = chunks(unique).flatMap((some) => this.db.select().from(recipe).where(inArray(recipe.id, [...some])).all())
     const found = new Set(rows.map((row) => row.id))
     const missing = unique.filter((id) => !found.has(id))
     return missing.length > 0 ? Result.fail(new RecipeNotFoundError({ recipeIds: missing })) : Result.succeed(rows)
@@ -295,6 +317,86 @@ export class Library {
     return { ...row, revision: stored.revision, content: stored.content, was: stored.was, by: stored.by, at: stored.at, changeSeq: stored.changeSeq }
   }
 
+  findRecipeIdBySourceKey(sourceKey: string): string | undefined {
+    return this.db.select({ id: recipe.id }).from(recipe).where(eq(recipe.sourceKey, sourceKey)).get()?.id
+  }
+
+  // Where each recipe is; a purged or unknown one is absent.
+  placesOf(ids: ReadonlyArray<string>): Map<string, "library" | "trash"> {
+    const places = new Map<string, "library" | "trash">()
+    for (const some of chunks([...new Set(ids)])) {
+      for (const row of this.db.select({ id: recipe.id, trashedAt: recipe.trashedAt }).from(recipe).where(inArray(recipe.id, [...some])).all()) {
+        places.set(row.id, row.trashedAt === null ? "library" : "trash")
+      }
+    }
+    return places
+  }
+
+  readLibrary(): LibrarySnapshot {
+    return readLibrarySnapshot(this.db)
+  }
+
+  // Names of the tags on each recipe, and the collections each is in, for views.
+  tagNamesOf(ids: ReadonlyArray<string>): Map<string, Array<string>> {
+    const names = new Map<string, Array<string>>()
+    for (const some of chunks(ids)) {
+      const rows = this.db
+        .select({ recipeId: schema.recipeTag.recipeId, name: schema.tag.name })
+        .from(schema.recipeTag)
+        .innerJoin(schema.tag, eq(schema.tag.id, schema.recipeTag.tagId))
+        .where(inArray(schema.recipeTag.recipeId, [...some]))
+        .orderBy(sql`${schema.tag.nameKey}`)
+        .all()
+      for (const row of rows) names.set(row.recipeId, [...(names.get(row.recipeId) ?? []), row.name])
+    }
+    return names
+  }
+
+  collectionNamesOf(id: string): Array<string> {
+    return this.db
+      .select({ name: schema.collection.name })
+      .from(schema.collectionRecipe)
+      .innerJoin(schema.collection, eq(schema.collection.id, schema.collectionRecipe.collectionId))
+      .where(eq(schema.collectionRecipe.recipeId, id))
+      .orderBy(sql`${schema.collection.nameKey}`)
+      .all()
+      .map((row) => row.name)
+  }
+
+  // get_library: recipe counts leave the trash out (revising rule 6).
+  countRecipesByName(): { tags: ReadonlyArray<{ name: string; recipes: number }>; collections: ReadonlyArray<{ name: string; recipes: number }> } {
+    const count = (table: "tag" | "collection") =>
+      this.db.all<{ name: string; recipes: number }>(
+        table === "tag"
+          ? sql`SELECT t.name AS name, count(r.id) AS recipes FROM tag t
+              LEFT JOIN recipe_tag rt ON rt.tag_id = t.id
+              LEFT JOIN recipe r ON r.id = rt.recipe_id AND r.trashed_at IS NULL
+              GROUP BY t.id ORDER BY t.name_key`
+          : sql`SELECT c.name AS name, count(r.id) AS recipes FROM collection c
+              LEFT JOIN collection_recipe cr ON cr.collection_id = c.id
+              LEFT JOIN recipe r ON r.id = cr.recipe_id AND r.trashed_at IS NULL
+              GROUP BY c.id ORDER BY c.name_key`,
+      )
+    return { tags: count("tag"), collections: count("collection") }
+  }
+
+  smartCollections(): ReadonlyArray<{ name: string; filter: Json }> {
+    return this.db.select({ name: schema.smartCollection.name, filter: schema.smartCollection.filter }).from(schema.smartCollection).orderBy(sql`${schema.smartCollection.nameKey}`).all()
+  }
+
+  smartCollectionFilter(name: string): Json | undefined {
+    return this.db.select({ filter: schema.smartCollection.filter }).from(schema.smartCollection).where(eq(schema.smartCollection.nameKey, nameKey(name))).get()?.filter
+  }
+
+  hasCollection(name: string): boolean {
+    return this.db.select({ id: schema.collection.id }).from(schema.collection).where(eq(schema.collection.nameKey, nameKey(name))).get() !== undefined
+  }
+
+  // The name each connection goes by, for "who" in a revision (sync rule 4).
+  connectionNames(): Map<string, string> {
+    return new Map(this.db.select({ clientId: schema.connection.clientId, name: schema.connection.name }).from(schema.connection).all().map((row) => [row.clientId, row.name]))
+  }
+
   listRevisions(id: string): ReadonlyArray<StoredRevision> {
     return this.db.select().from(revision).where(eq(revision.recipeId, id)).orderBy(sql`${revision.revision} DESC`).all()
   }
@@ -333,7 +435,7 @@ export class Library {
     const hasTag = (names: ReadonlyArray<string>) =>
       sql`EXISTS (SELECT 1 FROM recipe_tag rt JOIN tag t ON t.id = rt.tag_id WHERE rt.recipe_id = r.id AND t.name_key IN (${sql.join(names.map((name) => sql`${nameKey(name)}`), sql`, `)}))`
     for (const name of query.tags?.all ?? []) where.push(hasTag([name]))
-    if ((query.tags?.any ?? []).length > 0) where.push(hasTag(query.tags!.any!))
+    for (const group of [query.tags?.any ?? [], ...(query.tags?.anyGroups ?? [])]) if (group.length > 0) where.push(hasTag(group))
     if ((query.tags?.none ?? []).length > 0) where.push(sql`NOT ${hasTag(query.tags!.none!)}`)
     for (const item of query.items ?? []) where.push(sql`EXISTS (SELECT 1 FROM recipe_item i WHERE i.recipe_id = r.id AND i.item_key = ${nameKey(item)})`)
     if (query.maxTotalMinutes !== undefined) where.push(sql`r.total_minutes <= ${query.maxTotalMinutes}`)

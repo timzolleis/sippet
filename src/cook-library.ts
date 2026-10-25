@@ -7,7 +7,7 @@ import migrations from "../migrations/cook-library/migrations.js"
 import { isLocal, runDevOp } from "./store/dev.ts"
 import { Library, type Db } from "./store/library.ts"
 import { makeMcpHandler } from "./store/mcp-proof.ts"
-import { placeholderDerive } from "./store/placeholder-derive.ts"
+import { derive } from "./store/derive.ts"
 import * as schema from "./store/schema.ts"
 
 export type Connection = { clientId: string; name: string; connectedAt: number }
@@ -24,7 +24,7 @@ export class CookLibrary extends DurableObject {
   constructor(ctx: DurableObjectState, env: Cloudflare.Env) {
     super(ctx, env)
     this.db = drizzle(ctx.storage, { schema })
-    this.library = new Library({ db: this.db, storage: ctx.storage, derive: placeholderDerive })
+    this.library = new Library({ db: this.db, storage: ctx.storage, derive })
     this.mcp = makeMcpHandler({ sql: ctx.storage.sql })
     ctx.blockConcurrencyWhile(async () => {
       await migrate(this.db, migrations)
