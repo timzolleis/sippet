@@ -251,3 +251,4 @@ source = the cleaned address;  source_key = the same address without the scheme
 5. claude.ai starts a new session after a 404 following DO eviction.
 6. Better Auth sign-in and the token endpoint stay near 10 ms CPU cold on the Worker. If they don't, move Better Auth into a singleton `Accounts` DO on its own SQLite.
 
+7. FTS5 `trigram` with `remove_diacritics 1` works in the production DO SQLite build (checked only in local workerd).
