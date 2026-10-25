@@ -1,6 +1,7 @@
 // Worker edge: /mcp token check and forward, Better Auth, and the account page endpoints (specs/hosting.md#request-path).
 // /mcp never builds betterAuth(); auth.ts loads on the first request that needs it.
-import { createLocalJWKSet, errors, jwtVerify, type JSONWebKeySet } from "jose"
+import { Option, Schema } from "effect"
+import { createLocalJWKSet, errors, jwtVerify, type JSONWebKeySet, type JWK } from "jose"
 import type { Env } from "../alchemy.run.ts"
 
 export { CookLibrary } from "./cook-library.ts"
@@ -10,18 +11,34 @@ export { CookLibrary } from "./cook-library.ts"
 // Public keys from the D1 jwks table, cached per isolate.
 let cachedJwks: Promise<JSONWebKeySet> | undefined
 
+// The stored public key is a JWK as JSON text. Fields that are absent stay absent.
+const PublicKey = Schema.fromJsonString(
+  Schema.Struct({
+    alg: Schema.optionalKey(Schema.String),
+    kty: Schema.optionalKey(Schema.String),
+    crv: Schema.optionalKey(Schema.String),
+    x: Schema.optionalKey(Schema.String),
+    y: Schema.optionalKey(Schema.String),
+    n: Schema.optionalKey(Schema.String),
+    e: Schema.optionalKey(Schema.String),
+  }),
+)
+
+const decodePublicKey = Schema.decodeUnknownSync(PublicKey)
+
 const loadJwks = async (db: D1Database): Promise<JSONWebKeySet> => {
   const { results } = await db
     .prepare(`SELECT id, publicKey, alg, crv FROM jwks`)
     .all<{ id: string; publicKey: string; alg: string | null; crv: string | null }>()
 
   return {
-    keys: results.map((row) => ({
-      alg: row.alg ?? "EdDSA",
-      ...(row.crv === null ? {} : { crv: row.crv }),
-      ...JSON.parse(row.publicKey),
-      kid: row.id,
-    })),
+    keys: results.map((row) => {
+      const key: JWK = { alg: row.alg ?? "EdDSA" }
+
+      if (row.crv !== null) key.crv = row.crv
+
+      return { ...key, ...decodePublicKey(row.publicKey), kid: row.id }
+    }),
   }
 }
 
@@ -53,26 +70,29 @@ const unauthorized = (env: Env) =>
     headers: { "WWW-Authenticate": `Bearer resource_metadata="${env.PUBLIC_URL}/.well-known/oauth-protected-resource/mcp"` },
   })
 
+const Claims = Schema.Struct({ sub: Schema.String, azp: Schema.String, iat: Schema.Number })
+const decodeClaims = Schema.decodeUnknownOption(Claims)
+
 const handleMcp = async (request: Request, env: Env): Promise<Response> => {
   const authorization = request.headers.get("authorization")
 
   if (authorization === null || !/^Bearer /i.test(authorization)) return unauthorized(env)
-  let payload
+  let verified
 
   try {
-    ;({ payload } = await verifyToken({ token: authorization.slice(7), env }))
+    verified = await verifyToken({ token: authorization.slice(7), env })
   } catch {
     return unauthorized(env)
   }
 
-  const { sub, azp, iat } = payload
+  const claims = decodeClaims(verified.payload)
 
-  if (typeof sub !== "string" || typeof azp !== "string" || typeof iat !== "number") return unauthorized(env)
+  if (Option.isNone(claims)) return unauthorized(env)
+  const { sub, azp, iat } = claims.value
 
-  const headers = new Headers(request.headers)
+  const headers = new Headers()
 
-  for (const name of [...headers.keys()]) if (name.startsWith("sippet-")) headers.delete(name)
-  headers.delete("authorization")
+  for (const [name, value] of request.headers) if (!name.startsWith("sippet-") && name !== "authorization") headers.append(name, value)
   headers.set("sippet-cook", sub)
   headers.set("sippet-connection", azp)
   headers.set("sippet-issued-at", String(iat))

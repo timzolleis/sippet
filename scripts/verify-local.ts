@@ -5,11 +5,13 @@
 import { createHash, generateKeyPairSync, randomBytes, randomUUID, sign } from "node:crypto"
 import { readdirSync } from "node:fs"
 import { DatabaseSync } from "node:sqlite"
+import { Match, Schema } from "effect"
 
 const origin = process.argv[2] ?? "http://localhost:1337"
 const rpId = new URL(origin).hostname
 const step = (text: string) => console.log(`\n── ${text}`)
-const show = (label: string, value: unknown) => console.log(`   ${label}:`, typeof value === "string" ? value : JSON.stringify(value))
+const show = (label: string, value: Schema.Json | undefined) => console.log(`   ${label}:`, JSON.stringify(value))
+const showText = (label: string, text: string) => console.log(`   ${label}:`, text)
 
 const check = (label: string, ok: boolean) => {
   console.log(`   ${ok ? "ok  " : "FAIL"} ${label}`)
@@ -24,7 +26,7 @@ const b64url = (data: Buffer) => data.toString("base64url")
 
 const jar = new Map<string, string>()
 
-const request = async (path: string, init: RequestInit & { json?: unknown } = {}): Promise<Response> => {
+const request = async (path: string, init: RequestInit & { json?: Schema.Json } = {}): Promise<Response> => {
   const headers = new Headers(init.headers)
   headers.set("origin", origin)
 
@@ -53,18 +55,22 @@ const request = async (path: string, init: RequestInit & { json?: unknown } = {}
 
 // ── software passkey (ES256, "none" attestation) ───────────────────────────
 
-const cbor = (value: unknown): Buffer => {
+type Cbor = number | string | Buffer | { readonly [key: string]: Cbor }
+
+const cbor = (value: Cbor): Buffer => {
   const head = (major: number, length: number) =>
     length < 24 ? Buffer.from([(major << 5) | length]) : Buffer.from([(major << 5) | 24, length])
 
-  if (typeof value === "number") return value >= 0 ? head(0, value) : head(1, -1 - value)
+  return Match.value(value).pipe(
+    Match.when(Match.number, (number) => (number >= 0 ? head(0, number) : head(1, -1 - number))),
+    Match.when(Match.string, (text) => Buffer.concat([head(3, Buffer.byteLength(text)), Buffer.from(text)])),
+    Match.when(Match.instanceOf(Buffer), (bytes) => Buffer.concat([head(2, bytes.length), bytes])),
+    Match.orElse((map) => {
+      const entries = Object.entries(map)
 
-  if (typeof value === "string") return Buffer.concat([head(3, Buffer.byteLength(value)), Buffer.from(value)])
-
-  if (Buffer.isBuffer(value)) return Buffer.concat([head(2, (value as Buffer).length), value as Buffer])
-  const entries = Object.entries(value as Record<string, unknown>)
-
-  return Buffer.concat([head(5, entries.length), ...entries.flatMap(([key, item]) => [cbor(/^-?\d+$/.test(key) ? Number(key) : key), cbor(item)])])
+      return Buffer.concat([head(5, entries.length), ...entries.flatMap(([key, item]) => [cbor(/^-?\d+$/.test(key) ? Number(key) : key), cbor(item)])])
+    }),
+  )
 }
 
 const keys = generateKeyPairSync("ec", { namedCurve: "P-256" })
@@ -139,15 +145,32 @@ const insertInvitation = ({ name, email, expiresInMs }: { name: string; email: s
 
 // ── run ────────────────────────────────────────────────────────────────────
 
-const json = async (response: Response) => (await response.json()) as Record<string, any>
-const decodeJwt = (token: string) => JSON.parse(Buffer.from(token.split(".")[1]!, "base64url").toString()) as Record<string, any>
+// Every response body is parsed with a schema; `Open` keeps unlisted fields so they can still be shown.
+const Open = <const Fields extends Schema.Struct.Fields>(fields: Fields) =>
+  Schema.StructWithRest(Schema.Struct(fields), [Schema.Record(Schema.String, Schema.Json)])
+
+const JsonObject = Schema.Record(Schema.String, Schema.Json)
+const Challenge = Schema.Struct({ challenge: Schema.String })
+const Invitation = Schema.Struct({ name: Schema.String })
+const Registered = Schema.Struct({ user: Schema.optional(Open({ id: Schema.String })) })
+const Passkeys = Schema.Array(Schema.Struct({ id: Schema.String }))
+const Client = Open({ client_id: Schema.String })
+const ConsentResult = Open({ url: Schema.String })
+const TokenResponse = Open({ access_token: Schema.optional(Schema.String), refresh_token: Schema.optional(Schema.String) })
+const Connections = Schema.Array(Schema.Struct({ clientId: Schema.String, name: Schema.String, connectedAt: Schema.Number }))
+const Redirect = Schema.Struct({ url: Schema.optional(Schema.String) })
+
+const json = async <S extends Schema.ConstraintDecoder<unknown>>(schema: S, response: Response): Promise<S["Type"]> =>
+  Schema.decodeUnknownSync(schema)(await response.json())
+
+const decodeJwt = (token: string) => Schema.decodeUnknownSync(JsonObject)(JSON.parse(Buffer.from(token.split(".")[1]!, "base64url").toString()))
 
 step("invitation")
 
 const token = insertInvitation({ name: "Anna", email: `anna-${randomUUID().slice(0, 8)}@example.com`, expiresInMs: 14 * 24 * 3600 * 1000 })
 const expired = insertInvitation({ name: "Ben", email: "ben@example.com", expiresInMs: -1000 })
 
-check("GET /api/invitation → name", (await json(await request(`/api/invitation?token=${token}`))).name === "Anna")
+check("GET /api/invitation → name", (await json(Invitation, await request(`/api/invitation?token=${token}`))).name === "Anna")
 
 check("unknown token → 410", (await request(`/api/invitation?token=nope`)).status === 410)
 
@@ -161,9 +184,9 @@ check("unknown context → refused", (await request(`/api/auth/passkey/generate-
 
 step("verify 1: resolveUser runs before the ceremony; a failed ceremony keeps the invitation")
 
-const options = await json(await request(`/api/auth/passkey/generate-register-options?context=${token}`))
+const options = await json(Challenge, await request(`/api/auth/passkey/generate-register-options?context=${token}`))
 
-check("options issued", typeof options.challenge === "string")
+check("options issued", options.challenge.length > 0)
 
 check("invitation still open after options", (await request(`/api/invitation?token=${token}`)).status === 200)
 
@@ -176,14 +199,14 @@ check("invitation still open after a failed ceremony", (await request(`/api/invi
 
 step("registration")
 
-const options2 = await json(await request(`/api/auth/passkey/generate-register-options?context=${token}`))
+const options2 = await json(Challenge, await request(`/api/auth/passkey/generate-register-options?context=${token}`))
 
 const registered = await request(`/api/auth/passkey/verify-registration`, {
   method: "POST",
-  json: { response: createCredential(options2 as { challenge: string }), createSession: true },
+  json: { response: createCredential(options2), createSession: true },
 })
 
-const registeredBody = await json(registered)
+const registeredBody = await json(Registered, registered)
 
 check(`registered (${registered.status})`, registered.status === 200)
 
@@ -193,7 +216,7 @@ check("session cookie set", [...jar.keys()].some((key) => key.includes("session_
 
 check("invitation used → 410", (await request(`/api/invitation?token=${token}`)).status === 410)
 
-const cookId: string = registeredBody.user?.id
+const cookId = registeredBody.user?.id
 
 step("a second use of the same invitation is refused")
 
@@ -208,16 +231,16 @@ show("with session (status)", again.status)
 
 step("sign-in with the passkey")
 
-const authOptions = await json(await request(`/api/auth/passkey/generate-authenticate-options`))
-const signedIn = await request(`/api/auth/passkey/verify-authentication`, { method: "POST", json: { response: getCredential(authOptions as { challenge: string }) } })
+const authOptions = await json(Challenge, await request(`/api/auth/passkey/generate-authenticate-options`))
+const signedIn = await request(`/api/auth/passkey/verify-authentication`, { method: "POST", json: { response: getCredential(authOptions) } })
 
 check(`signed in (${signedIn.status})`, signedIn.status === 200)
 
 step("never the last passkey")
 
-const passkeys = (await json(await request(`/api/auth/passkey/list-user-passkeys`))) as unknown as Array<{ id: string }>
+const passkeys = await json(Passkeys, await request(`/api/auth/passkey/list-user-passkeys`))
 
-check("one passkey", Array.isArray(passkeys) && passkeys.length === 1)
+check("one passkey", passkeys.length === 1)
 
 const removal = await request(`/api/auth/passkey/delete-passkey`, { method: "POST", json: { id: passkeys[0]!.id } })
 
@@ -225,13 +248,13 @@ check(`delete refused (${removal.status})`, removal.status === 400)
 
 step("verify 3: discovery documents")
 
-const resource = await json(await request(`/.well-known/oauth-protected-resource/mcp`))
+const resource = await json(JsonObject, await request(`/.well-known/oauth-protected-resource/mcp`))
 
 show("oauth-protected-resource/mcp", resource)
 
 check("resource = <origin>/mcp", resource.resource === `${origin}/mcp`)
 
-const server = await json(await request(`/.well-known/oauth-authorization-server`))
+const server = await json(JsonObject, await request(`/.well-known/oauth-authorization-server`))
 
 show("issuer", server.issuer)
 
@@ -241,7 +264,7 @@ check("authorization_servers = [issuer]", JSON.stringify(resource.authorization_
 
 const unauthenticated = await request(`/mcp`)
 
-show("/mcp without token", `${unauthenticated.status} ${unauthenticated.headers.get("www-authenticate")}`)
+showText("/mcp without token", `${unauthenticated.status} ${unauthenticated.headers.get("www-authenticate")}`)
 
 step("DCR (claude.ai style, then Claude Code loopback)")
 
@@ -252,18 +275,18 @@ const registerClient = (redirectUri: string, name: string) =>
   })
 
 const web = await registerClient("https://claude.ai/api/mcp/auth_callback", "Claude (claude.ai)")
-const webClient = await json(web)
+const webClient = await json(Client, web)
 
 check(`claude.ai client registered (${web.status})`, web.status === 200 || web.status === 201)
 
 const loopback = await registerClient("http://127.0.0.1:54321/callback", "Claude Code")
-const loopbackClient = await json(loopback)
+const loopbackClient = await json(Client, loopback)
 
 check(`loopback client registered (${loopback.status})`, loopback.status === 200 || loopback.status === 201)
 
 show("loopback application_type", loopbackClient.application_type)
 
-const connect = async (client: Record<string, any>, redirectUri: string) => {
+const connect = async (client: typeof Client.Type, redirectUri: string) => {
   const verifier = b64url(randomBytes(32))
 
   const query = new URLSearchParams({
@@ -278,12 +301,14 @@ const connect = async (client: Record<string, any>, redirectUri: string) => {
   })
 
   const authorize = await request(`/api/auth/oauth2/authorize?${query}`)
-  const location = authorize.headers.get("location") ?? ((await authorize.json()) as { url?: string }).url
-  const next = new URL(location!, origin)
-  show("authorize → redirect", `${authorize.status} ${next.pathname}?${[...next.searchParams.keys()].join("&")}`)
+  const location = authorize.headers.get("location") ?? (await json(Redirect, authorize)).url
+
+  if (location === undefined) throw new Error(`authorize answered ${authorize.status} without a redirect`)
+  const next = new URL(location, origin)
+  showText("authorize → redirect", `${authorize.status} ${next.pathname}?${[...next.searchParams.keys()].join("&")}`)
   const prelogin = await request(`/api/auth/oauth2/public-client-prelogin`, { method: "POST", json: { client_id: client.client_id, oauth_query: next.search.slice(1) } })
-  show("public-client-prelogin", `${prelogin.status} ${JSON.stringify(await prelogin.json())}`)
-  const consent = await json(await request(`/api/auth/oauth2/consent`, { method: "POST", json: { accept: true, oauth_query: next.search.slice(1) } }))
+  showText("public-client-prelogin", `${prelogin.status} ${JSON.stringify(await prelogin.json())}`)
+  const consent = await json(ConsentResult, await request(`/api/auth/oauth2/consent`, { method: "POST", json: { accept: true, oauth_query: next.search.slice(1) } }))
   const callback = new URL(consent.url)
   const code = callback.searchParams.get("code")!
 
@@ -293,7 +318,7 @@ const connect = async (client: Record<string, any>, redirectUri: string) => {
     body: new URLSearchParams({ grant_type: "authorization_code", code, redirect_uri: redirectUri, client_id: client.client_id, code_verifier: verifier, resource: `${origin}/mcp` }),
   })
 
-  return { consent, next, token: await json(tokenResponse), status: tokenResponse.status }
+  return { consent, next, token: await json(TokenResponse, tokenResponse), status: tokenResponse.status }
 }
 
 step("verify 1 (account-ui): what /connect receives and the call that continues authorize")
@@ -304,13 +329,13 @@ show("login/consent page query keys", [...first.next.searchParams.keys()])
 
 show("consent response", first.consent)
 
-check(`token issued (${first.status})`, first.status === 200 && typeof first.token.access_token === "string")
+check(`token issued (${first.status})`, first.status === 200 && first.token.access_token !== undefined)
 
 show("token response keys", Object.keys(first.token))
 
 step("verify 2: access token claims")
 
-const claims = decodeJwt(first.token.access_token)
+const claims = decodeJwt(first.token.access_token ?? "")
 
 show("claims", claims)
 
@@ -318,7 +343,7 @@ check("client id in azp", claims.azp === webClient.client_id)
 
 check("client id in client_id", claims.client_id === webClient.client_id)
 
-check("iat is a number", typeof claims.iat === "number")
+check("iat is a number", Schema.is(Schema.Number)(claims.iat))
 
 check("iss = origin", claims.iss === origin)
 
@@ -328,8 +353,8 @@ check("sub = the cook", claims.sub === cookId)
 
 step("/mcp with the token")
 
-const mcp = await request(`/mcp`, { method: "POST", headers: { authorization: `Bearer ${first.token.access_token}`, "sippet-cook": "forged" }, json: { jsonrpc: "2.0", id: 1, method: "ping" } })
-const forwarded = await json(mcp)
+const mcp = await request(`/mcp`, { method: "POST", headers: { authorization: `Bearer ${first.token.access_token ?? ""}`, "sippet-cook": "forged" }, json: { jsonrpc: "2.0", id: 1, method: "ping" } })
+const forwarded = await json(JsonObject, mcp)
 
 show("DO saw", forwarded)
 
@@ -351,7 +376,7 @@ check(`token issued (${second.status})`, second.status === 200)
 
 step("connections")
 
-const connections = await json(await request(`/api/connections`)) as unknown as Array<{ clientId: string; name: string; connectedAt: number }>
+const connections = await json(Connections, await request(`/api/connections`))
 
 show("GET /api/connections", connections)
 
@@ -371,7 +396,7 @@ const disconnected = await request(`/api/connections/${webClient.client_id}/disc
 
 check(`disconnect → 204 (${disconnected.status})`, disconnected.status === 204)
 
-const refused = await request(`/mcp`, { method: "POST", headers: { authorization: `Bearer ${first.token.access_token}` }, json: { jsonrpc: "2.0", id: 2, method: "ping" } })
+const refused = await request(`/mcp`, { method: "POST", headers: { authorization: `Bearer ${first.token.access_token ?? ""}` }, json: { jsonrpc: "2.0", id: 2, method: "ping" } })
 
 check(`old access token refused (${refused.status})`, refused.status === 401)
 
@@ -383,11 +408,11 @@ const refresh = await request(`/api/auth/oauth2/token`, {
 
 check(`refresh token revoked (${refresh.status})`, refresh.status >= 400)
 
-const stillThere = await request(`/mcp`, { method: "POST", headers: { authorization: `Bearer ${second.token.access_token}` }, json: { jsonrpc: "2.0", id: 3, method: "ping" } })
+const stillThere = await request(`/mcp`, { method: "POST", headers: { authorization: `Bearer ${second.token.access_token ?? ""}` }, json: { jsonrpc: "2.0", id: 3, method: "ping" } })
 
 check(`the other connection still works (${stillThere.status})`, stillThere.status === 200)
 
-const left = await json(await request(`/api/connections`)) as unknown as Array<{ name: string }>
+const left = await json(Connections, await request(`/api/connections`))
 
 check("only Claude Code is listed", left.length === 1 && left[0]!.name === "Claude Code")
 
@@ -396,11 +421,11 @@ step("reconnect after disconnect")
 await new Promise((resolve) => setTimeout(resolve, 1100)) // a token minted in the disconnect second counts as older (iat has second resolution)
 
 const third = await connect(webClient, "https://claude.ai/api/mcp/auth_callback")
-const reconnected = await request(`/mcp`, { method: "POST", headers: { authorization: `Bearer ${third.token.access_token}` }, json: { jsonrpc: "2.0", id: 4, method: "ping" } })
+const reconnected = await request(`/mcp`, { method: "POST", headers: { authorization: `Bearer ${third.token.access_token ?? ""}` }, json: { jsonrpc: "2.0", id: 4, method: "ping" } })
 
 check(`new token works (${reconnected.status})`, reconnected.status === 200)
 
-const oldStill = await request(`/mcp`, { method: "POST", headers: { authorization: `Bearer ${first.token.access_token}` }, json: { jsonrpc: "2.0", id: 5, method: "ping" } })
+const oldStill = await request(`/mcp`, { method: "POST", headers: { authorization: `Bearer ${first.token.access_token ?? ""}` }, json: { jsonrpc: "2.0", id: 5, method: "ping" } })
 
 check(`old token still refused (${oldStill.status})`, oldStill.status === 401)
 

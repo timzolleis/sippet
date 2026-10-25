@@ -1,7 +1,7 @@
 // Better Auth on D1: passkeys, JWT access tokens, OAuth for MCP clients (specs/hosting.md#auth-srcauthts).
 import { mcp } from "@better-auth/mcp"
 import { passkey, type PasskeyOptions } from "@better-auth/passkey"
-import { betterAuth } from "better-auth"
+import { betterAuth, type BetterAuthOptions } from "better-auth"
 import { APIError, createAuthMiddleware, getSessionFromCtx } from "better-auth/api"
 import { jwt } from "better-auth/plugins"
 import type { Env } from "../alchemy.run.ts"
@@ -112,9 +112,9 @@ const connectApproved = (env: AuthEnv) =>
 
 // ── Better Auth ────────────────────────────────────────────────────────────
 
-export const createAuth = (env: AuthEnv, database: unknown = env.DB) =>
+export const createAuth = (env: AuthEnv, database: BetterAuthOptions["database"] = env.DB) =>
   betterAuth({
-    database: database as D1Database,
+    database,
     secret: env.BETTER_AUTH_SECRET,
     baseURL: env.PUBLIC_URL,
     basePath: "/api/auth",
