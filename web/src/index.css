@@ -1,0 +1,4 @@
+@import 'tailwindcss' source('../');
+@import 'tw-animate-css';
+@import './lib/theme/triargos.css';
+@import './inter.css';

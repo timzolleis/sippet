@@ -1,12 +1,33 @@
 {
   "ignorePatterns": [
-    ".agent/**", ".agents/**", ".claude/**", ".codex/**", ".continue/**", ".cursor/**",
-    ".gemini/**", ".opencode/**", ".pi/**", ".roo/**", ".windsurf/**",
-    "tools/oxlint/anti-slop/**", "spike/**", "node_modules/**"
+    ".agent/**",
+    ".agents/**",
+    ".claude/**",
+    ".codex/**",
+    ".continue/**",
+    ".cursor/**",
+    ".gemini/**",
+    ".opencode/**",
+    ".pi/**",
+    ".roo/**",
+    ".windsurf/**",
+    "tools/oxlint/anti-slop/**",
+    "spike/**",
+    "node_modules/**",
+    "dist/**",
+    "web/src/components/ui/**",
+    "web/src/lib/**",
+    "web/src/hooks/**"
   ],
   "jsPlugins": [
-    { "name": "anti-slop", "specifier": "./tools/oxlint/anti-slop/index.ts" },
-    { "name": "anti-slop-effect", "specifier": "./tools/oxlint/anti-slop/effect/index.ts" }
+    {
+      "name": "anti-slop",
+      "specifier": "./tools/oxlint/anti-slop/index.ts"
+    },
+    {
+      "name": "anti-slop-effect",
+      "specifier": "./tools/oxlint/anti-slop/effect/index.ts"
+    }
   ],
   "rules": {
     "oxc/no-accumulating-spread": "error",

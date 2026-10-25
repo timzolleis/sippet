@@ -3,15 +3,31 @@
     "target": "ES2022",
     "module": "ESNext",
     "moduleResolution": "Bundler",
-    "lib": ["ES2022"],
-    "types": ["@cloudflare/workers-types"],
+    "lib": [
+      "ES2022"
+    ],
+    "types": [
+      "@cloudflare/workers-types"
+    ],
     "strict": true,
     "exactOptionalPropertyTypes": true,
     "noUncheckedIndexedAccess": true,
     "allowImportingTsExtensions": true,
     "noEmit": true,
     "skipLibCheck": true,
-    "verbatimModuleSyntax": true
+    "verbatimModuleSyntax": true,
+    "paths": {
+      "~/*": [
+        "./web/src/*"
+      ]
+    }
   },
-  "include": ["src", "test", "scripts", "alchemy.run.ts", "drizzle.config.ts"]
+  "include": [
+    "src",
+    "test",
+    "scripts",
+    "alchemy.run.ts",
+    "drizzle.config.ts",
+    "vitest.config.ts"
+  ]
 }
