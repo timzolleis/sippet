@@ -105,7 +105,7 @@ export const createAuth = (env: AuthEnv, database: unknown = env.DB) =>
     basePath: "/api/auth",
     emailAndPassword: { enabled: false },
     plugins: [
-      jwt(),
+      jwt({ jwt: { issuer: env.PUBLIC_URL } }),
       passkey({
         rpID: new URL(env.PUBLIC_URL).hostname === "localhost" ? "localhost" : rpID,
         rpName: "Sippet",
@@ -119,6 +119,7 @@ export const createAuth = (env: AuthEnv, database: unknown = env.DB) =>
         scopes: ["offline_access"],
         allowDynamicClientRegistration: true,
         allowUnauthenticatedClientRegistration: true,
+        allowPublicClientPrelogin: true, // /connect reads client_name before consent
         clientRegistrationDefaultApplicationType: "infer",
         accessTokenExpiresIn: 3600,
       }),
