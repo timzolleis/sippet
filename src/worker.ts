@@ -1,4 +1,4 @@
-// Worker edge: /mcp token check and forward, Better Auth, and the account page endpoints (specs/hosting.md#request-path).
+// Worker edge: /mcp and /api/device/* token check and forward, Better Auth, and the account page endpoints (specs/hosting.md#request-path).
 // /mcp never builds betterAuth(); auth.ts loads on the first request that needs it.
 import { Option, Schema } from "effect"
 import { createLocalJWKSet, errors, jwtVerify, type JSONWebKeySet, type JWK } from "jose"
@@ -80,34 +80,59 @@ const unauthorized = (env: Env) =>
     headers: { "WWW-Authenticate": `Bearer resource_metadata="${env.PUBLIC_URL}/.well-known/oauth-protected-resource/mcp"` },
   })
 
-const Claims = Schema.Struct({ sub: Schema.String, azp: Schema.String, iat: Schema.Number })
+const Claims = Schema.Struct({ sub: Schema.String, azp: Schema.String, iat: Schema.Number, exp: Schema.Number })
 const decodeClaims = Schema.decodeUnknownOption(Claims)
 
-const handleMcp = async (request: Request, env: Env): Promise<Response> => {
+type Claims = typeof Claims.Type
+
+// account rule 6: the app's client reaches /api/device/* only, every other client /mcp only.
+const deviceClientId = "sippet-app" // auth.ts deviceClientId; not imported, so /mcp stays free of betterAuth()
+const isDeviceClient = (azp: string) => azp === deviceClientId
+const isNotDeviceClient = (azp: string) => azp !== deviceClientId
+
+// hosting.md Token check, with the azp rule of the path.
+const verifyAccessToken = async ({ request, env, acceptsClient }: { request: Request; env: Env; acceptsClient: (azp: string) => boolean }) => {
   const authorization = request.headers.get("authorization")
 
-  if (authorization === null || !/^Bearer /i.test(authorization)) return unauthorized(env)
-  let verified
+  if (authorization === null || !/^Bearer /i.test(authorization)) return Option.none<Claims>()
 
   try {
-    verified = await verifyToken({ token: authorization.slice(7), env })
+    const verified = await verifyToken({ token: authorization.slice(7), env })
+
+    return Option.filter(decodeClaims(verified.payload), (claims) => acceptsClient(claims.azp))
   } catch {
-    return unauthorized(env)
+    return Option.none<Claims>()
   }
+}
 
-  const claims = decodeClaims(verified.payload)
-
-  if (Option.isNone(claims)) return unauthorized(env)
-  const { sub, azp, iat } = claims.value
-
+// Incoming sippet-* headers are dropped first. Other headers (x-device-id, x-device-name, WebSocket upgrade) pass through,
+// and the DO's response is returned as it is, so a 101 with its socket reaches the client.
+const forward = ({ request, env, claims, sent }: { request: Request; env: Env; claims: Claims; sent: Record<string, string> }) => {
   const headers = new Headers()
 
   for (const [name, value] of request.headers) if (!name.startsWith("sippet-") && name !== "authorization") headers.append(name, value)
-  headers.set("sippet-cook", sub)
-  headers.set("sippet-connection", azp)
-  headers.set("sippet-issued-at", String(iat))
+  headers.set("sippet-cook", claims.sub)
+  headers.set("sippet-connection", claims.azp)
+  headers.set("sippet-issued-at", String(claims.iat))
 
-  return env.COOK_LIBRARY.getByName(sub).fetch(new Request(request, { headers }))
+  for (const [name, value] of Object.entries(sent)) headers.set(name, value)
+
+  return env.COOK_LIBRARY.getByName(claims.sub).fetch(new Request(request, { headers }))
+}
+
+const handleMcp = async (request: Request, env: Env): Promise<Response> => {
+  const claims = await verifyAccessToken({ request, env, acceptsClient: isNotDeviceClient })
+
+  return Option.isNone(claims) ? unauthorized(env) : forward({ request, env, claims: claims.value, sent: {} })
+}
+
+// specs/device-api.md Request path
+const handleDevice = async (request: Request, env: Env): Promise<Response> => {
+  const claims = await verifyAccessToken({ request, env, acceptsClient: isDeviceClient })
+
+  if (Option.isNone(claims)) return unauthorized(env)
+
+  return forward({ request, env, claims: claims.value, sent: { "sippet-expires-at": String(claims.value.exp) } })
 }
 
 // ── account page endpoints ─────────────────────────────────────────────────
@@ -170,12 +195,16 @@ export default {
 
     if (pathname === "/mcp") return handleMcp(request, env)
 
+    if (pathname.startsWith("/api/device/")) return handleDevice(request, env)
+
     if (pathname === "/api/invitation") return handleInvitation(request, env)
 
     if (pathname === "/api/connections" || pathname.startsWith("/api/connections/")) return handleConnections(request, env)
 
     if (pathname.startsWith("/api/auth/") || pathname.startsWith("/.well-known/")) {
-      const { createAuth } = await import("./auth.ts")
+      const { createAuth, ensureDeviceClient } = await import("./auth.ts")
+
+      if (pathname.startsWith("/api/auth/")) await ensureDeviceClient(env)
 
       return createAuth(env).handler(request)
     }
