@@ -67,7 +67,7 @@ struct RecipeTableScreen: View {
     private var title: some View {
         let vessel = recipe.yield.vessel.map { key in recipe.equipment.first { $0.key == key }?.name ?? key }
         let detail = [vessel, amountText(recipe.yield.amount, language: Format.language)].compactMap(\.self).joined(separator: ", ")
-        return (Text(recipe.title).bold() + Text(" (\(detail))")).font(.title3)
+        return Text("\(Text(recipe.title).bold()) (\(detail))").font(.title3)
     }
 
     /// The ingredient column fits its longest line; step columns stay narrow and wrap.
