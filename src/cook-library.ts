@@ -5,6 +5,8 @@ import { drizzle } from "drizzle-orm/durable-sqlite"
 import { migrate } from "drizzle-orm/durable-sqlite/migrator"
 import type { Env } from "../alchemy.run.ts"
 import migrations from "../migrations/cook-library/migrations.js"
+import { acceptLive, broadcastChange, closeLive } from "./device/device-live.ts"
+import { deviceWebHandler } from "./device/server.ts"
 import { mcpWebHandler } from "./mcp/server.ts"
 import { purgeDueRecipes } from "./mcp/unit-of-work.ts"
 import { Library, type Db } from "./store/library.ts"
@@ -21,12 +23,15 @@ export class CookLibrary extends DurableObject<Env> {
   private readonly db: Db
   private readonly library: Library
   private readonly mcp: ReturnType<typeof mcpWebHandler>
+  private readonly device: ReturnType<typeof deviceWebHandler>
 
   constructor(ctx: DurableObjectState, env: Env) {
     super(ctx, env)
     this.db = drizzle(ctx.storage, { schema })
-    this.library = new Library({ db: this.db, storage: ctx.storage, derive })
+    this.library = new Library({ db: this.db, storage: ctx.storage, derive, onChange: (seq) => broadcastChange({ ctx, seq, now: Date.now() }) })
     this.mcp = mcpWebHandler({ library: this.library })
+    this.device = deviceWebHandler({ library: this.library })
+    ctx.setWebSocketAutoResponse(new WebSocketRequestResponsePair("ping", "pong"))
     ctx.blockConcurrencyWhile(async () => {
       await migrate(this.db, migrations)
       await this.library.scheduleAlarm() // self-heal: the alarm is set after the commit that changed purge_at
@@ -59,6 +64,7 @@ export class CookLibrary extends DurableObject<Env> {
       at,
       at,
     )
+    closeLive({ ctx: this.ctx, connection: clientId })
   }
 
   // Connections that are currently open: never disconnected, or connected again after the last disconnect.
@@ -81,8 +87,26 @@ export class CookLibrary extends DurableObject<Env> {
 
     if (this.isRefused({ connection, issuedAt })) return new Response("unauthorized", { status: 401 })
 
+    const { pathname } = new URL(request.url)
+
+    if (pathname === "/api/device/live" && request.headers.get("upgrade") === "websocket") {
+      // sippet-expires-at is the token's exp, in epoch seconds like iat
+      const expiresAt = Number(request.headers.get("sippet-expires-at")) * 1000
+
+      if (!Number.isFinite(expiresAt)) return new Response("unauthorized", { status: 401 })
+
+      return acceptLive({ ctx: this.ctx, connection, expiresAt, lastSeq: this.library.lastSeq() })
+    }
+
+    if (pathname.startsWith("/api/device/")) return this.device.handler(request)
+
     return this.mcp.handler(request)
   }
+
+  // Nothing to do: the device talks over HTTP, and ping/pong is answered by the runtime.
+  override webSocketMessage(): void {}
+
+  override webSocketClose(): void {}
 
   // A token from a disconnected connection is refused when it was issued before the disconnect.
   // An unknown client is stored as "Claude" until connectClient names it.
