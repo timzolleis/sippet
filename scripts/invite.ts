@@ -1,7 +1,7 @@
 /// <reference types="node" />
 // pnpm invite "Anna" anna@example.com
 // Inserts an invitation row through the D1 HTTP API and prints the join link (account rule 7).
-// Needs CLOUDFLARE_API_TOKEN and D1_DATABASE_ID (printed as databaseId by `alchemy deploy`). CLOUDFLARE_ACCOUNT_ID defaults to sippet's account.
+// Needs SIPPET_D1_TOKEN and D1_DATABASE_ID (printed as databaseId by `alchemy deploy`). CLOUDFLARE_ACCOUNT_ID defaults to sippet's account.
 import { createHash, randomBytes, randomUUID } from "node:crypto"
 
 const days = 14
@@ -33,7 +33,7 @@ const response = await fetch(
   `https://api.cloudflare.com/client/v4/accounts/${process.env.CLOUDFLARE_ACCOUNT_ID ?? defaultAccountId}/d1/database/${require("D1_DATABASE_ID")}/query`,
   {
     method: "POST",
-    headers: { authorization: `Bearer ${require("CLOUDFLARE_API_TOKEN")}`, "content-type": "application/json" },
+    headers: { authorization: `Bearer ${require("SIPPET_D1_TOKEN")}`, "content-type": "application/json" },
     body: JSON.stringify({
       sql: `INSERT INTO invitation (id, token_hash, name, email, created_at, expires_at) VALUES (?, ?, ?, ?, ?, ?)`,
       params: [

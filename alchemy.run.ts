@@ -25,7 +25,7 @@ export type Env = Cloudflare.InferEnv<typeof Site>
 
 export default Alchemy.Stack(
   "sippet",
-  { providers: Cloudflare.providers(), state: Alchemy.localState() },
+  { providers: Cloudflare.providers(), state: Cloudflare.state() },
   Effect.gen(function* () {
     const db = yield* DB
     const site = yield* Site
