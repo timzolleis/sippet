@@ -16,7 +16,7 @@ Personal recipe app; Claude reads and edits a cook's library through MCP.
 | `src/auth.ts`, `src/worker.ts`, `scripts/device-token.ts` | device sign-in (device-api.md Sign-in, Request path) |
 | `src/device/`, `src/store/`, `src/cook-library.ts`, `test/device/`, `scripts/verify-device.ts` | device API (device-api.md) |
 | `ios/SippetCore/`, `scripts/golden.ts`, `test/golden/` | Swift core: model, cooking port, library, sync, auth (ios.md SippetCore) |
-| `ios/project.yml`, `ios/Sippet/` | SwiftUI app (ios.md Screens); uses only SippetCore's public surface |
+| `ios/Sippet.xcodeproj`, `ios/Sippet/` | SwiftUI app (ios.md Screens); uses only SippetCore's public surface |
 
 ## Rules
 

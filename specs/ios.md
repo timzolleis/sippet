@@ -40,7 +40,7 @@ Stories: [cooking](../stories/cooking.md), [sync](../stories/sync.md), [library]
 
 ```text
 ios/
-├─ project.yml                 XcodeGen spec; `xcodegen` writes Sippet.xcodeproj (git-ignored)
+├─ Sippet.xcodeproj            made once in Xcode, committed; synchronized folders, so new files don't touch project.pbxproj
 ├─ Sippet/                     the app target: SwiftUI only, no logic beyond view state
 │  ├─ SippetApp.swift
 │  ├─ Screens/                 one file per screen below
@@ -58,7 +58,8 @@ ios/
 
 - Bundle id `de.bastelboxx.sippet`. Signing: automatic, personal team.
 - Server: Debug uses `http://localhost:1337` (`pnpm dev`), overridable with the scheme environment variable `SIPPET_URL`. Release uses `https://sippet.bastelboxx.de`.
-- Rejected: a committed `.xcodeproj`. Parallel branches can't merge it. `project.yml` is text, and `brew install xcodegen` is a one-time step.
+- The project is made by hand in Xcode (iOS App template, SwiftUI) and committed. With synchronized folders (Xcode 16+), adding a file needs no project change. `project.pbxproj` changes only for settings: the URL type, local networking, and the SippetCore package link.
+- Rejected: XcodeGen. It exists to avoid `project.pbxproj` merge conflicts, which synchronized folders already avoid.
 - Rejected: SwiftData. A personal library is a few MB, so one JSON file loads in milliseconds and has no migrations.
 
 ## SippetCore: the contract between the two Swift lanes
