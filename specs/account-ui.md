@@ -40,23 +40,25 @@ One centered column, `max-inline-size: 24rem`, on a warm off-white page. The `si
 
   /* primitives: one warm neutral, one accent (paprika), one danger */
   --neutral-50: oklch(0.985 0.004 70);  --neutral-100: oklch(0.965 0.006 70);
-  --neutral-200: oklch(0.92 0.008 70);  --neutral-500: oklch(0.56 0.012 70);
+  --neutral-200: oklch(0.92 0.008 70);  --neutral-500: oklch(0.54 0.012 70);
   --neutral-800: oklch(0.29 0.01 70);   --neutral-900: oklch(0.21 0.008 70);  --neutral-950: oklch(0.16 0.006 70);
-  --paprika-500: oklch(0.6 0.17 38);    --paprika-600: oklch(0.54 0.17 36);
-  --red-600: oklch(0.55 0.2 27);
+  --paprika-400: oklch(0.72 0.15 40);   --paprika-500: oklch(0.57 0.17 38);    --paprika-600: oklch(0.54 0.17 36);
+  --red-400: oklch(0.72 0.17 27);       --red-600: oklch(0.55 0.2 27);
 
   /* roles: the only names pages use */
   --color-bg: var(--neutral-100);         --color-surface: var(--neutral-50);
   --color-text: var(--neutral-950);       --color-text-secondary: var(--neutral-500);
   --color-separator: var(--neutral-200);
-  --color-accent-solid: var(--paprika-600); --color-on-accent: white;
+  --color-accent-solid: var(--paprika-600); --color-on-accent: white; --color-accent-text: var(--paprika-600);
   --color-danger-text: var(--red-600);
 }
 @media (prefers-color-scheme: dark) {
   :root { --color-bg: var(--neutral-950); --color-surface: var(--neutral-900);
           --color-text: var(--neutral-50); --color-separator: var(--neutral-800);
-          --color-accent-solid: var(--paprika-500); }
+          --color-accent-solid: var(--paprika-500); --color-accent-text: var(--paprika-400);
+          --color-text-secondary: oklch(0.7 0.012 70); --color-danger-text: var(--red-400); }
 }
+/* every text pair ≥ 4.5:1 in both modes; measured on the built pages */
 ```
 
 - **Type.** Four sizes: 28 (title, weight 650, `letter-spacing: -0.02em`, `text-wrap: balance`), 17 (body), 15 (secondary), 13 (labels and dates). Body line-height 1.5, title 1.15. Descriptions use `text-wrap: pretty`, and dates use `tabular-nums`.
@@ -136,7 +138,8 @@ Without a session, it shows a single card: "Bei Sippet anmelden" / "Sign in to S
 
 The footer has "Abmelden" / "Sign out".
 
-## Verify
+## Verified (better-auth 1.7.13)
 
-1. The query Better Auth's oauth-provider hands to `loginPage` and `consentPage`, and the call that continues an authorize after a passkey sign-in on the same page.
-2. That `client_name` and the redirect URIs can be read on `/connect` before consent, to show the name and host.
+1. `/connect` gets the authorize query plus `exp`, `ba_iat`, `ba_param`, `sig`. The page signs in without `oauth_query`, then posts `/oauth2/consent {accept: true, oauth_query}` → `{redirect, url}`. Sending `oauth_query` on sign-in would resume the authorize and bounce back to `/connect`.
+2. `redirect_uri` is in the signed query. `client_name` comes from `POST /api/auth/oauth2/public-client-prelogin`, which needs `allowPublicClientPrelogin: true` in `mcp()`.
+3. Deny redirects client-side to `redirect_uri?error=access_denied&state=…`, because `/oauth2/consent` needs a session.
