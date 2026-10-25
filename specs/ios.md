@@ -70,11 +70,12 @@ The app target uses only this surface. Names follow the TypeScript they port, so
 // Model — field names as on the wire; dates ISO 8601
 struct DeviceRecipe: Codable, Identifiable, Sendable, Hashable        // device-api.md Views
   { id, revision, title, yield: Yield, source: URL?, trashedAt: Date?, purgeAt: Date?, totalMinutes: Double?,
-    sections: [Section], equipment: [Equipment], ingredients: [Ingredient], steps: [Step], hasFlow: Bool, makes: [String] }
-enum Unit: Codable { case code(UnitCode), custom(String) }          // "g" | {"custom": "Messerspitze"}
+    sections: [RecipeSection], equipment: [Equipment], ingredients: [Ingredient], steps: [Step], hasFlow: Bool, makes: [String] }
+enum AmountUnit: Codable { case code(UnitCode), custom(String) }    // "g" | {"custom": "Messerspitze"}
 enum UnitCode: String, Codable, CaseIterable                        // mcp.md Unit codes, all 25
-struct Amount { value: Double; max: Double?; unit: Unit?; second: SecondAmount? }
-struct Yield, Section, Equipment, Ingredient, Step, StepFlow, StepResult, Portion, Duration, Temperature
+struct Amount { value: Double; max: Double?; unit: AmountUnit?; second: SecondAmount? }
+struct Yield, RecipeSection, Equipment, Ingredient, Step, StepFlow, StepResult, Portion, StepDuration, Temperature
+// RecipeSection, AmountUnit, StepDuration: not Section, Unit, Duration, which SwiftUI, Foundation, and the stdlib own
 enum HeatingMode: String                                            // top_bottom, fan, top, bottom, grill
 struct LibraryOrganization { tags: [TagView], collections: [CollectionView], smartCollections: [SmartCollectionView] }
 struct RecipeFilter, TagFilter                                      // library rule 13
@@ -88,7 +89,7 @@ func scaleRecipe(_ recipe: DeviceRecipe, toYield: Double) -> DeviceRecipe       
 func measurableAmount(_ amount: Amount) -> Amount
 func amountInMeasurementSystem(_ amount: Amount, system: MeasurementSystem) -> Amount
 func temperatureInMeasurementSystem(_ t: Temperature, system: MeasurementSystem) -> ShownTemperature
-func unitLabel(_ unit: Unit, language: Language) -> String
+func unitLabel(_ unit: AmountUnit, language: Language) -> String
 func heatingModeLabel(_ mode: HeatingMode, language: Language) -> String
 func itemTotals(_ recipe: DeviceRecipe) -> [ItemTotal]                                 // itemTotalsFromContent
 func stepSentence(_ step: Step, in recipe: DeviceRecipe) -> String                     // stepSentenceFromStep, takes from step.flow
