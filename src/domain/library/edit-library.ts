@@ -19,6 +19,7 @@ export type EditLibraryInput = {
 // A batch of edits, applied whole as one change or refused with every problem (library rules 1, 2).
 export const editLibrary = ({ library, edits, recipePlaces, by, now }: EditLibraryInput): Result.Result<LibraryChangedEvent, LibraryRefusedError> => {
   const edited = applyLibraryEdits({ library, recipePlaces, edits })
+
   return edited.problems.length > 0
     ? Result.fail(new LibraryRefusedError({ problems: edited.problems }))
     : Result.succeed(LibraryChangedEvent.make({ library: edited.library, edits, by, occurredOn: now }))

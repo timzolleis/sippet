@@ -26,6 +26,7 @@ export class RestoreRecipeRevisionService extends Context.Service<RestoreRecipeR
 }>()("RestoreRecipeRevisionService") {
   static layer = Layer.effect(RestoreRecipeRevisionService, Effect.gen(function* () {
     const recipeRepository = yield* RecipeRepository
+
     return RestoreRecipeRevisionService.of({
       restoreRecipeRevision: Effect.fn("RestoreRecipeRevisionService.restoreRecipeRevision")(
         function* ({ recipeId, fromRevision, revision, by }) {
@@ -34,6 +35,7 @@ export class RestoreRecipeRevisionService extends Context.Service<RestoreRecipeR
           const revisionContent = yield* recipeRepository.findRecipeRevisionContent({ recipeId, revision })
           const event = yield* Effect.fromResult(restoreRecipeRevision({ recipe, fromRevision, revision, revisionContent, by, now }))
           yield* recipeRepository.publishRecipeEvent(event)
+
           return event.revision
         },
       ),

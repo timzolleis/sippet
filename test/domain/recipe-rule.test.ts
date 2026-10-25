@@ -43,6 +43,7 @@ describe("recipe rules, Zupfkuchen unless named", () => {
         { op: "edit_step", key: "verruehren", uses: ["skyr", "zucker-fuellung", "zitronenaroma", "zitronenschale"] },
       ]),
     })
+
     expect(takesOf(applied.content, "schmelzen")).toEqual(["auspressen"])
   })
 
@@ -131,6 +132,7 @@ describe("recipe rules, Zupfkuchen unless named", () => {
         { op: "add_step", key: "zupfen", label: "restlichen Teig als Zupfen darauf verteilen", takes: ["giessen", "zupfteig"], at: { after: "giessen" } },
       ]),
     }))
+
     expect(takesOf(content, "giessen")).toEqual(["boden", "untermixen"])
   })
 

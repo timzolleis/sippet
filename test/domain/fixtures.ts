@@ -9,6 +9,7 @@ export const decodeRecipeContent = Schema.decodeUnknownSync(RecipeContent)
 // specs/mcp.md, The Zupfkuchen, with the elided ingredients from the Zupfkuchen-Ablauf.
 export const zupfkuchenTitle = "Veganer Russischer Zupfkuchen"
 export const zupfkuchenYield: Yield = { amount: { value: 12, unit: "piece" }, vessel: "springform" }
+
 export const zupfkuchenEdits = decodeRecipeEdits([
   { op: "add_equipment", key: "springform", name: "Springform 26 cm" },
   { op: "add_equipment", key: "ofen", name: "Ofen" },
@@ -69,6 +70,7 @@ export const zupfkuchen: RecipeContent = Result.getOrThrow(
 // A pasta blog recipe: water, pasta, a "meanwhile" sauce, no sections.
 export const pastaTitle = "Spaghetti al pomodoro"
 export const pastaYield: Yield = { amount: { value: 4, unit: "serving" } }
+
 export const pastaIngredientEdits = decodeRecipeEdits([
   { op: "add_ingredient", key: "wasser", item: "Wasser", amount: { value: 4, unit: "l" } },
   { op: "add_ingredient", key: "salz", item: "Salz", amount: { value: 1, unit: "tbsp" } },
@@ -78,6 +80,7 @@ export const pastaIngredientEdits = decodeRecipeEdits([
   { op: "add_ingredient", key: "tomaten", item: "gehackte Tomaten", amount: { value: 1, unit: "can" } },
   { op: "add_ingredient", key: "parmesan", item: "Parmesan", note: "nach Geschmack" },
 ])
+
 export const pastaPlainStepEdits = decodeRecipeEdits([
   { op: "add_step", key: "aufkochen", label: "Wasser aufkochen und salzen" },
   { op: "add_step", key: "kochen", label: "Spaghetti al dente kochen" },
@@ -86,6 +89,7 @@ export const pastaPlainStepEdits = decodeRecipeEdits([
   { op: "add_step", key: "vermengen", label: "Spaghetti mit der Soße vermengen" },
   { op: "add_step", key: "servieren", label: "mit Parmesan servieren" },
 ])
+
 // The edits that name each step's ingredients, as a revision of the plain pasta.
 export const pastaUsesEdits = decodeRecipeEdits([
   { op: "edit_step", key: "aufkochen", uses: ["wasser", "salz"] },

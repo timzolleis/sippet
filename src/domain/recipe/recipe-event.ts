@@ -11,6 +11,7 @@ export const RevisionOrigin = Schema.Union([
   Schema.Struct({ edits: Schema.Array(RecipeEdit) }),
   Schema.Struct({ restored: Revision }),
 ])
+
 export type RevisionOrigin = typeof RevisionOrigin.Type
 
 export const RecipeAddedEvent = Schema.TaggedStruct("RecipeAddedEvent", {
@@ -21,6 +22,7 @@ export const RecipeAddedEvent = Schema.TaggedStruct("RecipeAddedEvent", {
   by: ChangeAuthor,
   occurredOn: Schema.DateTimeUtc,
 })
+
 export type RecipeAddedEvent = typeof RecipeAddedEvent.Type
 
 export const RecipeRevisedEvent = Schema.TaggedStruct("RecipeRevisedEvent", {
@@ -31,6 +33,7 @@ export const RecipeRevisedEvent = Schema.TaggedStruct("RecipeRevisedEvent", {
   by: ChangeAuthor,
   occurredOn: Schema.DateTimeUtc,
 })
+
 export type RecipeRevisedEvent = typeof RecipeRevisedEvent.Type
 
 const TrashedRecipeEntry = Schema.Struct({ recipeId: RecipeId, purgeAt: Schema.DateTimeUtc })
@@ -42,6 +45,7 @@ export const RecipesTrashedEvent = Schema.TaggedStruct("RecipesTrashedEvent", {
   by: ChangeAuthor,
   occurredOn: Schema.DateTimeUtc,
 })
+
 export type RecipesTrashedEvent = typeof RecipesTrashedEvent.Type
 
 // Only the recipes that were in the trash; the rest stay as they are (revising rule 10).
@@ -50,6 +54,7 @@ export const RecipesRestoredEvent = Schema.TaggedStruct("RecipesRestoredEvent", 
   by: ChangeAuthor,
   occurredOn: Schema.DateTimeUtc,
 })
+
 export type RecipesRestoredEvent = typeof RecipesRestoredEvent.Type
 
 // Made by the trash, 30 days after trashing (revising rule 7, sync rule 4).
@@ -57,9 +62,11 @@ export const RecipesPurgedEvent = Schema.TaggedStruct("RecipesPurgedEvent", {
   recipeIds: Schema.Array(RecipeId),
   occurredOn: Schema.DateTimeUtc,
 })
+
 export type RecipesPurgedEvent = typeof RecipesPurgedEvent.Type
 
 export const RecipeEvent = Schema.Union([
   RecipeAddedEvent, RecipeRevisedEvent, RecipesTrashedEvent, RecipesRestoredEvent, RecipesPurgedEvent,
 ])
+
 export type RecipeEvent = typeof RecipeEvent.Type

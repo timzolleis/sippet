@@ -6,4 +6,5 @@ export const RecipeProblem = Schema.Struct({
   rule: Schema.optionalKey(Schema.String),
   message: Schema.String,
 })
+
 export type RecipeProblem = typeof RecipeProblem.Type

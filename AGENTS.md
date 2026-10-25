@@ -19,6 +19,6 @@ Personal recipe app; Claude reads and edits a cook's library through MCP.
 - Code style: the effect-ddd skill (`~/.agents/skills/effect-ddd/SKILL.md`).
 - Stay inside your paths. Need a change elsewhere? Say so in your final report.
 - Only hosting adds dependencies. Pin exact versions (`pnpm add -E`).
-- `pnpm test` and `pnpm typecheck` pass before you report done.
+- `pnpm test`, `pnpm typecheck` and `pnpm lint` pass before you report done.
 - Commit on your branch with conventional commits. Don't merge, rebase, or push.
 - Spec wrong or a Verify item fails: stop, report the finding and options. Don't redesign silently.
