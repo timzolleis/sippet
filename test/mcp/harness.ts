@@ -138,7 +138,7 @@ export const makeCook = ({ now = () => Date.now() }: { now?: () => number } = {}
       headers?: Record<string, string>
     } = {},
   ): Promise<{ status: number; body: any }> => {
-    const request = new Headers({ "sippet-connection": connection, "x-device-name": deviceName, "content-type": "application/json", ...headers })
+    const request = new Headers({ "sippet-connection": connection, "x-device-name": encodeURIComponent(deviceName), "content-type": "application/json", ...headers })
 
     if (deviceId !== null) request.set("x-device-id", deviceId)
     const response = await deviceServer.handler(new Request(`http://localhost${path}`, { method, headers: request, body: body === undefined ? null : JSON.stringify(body) }))

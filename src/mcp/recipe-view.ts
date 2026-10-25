@@ -3,7 +3,7 @@ import { Match, Option, pipe, Schema } from "effect"
 import { RecipeFilter } from "../domain/library/recipe-filter.ts"
 import { withOptional } from "../domain/with-optional.ts"
 import { RecipeContent } from "../domain/recipe/recipe-content.ts"
-import { recipeFlowFromContent, recipeHasFlow } from "../domain/recipe/recipe-flow.ts"
+import { recipeFlowFromContent, recipeHasFlow, type RecipeFlow } from "../domain/recipe/recipe-flow.ts"
 import type { Library, RecipeRow, SearchHit, StoredRevision } from "../store/library.ts"
 import type { Actor } from "../store/schema.ts"
 import { RevisionView, type LibraryView, type RecipeSummary, type RecipeView } from "./schemas.ts"
@@ -13,6 +13,20 @@ const decodeFilter = Schema.decodeUnknownSync(RecipeFilter)
 const decodeWas = Schema.decodeUnknownSync(RevisionView.fields.was)
 
 export const iso = (millis: number): string => new Date(millis).toISOString()
+
+// Each step with its derived flow merged in (a step without flow stays as written).
+export const stepsWithFlow = ({ content, flow }: { readonly content: RecipeContent; readonly flow: Option.Option<RecipeFlow> }) =>
+  content.steps.map((step) => {
+    const stepFlow = Option.flatMap(flow, (found) => Option.fromUndefinedOr(found.steps.find((candidate) => candidate.stepKey === step.key)))
+
+    return Option.match(stepFlow, {
+      onNone: () => step,
+      onSome: ({ takes, waitsFor, makes }) => ({
+        ...step,
+        flow: { takes: takes.map((link) => link.key), waitsFor: waitsFor.map((link) => link.key), makes },
+      }),
+    })
+  })
 
 // The recipe at the revision in `row`, with the flow of that content.
 export const recipeViewOf = ({ library, row }: { readonly library: Library; readonly row: RecipeRow & StoredRevision }): RecipeView => {
@@ -30,17 +44,7 @@ export const recipeViewOf = ({ library, row }: { readonly library: Library; read
     sections: content.sections,
     equipment: content.equipment,
     ingredients: content.ingredients,
-    steps: content.steps.map((step) => {
-      const stepFlow = Option.flatMap(flow, (found) => Option.fromUndefinedOr(found.steps.find((candidate) => candidate.stepKey === step.key)))
-
-      return Option.match(stepFlow, {
-        onNone: () => step,
-        onSome: ({ takes, waitsFor, makes }) => ({
-          ...step,
-          flow: { takes: takes.map((link) => link.key), waitsFor: waitsFor.map((link) => link.key), makes },
-        }),
-      })
-    }),
+    steps: stepsWithFlow({ content, flow }),
     hasFlow: recipeHasFlow(content),
     makes: Option.match(flow, { onNone: () => [], onSome: (found) => found.makes }),
   }

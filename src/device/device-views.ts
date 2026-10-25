@@ -5,6 +5,7 @@ import { Equipment, Ingredient, RecipeContent, Section, Step, Yield } from "../d
 import { recipeFlowFromContent, recipeHasFlow } from "../domain/recipe/recipe-flow.ts"
 import { Key } from "../domain/recipe/key.ts"
 import { withOptional } from "../domain/with-optional.ts"
+import { stepsWithFlow } from "../mcp/recipe-view.ts"
 import type { Library, RecipeRow, StoredRevision } from "../store/library.ts"
 import type { Actor, Json } from "../store/schema.ts"
 
@@ -90,19 +91,6 @@ export const deviceRecipeOf = (row: RecipeRow & StoredRevision): DeviceRecipe =>
   const content = decodeContent(row.content)
   const flow = recipeFlowFromContent(content)
 
-  const steps = content.steps.map((step) =>
-    Option.match(
-      Option.flatMap(flow, (found) => Option.fromUndefinedOr(found.steps.find((candidate) => candidate.stepKey === step.key))),
-      {
-        onNone: () => step,
-        onSome: ({ takes, waitsFor, makes }) => ({
-          ...step,
-          flow: { takes: takes.map((link) => link.key), waitsFor: waitsFor.map((link) => link.key), makes },
-        }),
-      },
-    )
-  )
-
   const view: DeviceRecipe = {
     id: row.id,
     revision: row.revision,
@@ -111,7 +99,7 @@ export const deviceRecipeOf = (row: RecipeRow & StoredRevision): DeviceRecipe =>
     sections: content.sections,
     equipment: content.equipment,
     ingredients: content.ingredients,
-    steps,
+    steps: stepsWithFlow({ content, flow }),
     hasFlow: recipeHasFlow(content),
     makes: Option.match(flow, { onNone: () => [], onSome: (found) => found.makes }),
   }

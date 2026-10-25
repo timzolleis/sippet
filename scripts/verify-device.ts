@@ -48,7 +48,7 @@ const accessToken = async (): Promise<string> => {
 const deviceHeaders = (token: string, deviceId = "6f1d1c7e-0c5a-4c55-9d52-3a1b0f6a9a01") => ({
   authorization: `Bearer ${token}`,
   "x-device-id": deviceId,
-  "x-device-name": "verify-device",
+  "x-device-name": encodeURIComponent("verify-device"),
   "content-type": "application/json",
 })
 

@@ -13,6 +13,15 @@ export class CurrentDevice extends Context.Service<CurrentDevice, {
   readonly deviceName: string
 }>()("CurrentDevice") {}
 
+// x-device-name travels percent-encoded UTF-8; malformed encoding is unknown, like a bad length.
+const decodeName = (encoded: string | undefined) => {
+  try {
+    return encoded === undefined ? undefined : decodeURIComponent(encoded)
+  } catch {
+    return undefined
+  }
+}
+
 const DeviceHeaders = Schema.Struct({ "x-device-id": DeviceId, "x-device-name": DeviceName, "sippet-connection": Schema.String })
 
 const decodeHeaders = Schema.decodeUnknownEffect(DeviceHeaders)
@@ -23,7 +32,7 @@ export class DeviceMiddleware extends HttpApiMiddleware.Service<DeviceMiddleware
   static layer = Layer.succeed(DeviceMiddleware, DeviceMiddleware.of((handler) =>
     Effect.gen(function* () {
       const request = yield* HttpServerRequest.HttpServerRequest
-      const headers = yield* decodeHeaders(request.headers).pipe(Effect.mapError(() => new DeviceUnknownHttpError()))
+      const headers = yield* decodeHeaders({ ...request.headers, "x-device-name": decodeName(request.headers["x-device-name"]) }).pipe(Effect.mapError(() => new DeviceUnknownHttpError()))
 
       return yield* handler.pipe(Effect.provideService(CurrentDevice, {
         connection: headers["sippet-connection"],

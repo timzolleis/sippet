@@ -260,6 +260,26 @@ describe("edge", () => {
     expect(body._tag).toBe("DeviceUnknownHttpError")
   })
 
+  it("decodes a percent-encoded device name: the change is by \"Tim’s iPhone\"", async () => {
+    const { cook, add } = await setup()
+    const zupf = await add(zupfkuchen)
+
+    const { status } = await cook.device("/api/device/library/edits", {
+      method: "POST",
+      body: { edits: [{ op: "tag", tag: "Backen", recipeIds: [zupf] }] },
+      deviceName: "Tim’s iPhone",
+    })
+
+    expect(status).toBe(200)
+    expect(cook.library.listChanges({ after: cook.library.lastSeq() - 1, limit: 5 })[0]?.by).toEqual({ kind: "device", device: "Tim’s iPhone" })
+  })
+
+  it("answers 400 for a malformed percent-encoding in the device name", async () => {
+    const { cook } = await setup()
+
+    expect((await cook.device("/api/device/library", { headers: { "x-device-name": "%E0%A4%A" } })).status).toBe(400)
+  })
+
   it("answers 400 for a device name over 40 characters", async () => {
     const { cook } = await setup()
 
