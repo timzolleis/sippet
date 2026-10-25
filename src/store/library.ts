@@ -1,6 +1,6 @@
 // The storage side of a cook's library (specs/hosting.md#cooklibrary). Sync SQLite over Drizzle, no MCP, no recipe rules.
 // The domain's content is stored as JSON; `derive` (supplied by the wiring) computes the columns and search text from it.
-import { and, asc, eq, inArray, isNotNull, lte, min, sql, type SQL } from "drizzle-orm"
+import { and, asc, eq, inArray, isNotNull, lte, max, min, sql, type SQL } from "drizzle-orm"
 import type { DrizzleSqliteDODatabase } from "drizzle-orm/durable-sqlite"
 import { Data, Result, Schema } from "effect"
 import { LibraryNameTakenError, readLibrarySnapshot, writeLibrarySnapshot, type LibrarySnapshot } from "./library-change.ts"
@@ -102,6 +102,7 @@ const characters = (text: string) => [...text].length
 // Writes inside one `transact`. Every write appends exactly one change row (sync rule 1).
 export class Writes {
   alarmDirty = false
+  lastSeq: number | undefined = undefined
 
   constructor(
     private readonly db: Db,
@@ -110,7 +111,10 @@ export class Writes {
   ) {}
 
   appendChange({ kind, by, payload }: { kind: ChangeKind; by: Actor; payload: Json }): number {
-    return this.db.insert(change).values({ at: this.now, by, kind, payload }).returning({ seq: change.seq }).get().seq
+    const seq = this.db.insert(change).values({ at: this.now, by, kind, payload }).returning({ seq: change.seq }).get().seq
+    this.lastSeq = seq
+
+    return seq
   }
 
   // Adding rule 6: a clash on the cleaned source names the existing recipe, trashed included.
@@ -280,6 +284,8 @@ export class Library {
       readonly storage: DurableObjectStorage
       readonly derive: Derive
       readonly now?: () => number
+      // After a commit that appended a change: tools, device, alarm (device-api.md Live). Not for a retry hit or a dry run.
+      readonly onChange?: (seq: number) => void
     },
   ) {}
 
@@ -343,6 +349,8 @@ export class Library {
     }
 
     if (writes.alarmDirty) await this.scheduleAlarm()
+
+    if (writes.lastSeq !== undefined) this.options.onChange?.(writes.lastSeq)
 
     return outcome
   }
@@ -473,6 +481,40 @@ export class Library {
 
   listChanges({ after, limit }: { after: number; limit: number }) {
     return this.db.select().from(change).where(sql`${change.seq} > ${after}`).orderBy(asc(change.seq)).limit(limit).all()
+  }
+
+  // Every recipe at its latest revision, trash included (sync rule 6).
+  listRecipes(): ReadonlyArray<RecipeRow & StoredRevision> {
+    return this.db
+      .select()
+      .from(recipe)
+      .innerJoin(revision, and(eq(revision.recipeId, recipe.id), eq(revision.revision, recipe.latestRevision)))
+      .orderBy(asc(recipe.createdAt), asc(recipe.id))
+      .all()
+      .map(({ recipe: row, revision: stored }) => ({ ...row, revision: stored.revision, content: stored.content, was: stored.was, by: stored.by, at: stored.at, changeSeq: stored.changeSeq }))
+  }
+
+  // The named recipes that exist, at their latest revision.
+  getRecipes(ids: ReadonlyArray<string>): ReadonlyArray<RecipeRow & StoredRevision> {
+    return chunks([...new Set(ids)]).flatMap((some) =>
+      this.db
+        .select()
+        .from(recipe)
+        .innerJoin(revision, and(eq(revision.recipeId, recipe.id), eq(revision.revision, recipe.latestRevision)))
+        .where(inArray(recipe.id, [...some]))
+        .orderBy(asc(recipe.createdAt), asc(recipe.id))
+        .all()
+        .map(({ recipe: row, revision: stored }) => ({ ...row, revision: stored.revision, content: stored.content, was: stored.was, by: stored.by, at: stored.at, changeSeq: stored.changeSeq }))
+    )
+  }
+
+  lastSeq(): number {
+    return this.db.select({ seq: max(change.seq) }).from(change).get()?.seq ?? 0
+  }
+
+  // Every change after `after`, oldest first.
+  changesAfter(after: number) {
+    return this.db.select().from(change).where(sql`${change.seq} > ${after}`).orderBy(asc(change.seq)).all()
   }
 
   // Cooking rule 9. Trashed recipes never appear (revising rule 6). Order: collection position, then relevance, then title.
