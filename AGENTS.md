@@ -23,6 +23,6 @@ Personal recipe app; Claude reads and edits a cook's library through MCP.
 - Code style: the effect-ddd skill (`~/.agents/skills/effect-ddd/SKILL.md`).
 - Stay inside your paths. Need a change elsewhere? Say so in your final report.
 - Only hosting adds dependencies. Pin exact versions (`pnpm add -E`).
-- `pnpm test`, `pnpm typecheck` and `pnpm lint` pass before you report done. Swift: `swift test` in `ios/SippetCore`; the app builds with `xcodebuild`.
+- `pnpm test`, `pnpm typecheck` and `pnpm lint` pass before you report done. Swift: `swift test` in `ios/SippetCore`; the app: `xcodebuild -project ios/Sippet.xcodeproj -scheme Sippet -destination 'generic/platform=iOS Simulator' build CODE_SIGNING_ALLOWED=NO`. Prefix both with `DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer` while `xcode-select -p` points at the CommandLineTools.
 - Commit on your branch with conventional commits. Don't merge, rebase, or push.
 - Spec wrong or a Verify item fails: stop, report the finding and options. Don't redesign silently.
