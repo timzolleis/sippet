@@ -61,6 +61,25 @@ const pasta = await added(pastaTitle, await call("add_recipe", { title: pastaTit
 
 await call("edit_recipe", { recipeId: pasta, fromRevision: 1, edits: pastaUsesEdits }) // a second revision, as Claude would name each step's ingredients
 
+// The fixture has labels only (the rule tests need that); a recipe from a source has a sentence on every step (recipe rule 8). The pasta stays label-only.
+const zupfkuchenSentences = {
+  mischen: "Mehl, Zucker, Vanillezucker, Backpulver, Kakao und Salz in einer Schüssel mischen.",
+  verkneten: "Die vegane Butter dazugeben und alles zu einem glatten Teig verkneten.",
+  boden: "500 g Teig als Boden in die Springform drücken und dabei einen Rand von etwa 2,5 cm hochziehen. Den restlichen Teig für die Zupfen beiseitestellen.",
+  vorheizen: "Den Ofen auf 170 °C Ober-/Unterhitze vorheizen.",
+  verruehren: "Skyr, Zucker, Zitronensaft, Zitronenaroma, Zitronenschale und die geschmolzene Butter mit dem Mixer gut verrühren.",
+  untermixen: "Das Puddingpulver untermixen, bis die Masse glatt ist.",
+  giessen: "Die Füllung auf den Boden gießen und den restlichen Teig als Zupfen darauf verteilen.",
+  backen: "Im vorgeheizten Ofen 60–65 Minuten backen.",
+  auskuehlen: "Den Kuchen im geöffneten Ofen vollständig auskühlen lassen.",
+} satisfies Record<string, string>
+
+await call("edit_recipe", {
+  recipeId: zupfkuchen,
+  fromRevision: 1,
+  edits: Object.entries(zupfkuchenSentences).map(([key, sentence]) => ({ op: "edit_step", key, sentence })),
+})
+
 await call("edit_library", {
   edits: [
     { op: "tag", tag: "Kuchen", recipeIds: [zupfkuchen] },

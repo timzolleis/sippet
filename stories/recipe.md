@@ -76,7 +76,7 @@ The Zupfkuchen has the item Zucker in two ingredients: 180 g in Teig, 200 g in F
 5. **Prep on the ingredient.** An ingredient may name one prep: something done to it alone before it goes into its step ("Zitronensaft: auspressen", "Butter: schmelzen"). Recipes write it on the ingredient ("100 g Butter, geschmolzen"). As steps, these would sit side by side and break the chain of rule 11.
 6. **Sections.** Ingredients and steps may be grouped into sections ("Teig", "Füllung").
 7. **Step details.** A step may name equipment, a duration, and a temperature with a heating mode. A duration is minutes or a range of minutes, active or passive; a step with no clear length ("vollständig auskühlen", "über Nacht") has none, and its sentence says it. Cook mode starts timers from durations and reminds about preheating ([cooking.md](cooking.md), rule 5).
-8. **Label and sentence.** A step has a short label and may have a full sentence. Without one, the sentence is built from the label and what the step uses and takes.
+8. **Label and sentence.** A step has a short label for the table ("backen") and a full sentence for reading and cooking ("Im vorgeheizten Ofen 60–65 Minuten backen."). A recipe from a source gets a sentence on every step, in the source's words: a label alone is too thin to cook from. A step typed without one gets a sentence built from the label and what the step uses and takes.
 9. **Yield.** The yield is an amount ("12 Stück") and may name the vessel from the equipment ("Springform 26 cm"). Scaling to another vessel builds on it ([later.md](later.md)).
 
 ### Steps and flow
