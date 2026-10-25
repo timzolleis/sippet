@@ -1,10 +1,10 @@
-import { Option } from "effect"
+import { Match, Option } from "effect"
 import type { Amount } from "./amount.ts"
 import { keysOfContent } from "./apply-recipe-edits.ts"
 import type { Key } from "./key.ts"
 import { isStepResultSplit, portionsOfStep, type RecipeContent, type Step } from "./recipe-content.ts"
 import { recipeFlowFromContent, type FlowLink, type RecipeFlow, type StepFlow } from "./recipe-flow.ts"
-import type { RecipeProblem } from "./recipe-problem.ts"
+import type { RecipeProblem, RecipeRuleName } from "./recipe-problem.ts"
 import { isCustomUnit, valueInUnit, type Unit } from "./unit.ts"
 
 export type RecipeRuleInput = { readonly content: RecipeContent }
@@ -15,7 +15,7 @@ export type RecipeRule = (input: RecipeRuleInput) => ReadonlyArray<RecipeProblem
 
 export type RecipeFlowRule = (input: RecipeFlowRuleInput) => ReadonlyArray<RecipeProblem>
 
-const brokenRule = (rule: number, message: string): RecipeProblem => ({ rule: `recipe ${rule}`, message })
+const brokenRule = (problem: { readonly rule: RecipeRuleName; readonly message: string; readonly fix: string }): RecipeProblem => problem
 
 const quoted = (key: Key) => `"${key}"`
 
@@ -45,6 +45,14 @@ const takersByKey = (flow: RecipeFlow): ReadonlyMap<Key, ReadonlyArray<TakenLink
 
 const takerText = ({ takerKey, link }: TakenLink) => `${quoted(takerKey)}${derivedNote(link)}`
 
+// How to stop a derivation from taking `takenKey` (recipe rule 11: a named `takes` replaces the derived links).
+const optOutOfDerivedTake = ({ taken, takenKey }: { readonly taken: TakenLink; readonly takenKey: Key }): ReadonlyArray<string> =>
+  Match.value(taken.link.source).pipe(
+    Match.when("chain", () => [`set takes: [] on ${quoted(taken.takerKey)} to stop it chaining ${quoted(takenKey)}`]),
+    Match.when("join", () => [`set takes on ${quoted(taken.takerKey)} to what it takes, without ${quoted(takenKey)}, to stop it joining ${quoted(takenKey)}`]),
+    Match.orElse(() => []),
+  )
+
 // The step a link points at: the step itself, or the step whose result a portion splits.
 const stepKeyByLinkKey = (content: RecipeContent): ReadonlyMap<Key, Key> =>
   new Map(content.steps.flatMap((step) => [
@@ -54,10 +62,47 @@ const stepKeyByLinkKey = (content: RecipeContent): ReadonlyMap<Key, Key> =>
 
 // 1. Title, ingredient, step.
 export const titleIngredientAndStepRule: RecipeRule = ({ content }) => [
-  ...(content.title.trim() === "" ? [brokenRule(1, "the recipe has no title")] : []),
-  ...(content.ingredients.length === 0 ? [brokenRule(1, "the recipe has no ingredient")] : []),
-  ...(content.steps.length === 0 ? [brokenRule(1, "the recipe has no step")] : []),
+  ...(content.title.trim() === ""
+    ? [brokenRule({ rule: "title-ingredient-step", message: "the recipe has no title", fix: "give it a title" })]
+    : []),
+  ...(content.ingredients.length === 0
+    ? [brokenRule({ rule: "title-ingredient-step", message: "the recipe has no ingredient", fix: "add at least one ingredient with add_ingredient" })]
+    : []),
+  ...(content.steps.length === 0
+    ? [brokenRule({ rule: "title-ingredient-step", message: "the recipe has no step", fix: "add at least one step with add_step" })]
+    : []),
 ]
+
+const missing = (message: string, fix: string) => [brokenRule({ rule: "everything-named-exists", message, fix })]
+
+// What a step names in `takes`: an ingredient key belongs in `uses`. When takes names only ingredients,
+// moving them leaves takes empty, which means "nothing"; omitted, the derived chain applies again.
+const takesProblemsOfStep = ({ step, ingredientKeys, takeableKeys }: {
+  readonly step: Step
+  readonly ingredientKeys: ReadonlySet<Key>
+  readonly takeableKeys: ReadonlyMap<Key, Key>
+}): ReadonlyArray<RecipeProblem> => {
+  const takes = step.takes ?? []
+  const onlyIngredients = takes.every((key) => ingredientKeys.has(key))
+
+  return takes.flatMap((key) => {
+    if (takeableKeys.has(key)) return []
+
+    if (!ingredientKeys.has(key)) {
+      return missing(
+        `step ${quoted(step.key)} takes no result or portion ${quoted(key)}`,
+        `name an earlier step or portion key, or drop ${quoted(key)} from the takes of ${quoted(step.key)}`,
+      )
+    }
+
+    return missing(
+      `step ${quoted(step.key)} takes the ingredient ${quoted(key)}; takes is for results of earlier steps and portions`,
+      onlyIngredients
+        ? `move ${quoted(key)} from takes to uses on ${quoted(step.key)}, and omit takes there (null in edit_step) so ${quoted(step.key)} keeps the derived chain`
+        : `move ${quoted(key)} from takes to uses on ${quoted(step.key)}`,
+    )
+  })
+}
 
 // 12. Everything named exists: sections, equipment, the vessel, and what steps use, take, or wait for.
 export const everythingNamedExistsRule: RecipeRule = ({ content }) => {
@@ -70,32 +115,40 @@ export const everythingNamedExistsRule: RecipeRule = ({ content }) => {
 
   return [
     ...(vessel !== undefined && !equipmentKeys.has(vessel)
-      ? [brokenRule(12, `the yield's vessel ${quoted(vessel)} is no equipment`)]
+      ? missing(`the yield's vessel ${quoted(vessel)} is no equipment`, `add_equipment ${quoted(vessel)}, or set the yield's vessel to an equipment key`)
       : []),
     ...content.ingredients.flatMap((ingredient) =>
       ingredient.section !== undefined && !sectionKeys.has(ingredient.section)
-        ? [brokenRule(12, `ingredient ${quoted(ingredient.key)} is in no section ${quoted(ingredient.section)}`)]
+        ? missing(
+          `ingredient ${quoted(ingredient.key)} is in no section ${quoted(ingredient.section)}`,
+          `add_section ${quoted(ingredient.section)}, or drop the section of ${quoted(ingredient.key)}`,
+        )
         : []
     ),
     ...content.steps.flatMap((step) => [
       ...(step.section !== undefined && !sectionKeys.has(step.section)
-        ? [brokenRule(12, `step ${quoted(step.key)} is in no section ${quoted(step.section)}`)]
+        ? missing(`step ${quoted(step.key)} is in no section ${quoted(step.section)}`, `add_section ${quoted(step.section)}, or drop the section of ${quoted(step.key)}`)
         : []),
       ...(step.equipment ?? []).flatMap((key) =>
-        equipmentKeys.has(key) ? [] : [brokenRule(12, `step ${quoted(step.key)} names no equipment ${quoted(key)}`)]
-      ),
-      ...(step.uses ?? []).flatMap((key) =>
-        ingredientKeys.has(key) ? [] : [brokenRule(12, `step ${quoted(step.key)} uses no ingredient ${quoted(key)}`)]
-      ),
-      ...(step.takes ?? []).flatMap((key) =>
-        takeableKeys.has(key)
+        equipmentKeys.has(key)
           ? []
-          : ingredientKeys.has(key)
-          ? [brokenRule(12, `step ${quoted(step.key)} takes the ingredient ${quoted(key)}; name it in uses`)]
-          : [brokenRule(12, `step ${quoted(step.key)} takes no result or portion ${quoted(key)}`)]
+          : missing(`step ${quoted(step.key)} names no equipment ${quoted(key)}`, `add_equipment ${quoted(key)}, or drop it from the equipment of ${quoted(step.key)}`)
       ),
+      ...(step.uses ?? []).flatMap((key) => {
+        if (ingredientKeys.has(key)) return []
+
+        return takeableKeys.has(key)
+          ? missing(
+            `step ${quoted(step.key)} uses ${quoted(key)}, which is a step's result or a portion, not an ingredient; uses is for ingredient keys`,
+            `move ${quoted(key)} from uses to takes on ${quoted(step.key)}`,
+          )
+          : missing(`step ${quoted(step.key)} uses no ingredient ${quoted(key)}`, `add_ingredient ${quoted(key)}, or drop it from the uses of ${quoted(step.key)}`)
+      }),
+      ...takesProblemsOfStep({ step, ingredientKeys, takeableKeys }),
       ...(step.waitsFor ?? []).flatMap((key) =>
-        stepKeys.has(key) ? [] : [brokenRule(12, `step ${quoted(step.key)} waits for no step ${quoted(key)}`)]
+        stepKeys.has(key)
+          ? []
+          : missing(`step ${quoted(step.key)} waits for no step ${quoted(key)}`, `name an earlier step key, or drop ${quoted(key)} from the waitsFor of ${quoted(step.key)}`)
       ),
     ]),
   ]
@@ -107,23 +160,35 @@ export const uniqueKeysRule: RecipeRule = ({ content }) => {
 
   for (const key of keysOfContent(content)) counts.set(key, (counts.get(key) ?? 0) + 1)
 
-  return [...counts].flatMap(([key, count]) => count > 1 ? [brokenRule(20, `key ${quoted(key)} is used ${count} times`)] : [])
+  return [...counts].flatMap(([key, count]) =>
+    count > 1
+      ? [brokenRule({ rule: "keys", message: `key ${quoted(key)} is used ${count} times`, fix: `give each of them its own key, e.g. ${quoted(`${key}-2`)}` })]
+      : []
+  )
 }
 
-// 11. A prep step uses and takes nothing, so it makes nothing; 12. a step can't take a result that doesn't exist.
+// 11. A prep step uses and takes nothing, so it makes nothing, and nothing can take it; waiting for it is how to follow it.
 export const prepStepsMakeNothingRule: RecipeFlowRule = ({ content, flow }) => {
   const makesByStepKey = new Map(flow.steps.map((stepFlow) => [stepFlow.stepKey, stepFlow.makes]))
 
   return [
     ...content.steps.flatMap((step) =>
       makesByStepKey.get(step.key) === false && step.result !== undefined
-        ? [brokenRule(11, `step ${quoted(step.key)} uses and takes nothing, so it makes nothing; drop its result`)]
+        ? [brokenRule({
+          rule: "flow-is-derived",
+          message: `step ${quoted(step.key)} uses and takes nothing, so it makes nothing (prep step), but has a result`,
+          fix: `drop the result of ${quoted(step.key)}, or name what it uses or takes`,
+        })]
         : []
     ),
     ...flow.steps.flatMap((stepFlow) =>
       stepFlow.takes.flatMap((link) =>
         makesByStepKey.get(link.key) === false
-          ? [brokenRule(12, `step ${quoted(stepFlow.stepKey)} takes ${quoted(link.key)}, which makes nothing (prep step)${derivedNote(link)}`)]
+          ? [brokenRule({
+            rule: "flow-is-derived",
+            message: `step ${quoted(stepFlow.stepKey)} takes ${quoted(link.key)}, which makes nothing (prep step)${derivedNote(link)}`,
+            fix: `move ${quoted(link.key)} from takes to waitsFor on ${quoted(stepFlow.stepKey)}`,
+          })]
           : []
       )
     ),
@@ -144,6 +209,10 @@ const edgesOfStep = ({ stepFlow, stepKeyByLink }: { readonly stepFlow: StepFlow;
 ]
 
 const edgeText = (edge: FlowEdge) => `${quoted(edge.fromKey)} ${edge.verb} ${quoted(edge.link.key)}${derivedNote(edge.link)}`
+
+const fieldOfEdge = (edge: FlowEdge) => edge.verb === "takes" ? "takes" : "waitsFor"
+
+const dropEdgeText = (edge: FlowEdge) => `drop ${quoted(edge.link.key)} from the ${fieldOfEdge(edge)} of ${quoted(edge.fromKey)}`
 
 // 13. No step takes or waits for its own result, directly or through other steps.
 export const noLoopsRule: RecipeFlowRule = ({ content, flow }) => {
@@ -177,17 +246,36 @@ export const noLoopsRule: RecipeFlowRule = ({ content, flow }) => {
 
   for (const step of content.steps) visit(step.key)
 
-  return [...loops.values()].map((loop) => brokenRule(13, `loop: ${loop.map(edgeText).join(", ")}`))
+  // Derived links always point back, so a loop has a named link to drop.
+  return [...loops.values()].map((loop) =>
+    brokenRule({
+      rule: "no-loops",
+      message: `loop: ${loop.map(edgeText).join(", ")}`,
+      fix: `a step can only take or wait for earlier steps: ${loop.filter((edge) => edge.link.source === "named").map(dropEdgeText).join(", or ")}`,
+    })
+  )
 }
 
 // 14. Every ingredient is used by exactly one step.
 export const everyIngredientToOneStepRule: RecipeFlowRule = ({ content }) =>
   content.ingredients.flatMap((ingredient) => {
-    const users = content.steps.filter((step) => (step.uses ?? []).includes(ingredient.key)).map((step) => quoted(step.key))
+    const users = content.steps.filter((step) => (step.uses ?? []).includes(ingredient.key)).map((step) => step.key)
 
-    if (users.length === 0) return [brokenRule(14, `ingredient ${quoted(ingredient.key)} is used by no step`)]
+    if (users.length === 0) {
+      return [brokenRule({
+        rule: "every-ingredient-goes-to-one-step",
+        message: `ingredient ${quoted(ingredient.key)} is used by no step`,
+        fix: `add ${quoted(ingredient.key)} to the uses of the step it goes into, or remove it`,
+      })]
+    }
 
-    if (users.length > 1) return [brokenRule(14, `ingredient ${quoted(ingredient.key)} is used by ${listed(users)}`)]
+    if (users.length > 1) {
+      return [brokenRule({
+        rule: "every-ingredient-goes-to-one-step",
+        message: `ingredient ${quoted(ingredient.key)} is used by ${listed(users.map(quoted))}`,
+        fix: `keep ${quoted(ingredient.key)} in the uses of one step; for the others add another ingredient of the item ${JSON.stringify(ingredient.item)} with its own key and amount`,
+      })]
+    }
 
     return []
   })
@@ -197,12 +285,23 @@ export const resultToOnePlaceRule: RecipeFlowRule = ({ content, flow }) => {
   const takers = takersByKey(flow)
 
   return content.steps.flatMap((step) => [
-    ...(isStepResultSplit(step) ? [] : [{ key: step.key, what: "result of" }]),
-    ...portionsOfStep(step).map((portion) => ({ key: portion.key, what: "portion" })),
-  ]).flatMap(({ key, what }) => {
+    ...(isStepResultSplit(step) ? [] : [{ key: step.key, what: "result of", isPortion: false }]),
+    ...portionsOfStep(step).map((portion) => ({ key: portion.key, what: "portion", isPortion: true })),
+  ]).flatMap(({ key, what, isPortion }) => {
     const takenBy = takers.get(key) ?? []
 
-    return takenBy.length > 1 ? [brokenRule(15, `${what} ${quoted(key)} is taken by ${listed(takenBy.map(takerText))}`)] : []
+    if (takenBy.length <= 1) return []
+    const optOuts = takenBy.flatMap((taken) => optOutOfDerivedTake({ taken, takenKey: key }))
+
+    const named = isPortion
+      ? `drop ${quoted(key)} from the takes of all steps but one`
+      : `split the result of ${quoted(key)} (result.split) into one portion per step, and let each take its portion`
+
+    return [brokenRule({
+      rule: "result-goes-to-one-place",
+      message: `${what} ${quoted(key)} is taken by ${listed(takenBy.map(takerText))}`,
+      fix: [...optOuts, named].join("; or "),
+    })]
   })
 }
 
@@ -213,6 +312,16 @@ const totalInUnit = ({ amounts, unit }: { readonly amounts: ReadonlyArray<Amount
     return total === undefined || value === undefined ? undefined : total + value
   }, 0)
 
+const portionsBroken = (message: string, fix: string) => [brokenRule({ rule: "portions", message, fix })]
+
+const wholeSplitTakenFix = ({ taken, step }: { readonly taken: TakenLink; readonly step: Step }) => {
+  const portions = listed(portionsOfStep(step).map((portion) => quoted(portion.key)))
+
+  return taken.link.source === "chain"
+    ? `${quoted(taken.takerKey)} chains ${quoted(step.key)}, which is split: set takes on ${quoted(taken.takerKey)} to the portions it gets (${portions})`
+    : `in the takes of ${quoted(taken.takerKey)}, replace ${quoted(step.key)} with the portions it gets (${portions})`
+}
+
 const portionProblemsOfStep = ({ step, takers }: { readonly step: Step; readonly takers: ReadonlyMap<Key, ReadonlyArray<TakenLink>> }): ReadonlyArray<RecipeProblem> => {
   const portions = portionsOfStep(step)
   const resultAmount = step.result?.amount
@@ -221,21 +330,32 @@ const portionProblemsOfStep = ({ step, takers }: { readonly step: Step; readonly
   const rests = portions.filter((portion) => portion.rest === true)
 
   return [
-    ...(takers.get(step.key) ?? []).map((taken) =>
-      brokenRule(16, `step ${takerText(taken)} takes the whole result of ${quoted(step.key)}, which is split; take its portions`)
+    ...(takers.get(step.key) ?? []).flatMap((taken) =>
+      portionsBroken(`step ${takerText(taken)} takes the whole result of ${quoted(step.key)}, which is split`, wholeSplitTakenFix({ taken, step }))
     ),
     ...portions.flatMap((portion) =>
       portion.amount === undefined && portion.rest !== true
-        ? [brokenRule(16, `portion ${quoted(portion.key)} of ${quoted(step.key)} has no amount; only the rest may have none`)]
+        ? portionsBroken(
+          `portion ${quoted(portion.key)} of ${quoted(step.key)} has no amount; only the rest may have none`,
+          `give ${quoted(portion.key)} an amount, or set rest: true on it (one portion at most)`,
+        )
         : []
     ),
-    ...(rests.length > 1 ? [brokenRule(16, `${quoted(step.key)} has ${rests.length} portions that are the rest; at most one may be`)] : []),
+    ...(rests.length > 1
+      ? portionsBroken(`${quoted(step.key)} has ${rests.length} portions that are the rest; at most one may be`, "keep rest: true on one portion and give the others amounts")
+      : []),
     ...(resultAmount !== undefined && portionsTotal !== undefined && portionsTotal > (resultAmount.max ?? resultAmount.value)
-      ? [brokenRule(16, `portions of ${quoted(step.key)} (${amountText({ value: portionsTotal, unit: resultAmount.unit })}) exceed its result (${amountText({ value: resultAmount.max ?? resultAmount.value, unit: resultAmount.unit })})`)]
+      ? portionsBroken(
+        `portions of ${quoted(step.key)} (${amountText({ value: portionsTotal, unit: resultAmount.unit })}) exceed its result (${amountText({ value: resultAmount.max ?? resultAmount.value, unit: resultAmount.unit })})`,
+        `lower the portions' amounts, mark one as rest: true without an amount, or raise the result's amount`,
+      )
       : []),
     ...portions.flatMap((portion) =>
       (takers.get(portion.key) ?? []).length === 0
-        ? [brokenRule(16, `portion ${quoted(portion.key)} of ${quoted(step.key)} is taken by no step`)]
+        ? portionsBroken(
+          `portion ${quoted(portion.key)} of ${quoted(step.key)} is taken by no step`,
+          `name ${quoted(portion.key)} in the takes of the later step that gets it, or remove the portion`,
+        )
         : []
     ),
   ]
@@ -250,7 +370,13 @@ export const portionsRule: RecipeFlowRule = ({ content, flow }) => {
 
 // 18. A flow makes at least one thing.
 export const recipeMakesSomethingRule: RecipeFlowRule = ({ flow }) =>
-  flow.makes.length === 0 ? [brokenRule(18, "the flow makes nothing: every result is taken or waited for")] : []
+  flow.makes.length === 0
+    ? [brokenRule({
+      rule: "what-the-recipe-makes",
+      message: "the flow makes nothing: every result is taken or waited for",
+      fix: "leave the last step's result untaken: no step may take or wait for it",
+    })]
+    : []
 
 // 19. Each step comes after every step it takes from or waits for.
 export const authorsOrderRule: RecipeFlowRule = ({ content, flow }) => {
@@ -260,7 +386,11 @@ export const authorsOrderRule: RecipeFlowRule = ({ content, flow }) => {
   return flow.steps.flatMap((stepFlow) =>
     edgesOfStep({ stepFlow, stepKeyByLink }).flatMap((edge) =>
       (indexByStepKey.get(edge.toKey) ?? 0) > (indexByStepKey.get(edge.fromKey) ?? 0)
-        ? [brokenRule(19, `step ${edgeText(edge)}, which comes after it`)]
+        ? [brokenRule({
+          rule: "authors-order",
+          message: `step ${edgeText(edge)}, which comes after it`,
+          fix: `move_step ${quoted(edge.fromKey)} to after ${quoted(edge.toKey)}, or ${dropEdgeText(edge)}`,
+        })]
         : []
     )
   )

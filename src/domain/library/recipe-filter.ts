@@ -6,21 +6,26 @@ import { isSameLibraryName } from "./library-name.ts"
 
 const Names = Schema.Array(Schema.NonEmptyString)
 
+// The descriptions reach the tools' JSON Schema (specs/mcp.md).
 export const TagFilter = Schema.Struct({
-  all: Schema.optionalKey(Names),
-  any: Schema.optionalKey(Names),
-  none: Schema.optionalKey(Names),
-})
+  all: Schema.optionalKey(Names).pipe(Schema.annotateKey({ description: "Has every one of these tags." })),
+  any: Schema.optionalKey(Names).pipe(Schema.annotateKey({ description: "Has at least one." })),
+  none: Schema.optionalKey(Names).pipe(Schema.annotateKey({ description: "Has none of them." })),
+}).annotate({ description: "Tag names, ignoring case; the groups combine with AND." })
 
 export type TagFilter = typeof TagFilter.Type
 
 // What a smart collection and search filter by (library rule 13, cooking rule 9).
 export const RecipeFilter = Schema.Struct({
   tags: Schema.optionalKey(TagFilter),
-  items: Schema.optionalKey(Names),
-  maxTotalMinutes: Schema.optionalKey(Schema.Finite.check(Schema.isGreaterThanOrEqualTo(0))),
-  hasFlow: Schema.optionalKey(Schema.Boolean),
-  text: Schema.optionalKey(Schema.NonEmptyString),
+  items: Schema.optionalKey(Names).pipe(Schema.annotateKey({ description: "Item names, ignoring case: the recipe uses all of them." })),
+  maxTotalMinutes: Schema.optionalKey(Schema.Finite.check(Schema.isGreaterThanOrEqualTo(0))).pipe(Schema.annotateKey({
+    description: "Total time (step durations added, ranges at their high end) at most this; recipes without durations drop out.",
+  })),
+  hasFlow: Schema.optionalKey(Schema.Boolean).pipe(Schema.annotateKey({ description: "Whether its steps name their ingredients." })),
+  text: Schema.optionalKey(Schema.NonEmptyString).pipe(Schema.annotateKey({
+    description: "In the title, ingredients, or steps, ignoring case and accents.",
+  })),
 })
 
 export type RecipeFilter = typeof RecipeFilter.Type

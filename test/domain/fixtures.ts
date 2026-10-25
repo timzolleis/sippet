@@ -1,16 +1,17 @@
 import { Result, Schema } from "effect"
 import { RecipeContent, Yield, emptyRecipeContent } from "../../src/domain/recipe/recipe-content.ts"
-import { RecipeEdit } from "../../src/domain/recipe/recipe-edit.ts"
+import { NewRecipeEdit, RecipeEdit } from "../../src/domain/recipe/recipe-edit.ts"
 import { recipeContentFromEdits } from "../../src/domain/recipe/recipe-content-from-edits.ts"
 
 export const decodeRecipeEdits = Schema.decodeUnknownSync(Schema.Array(RecipeEdit))
+export const decodeNewRecipeEdits = Schema.decodeUnknownSync(Schema.Array(NewRecipeEdit))
 export const decodeRecipeContent = Schema.decodeUnknownSync(RecipeContent)
 
 // specs/mcp.md, The Zupfkuchen, with the elided ingredients from the Zupfkuchen-Ablauf.
 export const zupfkuchenTitle = "Veganer Russischer Zupfkuchen"
 export const zupfkuchenYield: Yield = { amount: { value: 12, unit: "piece" }, vessel: "springform" }
 
-export const zupfkuchenEdits = decodeRecipeEdits([
+export const zupfkuchenEdits = decodeNewRecipeEdits([
   { op: "add_equipment", key: "springform", name: "Springform 26 cm" },
   { op: "add_equipment", key: "ofen", name: "Ofen" },
   { op: "add_section", key: "teig", name: "Teig" },

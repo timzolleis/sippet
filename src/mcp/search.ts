@@ -23,13 +23,17 @@ export type SearchParams = {
 // "empty": the two filters can't both hold (one wants a flow, the other none).
 export const searchQueryOf = ({ library, params }: { readonly library: Library; readonly params: SearchParams }): Result.Result<SearchQuery | "empty", Refusal> => {
   if (params.collection !== undefined && !library.hasCollection(params.collection)) {
-    return Result.fail(refuse({ message: `no collection "${params.collection}"` }))
+    return Result.fail(refuse({ rule: "unknown-collection", message: `no collection "${params.collection}"`, fix: "name a collection get_library lists" }))
   }
 
   const stored = params.smartCollection === undefined ? undefined : library.smartCollectionFilter(params.smartCollection)
 
   if (params.smartCollection !== undefined && stored === undefined) {
-    return Result.fail(refuse({ message: `no smart collection "${params.smartCollection}"` }))
+    return Result.fail(refuse({
+      rule: "unknown-smart-collection",
+      message: `no smart collection "${params.smartCollection}"`,
+      fix: "name a smart collection get_library lists",
+    }))
   }
 
   const smart = stored === undefined ? undefined : decodeFilter(stored)

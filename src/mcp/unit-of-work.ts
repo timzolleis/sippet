@@ -42,15 +42,18 @@ const fixedClock = ({ clock, now }: { readonly clock: Clock.Clock; readonly now:
   })
 
 // A typed failure rolls the transaction back and comes out as a Result; a defect rolls back and throws.
-export const inTransaction = <A extends Json, E>({ library, retry, cleanedSource, program }: {
+export const inTransaction = <A extends Json, E>({ library, retry, dryRun, cleanedSource, program }: {
   readonly library: Library
   readonly retry?: RetryKey | undefined
+  // run every check and the view, then roll back
+  readonly dryRun?: boolean | undefined
   // the source address, cleaned before the transaction because that can fetch
   readonly cleanedSource?: string | undefined
   readonly program: Effect.Effect<A, E, Services>
 }): Promise<Result.Result<A, E>> =>
   library.transact({
     retry,
+    dryRun: dryRun === true,
     run: (writes: Writes) => {
       const ports = Layer.mergeAll(recipeRepositoryLayer({ library, writes }), libraryRepositoryLayer({ library, writes }), recipeSourcesLayer(cleanedSource))
 

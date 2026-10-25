@@ -6,35 +6,42 @@ import type {
   ReorderCollectionEdit,
   SaveSmartCollectionEdit,
 } from "./library-edit.ts"
-import type { LibraryProblem } from "./library-error.ts"
+import type { LibraryProblem, LibraryRuleName } from "./library-error.ts"
 import { isSameLibraryName } from "./library-name.ts"
 import type { RecipeFilter, TagFilter } from "./recipe-filter.ts"
 
 type Mutable<T> = { -readonly [K in keyof T]: T[K] }
 
+// Why an edit can't apply; the batch adds which edit it was.
+type EditProblem = Omit<LibraryProblem, "edit">
+
 // An edit's outcome: what it could apply, and why the rest can't.
-type AppliedEdit = { readonly library: Library; readonly messages: ReadonlyArray<string> }
+type AppliedEdit = { readonly library: Library; readonly problems: ReadonlyArray<EditProblem> }
 
 type ApplyLibraryEditInput = { readonly library: Library; readonly recipePlaces: ReadonlyMap<RecipeId, RecipePlace> }
 
-const applied = (library: Library, messages: ReadonlyArray<string> = []): AppliedEdit => ({ library, messages })
+const applied = (library: Library, problems: ReadonlyArray<EditProblem> = []): AppliedEdit => ({ library, problems })
 
 const quoted = (name: string) => `"${name}"`
 
+const problem = (rule: LibraryRuleName, message: string, fix: string): EditProblem => ({ rule, message, fix })
+
 const unique = <T>(values: ReadonlyArray<T>): ReadonlyArray<T> => [...new Set(values)]
 
-type RecipeIdsInLibrary = { readonly recipeIds: ReadonlyArray<RecipeId>; readonly messages: ReadonlyArray<string> }
+type RecipeIdsInLibrary = { readonly recipeIds: ReadonlyArray<RecipeId>; readonly problems: ReadonlyArray<EditProblem> }
 
 // A recipe that doesn't exist or is in the trash can't be named (library rule 1).
 const recipeIdsInLibrary = ({ recipePlaces, recipeIds }: {
   readonly recipePlaces: ReadonlyMap<RecipeId, RecipePlace>; readonly recipeIds: ReadonlyArray<RecipeId>
 }): RecipeIdsInLibrary => ({
   recipeIds: unique(recipeIds.filter((recipeId) => recipePlaces.get(recipeId) === "library")),
-  messages: recipeIds.flatMap((recipeId) =>
+  problems: recipeIds.flatMap((recipeId) =>
     Match.value(recipePlaces.get(recipeId)).pipe(
       Match.when("library", () => []),
-      Match.when("trash", () => [`recipe ${quoted(recipeId)} is in the trash`]),
-      Match.orElse(() => [`no recipe ${quoted(recipeId)}`]),
+      Match.when("trash", () => [
+        problem("trashed-recipes-leave-the-library", `recipe ${quoted(recipeId)} is in the trash`, `restore_recipes ${quoted(recipeId)} first, or leave it out`),
+      ]),
+      Match.orElse(() => [problem("unknown-recipe", `no recipe ${quoted(recipeId)}`, "use an id from search_recipes")]),
     )
   ),
 })
@@ -50,13 +57,16 @@ const appendRecipeIds = (current: ReadonlyArray<RecipeId>, added: ReadonlyArray<
   [...current, ...added.filter((recipeId) => !current.includes(recipeId))]
 
 // A collection's or smart collection's name is unique across both (library rule 9).
-const collectionNameTaken = ({ library, name, except }: { readonly library: Library; readonly name: string; readonly except?: object }): string | undefined => {
+const collectionNameTaken = ({ library, name, except }: { readonly library: Library; readonly name: string; readonly except?: object }): EditProblem | undefined => {
   const collection = findByName(library.collections, name)
+  const fix = "pick another name; collections and smart collections share names, ignoring case"
 
-  if (collection !== undefined && collection !== except) return `the name ${quoted(name)} is taken by a collection`
+  if (collection !== undefined && collection !== except) return problem("one-collection-per-name", `the name ${quoted(name)} is taken by a collection`, fix)
   const smartCollection = findByName(library.smartCollections, name)
 
-  if (smartCollection !== undefined && smartCollection !== except) return `the name ${quoted(name)} is taken by a smart collection`
+  if (smartCollection !== undefined && smartCollection !== except) {
+    return problem("one-collection-per-name", `the name ${quoted(name)} is taken by a smart collection`, fix)
+  }
 
   return undefined
 }
@@ -88,8 +98,14 @@ const smartCollectionsWithTag = ({ smartCollections, tag, to }: {
     return { ...smartCollection, filter }
   })
 
-const missingTag = (library: Library, name: string) => applied(library, [`no tag ${quoted(name)}`])
-const missingCollection = (library: Library, name: string) => applied(library, [`no collection ${quoted(name)}`])
+const noTag = (name: string) => problem("unknown-tag", `no tag ${quoted(name)}`, "name a tag get_library lists (ignoring case); tag creates new ones")
+const missingTag = (library: Library, name: string) => applied(library, [noTag(name)])
+
+const missingCollection = (library: Library, name: string) =>
+  applied(library, [problem("unknown-collection", `no collection ${quoted(name)}`, "name a collection get_library lists, or create_collection it in an earlier edit")])
+
+const noSmartCollection = (name: string) =>
+  problem("unknown-smart-collection", `no smart collection ${quoted(name)}`, "name a smart collection get_library lists")
 
 // 3, 4. A new name creates the tag; recipes already tagged stay.
 const tagRecipes = ({ library, recipePlaces, tag: name, recipeIds }: ApplyLibraryEditInput & { readonly tag: string; readonly recipeIds: ReadonlyArray<RecipeId> }): AppliedEdit => {
@@ -100,7 +116,7 @@ const tagRecipes = ({ library, recipePlaces, tag: name, recipeIds }: ApplyLibrar
     ? [...library.tags, { name, recipeIds: named.recipeIds }]
     : replaceEntry(library.tags, tag, { ...tag, recipeIds: appendRecipeIds(tag.recipeIds, named.recipeIds) })
 
-  return applied({ ...library, tags }, named.messages)
+  return applied({ ...library, tags }, named.problems)
 }
 
 // 5. Untagging keeps the tag.
@@ -111,7 +127,7 @@ const untagRecipes = ({ library, recipePlaces, tag: name, recipeIds }: ApplyLibr
   const named = recipeIdsInLibrary({ recipePlaces, recipeIds })
   const tags = replaceEntry(library.tags, tag, { ...tag, recipeIds: tag.recipeIds.filter((recipeId) => !named.recipeIds.includes(recipeId)) })
 
-  return applied({ ...library, tags }, named.messages)
+  return applied({ ...library, tags }, named.problems)
 }
 
 // 6. Rename to a free name; a change in case only is a rename. Filters follow.
@@ -122,7 +138,9 @@ const renameTag = ({ library, tag: name, to }: { readonly library: Library; read
   const other = findByName(library.tags, to)
 
   if (other !== undefined && other !== tag) {
-    return applied(library, [`the tag ${quoted(other.name)} exists; merge ${quoted(tag.name)} into it instead`])
+    return applied(library, [
+      problem("rename-to-a-free-name", `the tag ${quoted(other.name)} exists`, `merge_tags ${quoted(tag.name)} into ${quoted(other.name)} instead`),
+    ])
   }
 
   return applied({
@@ -138,10 +156,10 @@ const mergeTags = ({ library, tag: name, into }: { readonly library: Library; re
   const kept = findByName(library.tags, into)
 
   if (merged === undefined || kept === undefined) {
-    return applied(library, [...(merged === undefined ? [`no tag ${quoted(name)}`] : []), ...(kept === undefined ? [`no tag ${quoted(into)}`] : [])])
+    return applied(library, [...(merged === undefined ? [noTag(name)] : []), ...(kept === undefined ? [noTag(into)] : [])])
   }
 
-  if (merged === kept) return applied(library, [`can't merge the tag ${quoted(merged.name)} into itself`])
+  if (merged === kept) return applied(library, [problem("merging", `can't merge the tag ${quoted(merged.name)} into itself`, "name two different tags")])
 
   return applied({
     ...library,
@@ -169,7 +187,7 @@ const createCollection = ({ library, recipePlaces, name, recipeIds }: ApplyLibra
   if (taken !== undefined) return applied(library, [taken])
   const named = recipeIdsInLibrary({ recipePlaces, recipeIds })
 
-  return applied({ ...library, collections: [...library.collections, { name, recipeIds: named.recipeIds }] }, named.messages)
+  return applied({ ...library, collections: [...library.collections, { name, recipeIds: named.recipeIds }] }, named.problems)
 }
 
 // 10. Added at the end, in the order given; one already there keeps its place.
@@ -182,7 +200,7 @@ const addToCollection = ({ library, recipePlaces, collection: name, recipeIds }:
   return applied({
     ...library,
     collections: replaceEntry(library.collections, collection, { ...collection, recipeIds: appendRecipeIds(collection.recipeIds, named.recipeIds) }),
-  }, named.messages)
+  }, named.problems)
 }
 
 // 10. Removing a recipe that isn't there changes nothing.
@@ -197,7 +215,7 @@ const removeFromCollection = ({ library, recipePlaces, collection: name, recipeI
     collections: replaceEntry(library.collections, collection, {
       ...collection, recipeIds: collection.recipeIds.filter((recipeId) => !named.recipeIds.includes(recipeId)),
     }),
-  }, named.messages)
+  }, named.problems)
 }
 
 /**
@@ -215,13 +233,19 @@ const reorderCollection = ({ library, recipePlaces, edit }: ApplyLibraryEditInpu
   const missing = listed.filter((recipeId) => !named.includes(recipeId))
   const extra = unique(named.filter((recipeId) => !listed.includes(recipeId)))
 
-  const messages = [
-    ...(missing.length > 0 ? [`the new order misses ${missing.map(quoted).join(", ")}`] : []),
-    ...(extra.length > 0 ? [`not in ${quoted(collection.name)}: ${extra.map(quoted).join(", ")}`] : []),
-    ...(twice.length > 0 ? [`named more than once: ${twice.map(quoted).join(", ")}`] : []),
+  const problems = [
+    ...(missing.length > 0
+      ? [problem("reorder-names-everything", `the new order misses ${missing.map(quoted).join(", ")}`, "name every recipe in the collection, each once")]
+      : []),
+    ...(extra.length > 0
+      ? [problem("reorder-names-everything", `not in ${quoted(collection.name)}: ${extra.map(quoted).join(", ")}`, "add_to_collection them first, or leave them out")]
+      : []),
+    ...(twice.length > 0
+      ? [problem("reorder-names-everything", `named more than once: ${twice.map(quoted).join(", ")}`, "name each recipe once")]
+      : []),
   ]
 
-  if (messages.length > 0) return applied(library, messages)
+  if (problems.length > 0) return applied(library, problems)
   const reordered = [...named]
   const recipeIds = collection.recipeIds.map((recipeId) => isTrashed(recipeId) ? recipeId : reordered.shift() ?? recipeId)
 
@@ -251,12 +275,12 @@ const deleteCollection = ({ library, collection: name }: { readonly library: Lib
 // A filter names existing tags, in their spelling.
 const filterWithLibraryTags = ({ library, filter }: { readonly library: Library; readonly filter: RecipeFilter }): AppliedEdit & { readonly filter: RecipeFilter } => {
   if (filter.tags === undefined) return { ...applied(library), filter }
-  const messages: Array<string> = []
+  const problems: Array<EditProblem> = []
 
   const tags = tagFilterWith(filter.tags, (name) => {
     const tag = findByName(library.tags, name)
 
-    if (tag === undefined) messages.push(`no tag ${quoted(name)}`)
+    if (tag === undefined) problems.push(noTag(name))
 
     return tag?.name
   })
@@ -266,7 +290,7 @@ const filterWithLibraryTags = ({ library, filter }: { readonly library: Library;
   if (tags === undefined) delete next.tags
   else next.tags = tags
 
-  return { ...applied(library, messages), filter: next }
+  return { ...applied(library, problems), filter: next }
 }
 
 // 13. Save a new smart collection, or change one's name or filter.
@@ -275,32 +299,32 @@ const saveSmartCollection = ({ library, edit }: { readonly library: Library; rea
   const smartCollection = findByName(library.smartCollections, edit.name)
 
   if (smartCollection === undefined) {
-    if (edit.newName !== undefined) return applied(library, [`no smart collection ${quoted(edit.name)} to rename`, ...checkedFilter.messages])
+    if (edit.newName !== undefined) return applied(library, [noSmartCollection(edit.name), ...checkedFilter.problems])
     const taken = collectionNameTaken({ library, name: edit.name })
 
-    if (taken !== undefined) return applied(library, [taken, ...checkedFilter.messages])
+    if (taken !== undefined) return applied(library, [taken, ...checkedFilter.problems])
 
     return applied(
       { ...library, smartCollections: [...library.smartCollections, { name: edit.name, filter: checkedFilter.filter }] },
-      checkedFilter.messages,
+      checkedFilter.problems,
     )
   }
 
   const name = edit.newName ?? smartCollection.name
   const taken = collectionNameTaken({ library, name, except: smartCollection })
 
-  if (taken !== undefined) return applied(library, [taken, ...checkedFilter.messages])
+  if (taken !== undefined) return applied(library, [taken, ...checkedFilter.problems])
 
   return applied(
     { ...library, smartCollections: replaceEntry(library.smartCollections, smartCollection, { name, filter: checkedFilter.filter }) },
-    checkedFilter.messages,
+    checkedFilter.problems,
   )
 }
 
 const deleteSmartCollection = ({ library, name }: { readonly library: Library; readonly name: string }): AppliedEdit => {
   const smartCollection = findByName(library.smartCollections, name)
 
-  if (smartCollection === undefined) return applied(library, [`no smart collection ${quoted(name)}`])
+  if (smartCollection === undefined) return applied(library, [noSmartCollection(name)])
 
   return applied({ ...library, smartCollections: withoutEntry(library.smartCollections, smartCollection) })
 }
@@ -335,7 +359,7 @@ export const applyLibraryEdits = ({ library, recipePlaces, edits }: ApplyLibrary
 
       return {
         library: appliedEdit.library,
-        problems: [...batch.problems, ...appliedEdit.messages.map((message) => ({ edit: index + 1, message }))],
+        problems: [...batch.problems, ...appliedEdit.problems.map((editProblem) => ({ edit: index + 1, ...editProblem }))],
       }
     },
     { library, problems: [] },

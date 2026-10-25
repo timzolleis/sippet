@@ -48,20 +48,20 @@ check("instructions are sent once per session", textOf(at(claude.initialized, "r
 step("add the Zupfkuchen (adding rules 1, 2; recipe rule 11)")
 
 const added = await call("add_recipe", { title: zupfkuchenTitle, yield: zupfkuchenYield, edits: zupfkuchenEdits })
-const recipeId = textOf(at(added.value, "recipeId"))
+const recipeId = textOf(at(added.value, "id"))
 const stepFlow = (recipe: Json | undefined, key: string, field: string) => at(list(at(recipe, "steps")).find((candidate) => at(candidate, "key") === key), "flow", field)
 
 check("added at revision 1", !added.isError && at(added.value, "revision") === 1, added.value)
 
-check("the flow follows from the steps", JSON.stringify(stepFlow(at(added.value, "recipe"), "giessen", "takes")) === JSON.stringify(["boden", "untermixen", "zupfteig"]) && JSON.stringify(stepFlow(at(added.value, "recipe"), "backen", "waitsFor")) === JSON.stringify(["vorheizen"]))
+check("the flow follows from the steps", JSON.stringify(stepFlow(added.value, "giessen", "takes")) === JSON.stringify(["boden", "untermixen", "zupfteig"]) && JSON.stringify(stepFlow(added.value, "backen", "waitsFor")) === JSON.stringify(["vorheizen"]))
 
-check("makes the finished cake", JSON.stringify(at(added.value, "recipe", "makes")) === JSON.stringify(["auskuehlen"]))
+check("makes the finished cake", JSON.stringify(at(added.value, "makes")) === JSON.stringify(["auskuehlen"]))
 
 step("read it back (cooking rule 10)")
 
 const read = await call("get_recipe", { recipeId })
 
-check("get_recipe returns what add_recipe returned", JSON.stringify(read.value) === JSON.stringify(at(added.value, "recipe")))
+check("get_recipe returns what add_recipe returned", JSON.stringify(read.value) === JSON.stringify(added.value))
 
 check("steps as written, with takes", JSON.stringify(at(list(at(read.value, "steps")).find((candidate) => at(candidate, "key") === "boden"), "takes")) === JSON.stringify(["boden-teig"]))
 
@@ -70,12 +70,12 @@ step("a refusal lists every problem (revising rule 1)")
 const refused = await call("add_recipe", {
   title: "Kaputt",
   yield: { amount: { value: 2, unit: "piece" } },
-  edits: [{ op: "add_ingredient", key: "mehl", item: "Mehl" }, { op: "add_ingredient", key: "kakao", item: "Kakao" }, { op: "add_step", key: "mischen", label: "mischen", uses: ["mehl"] }, { op: "remove_step", key: "gibt-es-nicht" }],
+  edits: [{ op: "add_ingredient", key: "mehl", item: "Mehl" }, { op: "add_ingredient", key: "kakao", item: "Kakao" }, { op: "add_step", key: "mischen", label: "mischen", uses: ["mehl"] }, { op: "add_step", key: "ruehren", label: "rühren", at: { after: "gibt-es-nicht" } }],
 })
 
 const problems = list(at(refused.value, "problems"))
 
-check("isError, with the edit and the rule", refused.isError && problems.some((problem) => at(problem, "edit") === 4) && problems.some((problem) => at(problem, "rule") === "recipe 14"), refused.value)
+check("isError, with the edit and the rule", refused.isError && problems.some((problem) => at(problem, "edit") === 4) && problems.some((problem) => at(problem, "rule") === "every-ingredient-goes-to-one-step" && textOf(at(problem, "fix")) !== ""), refused.value)
 
 check("nothing was stored", !(await titles({ text: "Kaputt" })).includes("Kaputt"))
 
@@ -84,7 +84,7 @@ step("revise (revising rules 2, 3)")
 const lessSugar = [{ op: "edit_ingredient", key: "zucker-teig", amount: { value: 120, unit: "g" } }, { op: "edit_step", key: "backen", duration: { minutes: 65, maxMinutes: 70, kind: "passive" } }]
 const revised = await call("edit_recipe", { recipeId, fromRevision: 1, edits: lessSugar })
 
-check("revision 2", at(revised.value, "revision") === 2 && at(revised.value, "recipe", "latestRevision") === 2, revised.value)
+check("revision 2", at(revised.value, "revision") === 2 && at(revised.value, "latestRevision") === 2, revised.value)
 
 const stale = await call("edit_recipe", { recipeId, fromRevision: 1, edits: [{ op: "set_title", title: "Zupfkuchen" }] })
 
@@ -123,7 +123,7 @@ check("gone from search, readable with get_recipe", !(await titles({})).some((ti
 
 const trashedEdit = await call("edit_recipe", { recipeId, fromRevision: 4, edits: [{ op: "set_title", title: "x" }] })
 
-check("a trashed recipe can't be revised", trashedEdit.isError && at(trashedEdit.value, "problems", 0, "rule") === "revising 4", trashedEdit.value)
+check("a trashed recipe can't be revised", trashedEdit.isError && at(trashedEdit.value, "problems", 0, "rule") === "not-in-the-trash", trashedEdit.value)
 
 const ghost = await call("trash_recipes", { recipeIds: [other, "rcp_zzzzzzzzzzzzzzzzzzzzzzzz"] })
 
@@ -218,18 +218,18 @@ check("and changes nothing", (await titles({ text: "eierkuchen" })).length === 1
 const secondConnection = await connect((await cook.connect("Claude Code")).token)
 const fromOther = await secondConnection.call("add_recipe", retryArgs)
 
-check("another connection writes again", !fromOther.isError && at(fromOther.value, "recipeId") !== at(first.value, "recipeId"))
+check("another connection writes again", !fromOther.isError && at(fromOther.value, "id") !== at(first.value, "id"))
 
 step("source (adding rule 6)")
 
 const page = `https://${new URL(origin).host}/account` // the address is cleaned to https
 const withSource = await call("add_recipe", { ...pfannkuchen, title: "Mit Quelle", source: `${origin}/account?utm_source=instagram#top` })
 
-check("the source is the cleaned address", at(withSource.value, "recipe", "source") === page, withSource.value)
+check("the source is the cleaned address", at(withSource.value, "source") === page, withSource.value)
 
 const duplicate = await call("add_recipe", { ...pfannkuchen, title: "Mit Quelle 2", source: `${origin}/account/?utm_medium=x` })
 
-check("the same page is refused and points to the first", duplicate.isError && textOf(at(duplicate.value, "problems", 0, "message")).includes(textOf(at(withSource.value, "recipeId"))), duplicate.value)
+check("the same page is refused and points to the first", duplicate.isError && textOf(at(duplicate.value, "problems", 0, "message")).includes(textOf(at(withSource.value, "id"))), duplicate.value)
 
 step("cooks are separate")
 

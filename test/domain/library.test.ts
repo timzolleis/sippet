@@ -62,7 +62,7 @@ describe("tags", () => {
   it('rename "Nachtisch" to "Dessert" while "Dessert" exists: refused, name taken; suggest merging (rule 6)', () => {
     const library: Library = { ...emptyLibrary, tags: [{ name: "Nachtisch", recipeIds: [] }, { name: "Dessert", recipeIds: [] }] }
     expect(problemsOf(edited({ library, edits: [{ op: "rename_tag", tag: "Nachtisch", to: "Dessert" }] })))
-      .toEqual([{ edit: 1, message: 'the tag "Dessert" exists; merge "Nachtisch" into it instead' }])
+      .toEqual([{ edit: 1, rule: "rename-to-a-free-name", message: 'the tag "Dessert" exists', fix: 'merge_tags "Nachtisch" into "Dessert" instead' }])
   })
 
   it('a change in case only is a rename: "kuchen" → "Kuchen" (rule 6)', () => {
@@ -124,7 +124,7 @@ describe("batches and collections", () => {
       { op: "create_collection", name: "Weihnachten", recipeIds: [zupfkuchenId, stollen] },
       { op: "tag", tag: "Backen", recipeIds: [zupfkuchenId, stollen, trashedRecipe] },
     ] })).toEqual(Result.fail(expect.objectContaining({
-      problems: [{ edit: 2, message: `recipe "${trashedRecipe}" is in the trash` }],
+      problems: [{ edit: 2, rule: "trashed-recipes-leave-the-library", message: `recipe "${trashedRecipe}" is in the trash`, fix: expect.any(String) }],
     })))
   })
 
@@ -139,7 +139,7 @@ describe("batches and collections", () => {
     expect(problemsOf(edited({
       library: weihnachten([zupfkuchenId, stollen, vanillekipferl, lebkuchen]),
       edits: [{ op: "reorder_collection", collection: "Weihnachten", recipeIds: [stollen, zupfkuchenId] }],
-    }))).toEqual([{ edit: 1, message: `the new order misses "${vanillekipferl}", "${lebkuchen}"` }])
+    }))).toEqual([{ edit: 1, rule: "reorder-names-everything", message: `the new order misses "${vanillekipferl}", "${lebkuchen}"`, fix: expect.any(String) }])
   })
 
   it('delete "Weihnachten": collection gone (rule 12)', () => {
@@ -159,7 +159,7 @@ describe("batches and collections", () => {
   it("a collection's name is taken by a smart collection, ignoring case (rule 9)", () => {
     const library: Library = { ...emptyLibrary, smartCollections: [{ name: "Schnell", filter: { maxTotalMinutes: 30 } }] }
     expect(problemsOf(edited({ library, edits: [{ op: "create_collection", name: "schnell" }] })))
-      .toEqual([{ edit: 1, message: 'the name "schnell" is taken by a smart collection' }])
+      .toEqual([{ edit: 1, rule: "one-collection-per-name", message: 'the name "schnell" is taken by a smart collection', fix: expect.any(String) }])
   })
 })
 
@@ -194,7 +194,7 @@ describe("smart collections", () => {
 
   it("saving a filter with a tag that doesn't exist: refused (rule 1)", () => {
     expect(problemsOf(edited({ edits: [{ op: "save_smart_collection", name: "Schnell & vegan", filter: schnellUndVegan }] })))
-      .toEqual([{ edit: 1, message: 'no tag "vegan"' }])
+      .toEqual([{ edit: 1, rule: "unknown-tag", message: 'no tag "vegan"', fix: expect.any(String) }])
   })
 })
 
@@ -212,7 +212,7 @@ describe("EditLibraryService", () => {
       })
     ).pipe(Effect.provide(EditLibraryService.layer.pipe(Layer.provide(repository.layer))))))
 
-    expect(problemsOf(result)).toEqual([{ edit: 2, message: 'no collection "Ostern"' }])
+    expect(problemsOf(result)).toEqual([{ edit: 2, rule: "unknown-collection", message: 'no collection "Ostern"', fix: expect.any(String) }])
     expect(repository.state.library).toEqual(emptyLibrary)
     expect(repository.state.publishedEvents).toEqual([])
   })

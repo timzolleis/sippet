@@ -15,7 +15,7 @@ import type { Library } from "../store/library.ts"
 import { retryKey, type CanonicalValue } from "../store/retry.ts"
 import type { Json } from "../store/schema.ts"
 import { cleanSource } from "../store/source.ts"
-import { refuse, refusalFromError, type DomainError } from "./refusal.ts"
+import { refuse, refusalFromError, unknownRecipe, unknownRevision, type DomainError } from "./refusal.ts"
 import { iso, libraryViewOf, recipeSummariesOf, recipeViewOf, revisionViewsOf } from "./recipe-view.ts"
 import { searchQueryOf } from "./search.ts"
 import { inTransaction, type Services } from "./unit-of-work.ts"
@@ -33,9 +33,11 @@ const connectionOfRequest = Effect.gen(function* () {
 })
 
 export const toolsLayer = (library: Library) => {
-  const write = <A extends Json>({ tool, args, cleanedSource, latestRevisionOf, program }: {
+  const write = <A extends Json>({ tool, args, dryRun, cleanedSource, latestRevisionOf, program }: {
     readonly tool: string
     readonly args: CanonicalValue
+    // checks and returns as the write would, then rolls back; never stored for a retry
+    readonly dryRun?: boolean | undefined
     readonly cleanedSource?: string | undefined
     // a refusal says where the recipe is now (mcp.md Refusals)
     readonly latestRevisionOf?: string
@@ -43,10 +45,10 @@ export const toolsLayer = (library: Library) => {
   }): Effect.Effect<A, Refusal> =>
     Effect.gen(function* () {
       const connection = yield* connectionOfRequest
-      const retry = retryKey({ connection, tool, args })
+      const retry = dryRun === true ? undefined : retryKey({ connection, tool, args })
 
       const done = yield* Effect.promise(() =>
-        inTransaction({ library, retry, cleanedSource, program: program({ kind: "claude", connection }) })
+        inTransaction({ library, retry, dryRun, cleanedSource, program: program({ kind: "claude", connection }) })
       )
 
       if (Result.isSuccess(done)) return done.success
@@ -90,12 +92,12 @@ export const toolsLayer = (library: Library) => {
         if (view !== undefined) return view
         const exists = library.getRecipe(recipeId) !== undefined
 
-        return yield* Effect.fail(refuse({ message: exists ? `${JSON.stringify(recipeId)} has no revision ${revision}` : `no recipe ${JSON.stringify(recipeId)}` }))
+        return yield* Effect.fail(exists && revision !== undefined ? unknownRevision({ recipeId, revision }) : unknownRecipe(recipeId))
       }),
 
     list_revisions: ({ recipeId }) =>
       Effect.gen(function* () {
-        if (library.getRecipe(recipeId) === undefined) return yield* Effect.fail(refuse({ message: `no recipe ${JSON.stringify(recipeId)}` }))
+        if (library.getRecipe(recipeId) === undefined) return yield* Effect.fail(unknownRecipe(recipeId))
 
         return { revisions: revisionViewsOf({ library, recipeId }) }
       }),
@@ -107,7 +109,7 @@ export const toolsLayer = (library: Library) => {
         recipes: library.listTrash().map((trashed) => ({ id: trashed.id, title: trashed.title, trashedAt: iso(trashed.trashedAt), purgeAt: iso(trashed.purgeAt) })),
       })),
 
-    add_recipe: ({ title, yield: recipeYield, source, edits }) =>
+    add_recipe: ({ title, yield: recipeYield, source, edits, dryRun }) =>
       Effect.gen(function* () {
         // A refused batch costs no fetch (hosting.md Source): the service refuses the same batch before it asks for the address.
         const batchOk = Result.isSuccess(recipeContentFromEdits({ content: emptyRecipeContent({ title, yield: recipeYield }), edits }))
@@ -116,35 +118,44 @@ export const toolsLayer = (library: Library) => {
         if (source !== undefined && batchOk) {
           const cleaned = yield* Effect.promise(() => cleanSource({ source }))
 
-          if (Result.isFailure(cleaned)) return yield* Effect.fail(refuse({ rule: "adding 4", message: `source ${JSON.stringify(source)} is not a web address` }))
+          if (Result.isFailure(cleaned)) {
+            return yield* Effect.fail(refuse({
+              rule: "source-kept",
+              message: `source ${JSON.stringify(source)} is not a web address`,
+              fix: "pass the page's full address (https://…), or omit source",
+            }))
+          }
+
           cleanedSource = cleaned.success.source
         }
 
         return yield* write({
           tool: "add_recipe",
           args: { title, yield: recipeYield, source, edits },
+          dryRun,
           cleanedSource,
           program: (by) =>
             Effect.gen(function* () {
               const added = yield* AddRecipeService
               const recipeId = yield* added.addRecipe(withOptional({ title, yield: recipeYield, edits, by }, "source", source))
 
-              return { recipeId, revision: 1 as const, recipe: viewAfterWrite(recipeId) }
+              return viewAfterWrite(recipeId)
             }),
         })
       }),
 
-    edit_recipe: ({ recipeId, fromRevision, edits }) =>
+    edit_recipe: ({ recipeId, fromRevision, edits, dryRun }) =>
       write({
         tool: "edit_recipe",
         args: { recipeId, fromRevision, edits },
+        dryRun,
         latestRevisionOf: recipeId,
         program: (by) =>
           Effect.gen(function* () {
             const revised = yield* ReviseRecipeService
-            const revision = yield* revised.reviseRecipe({ recipeId, fromRevision, edits, by })
+            yield* revised.reviseRecipe({ recipeId, fromRevision, edits, by })
 
-            return { revision, recipe: viewAfterWrite(recipeId) }
+            return viewAfterWrite(recipeId)
           }),
       }),
 
@@ -156,9 +167,9 @@ export const toolsLayer = (library: Library) => {
         program: (by) =>
           Effect.gen(function* () {
             const restored = yield* RestoreRecipeRevisionService
-            const next = yield* restored.restoreRecipeRevision({ recipeId, fromRevision, revision, by })
+            yield* restored.restoreRecipeRevision({ recipeId, fromRevision, revision, by })
 
-            return { revision: next, recipe: viewAfterWrite(recipeId) }
+            return viewAfterWrite(recipeId)
           }),
       }),
 

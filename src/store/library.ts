@@ -289,27 +289,30 @@ export class Library {
 
   // One SQLite transaction: the content, the derived columns, the FTS row, the change, and the retry row commit together.
   // A Result failure rolls everything back. With `retry`, the same call inside the window returns the stored first result.
+  // With `dryRun`, a success rolls back too: the caller sees what the write would return, and nothing changes (specs/mcp.md dryRun).
   async transact<A extends Json, E>({
     retry: key,
+    dryRun = false,
     run,
   }: {
     retry?: RetryKey | undefined
+    dryRun?: boolean
     run: (writes: Writes) => Result.Result<A, E>
   }): Promise<Result.Result<A, E>> {
     const now = (this.options.now ?? Date.now)()
     const writes = new Writes(this.db, this.options.derive, now)
     let outcome: Result.Result<A, E>
 
-    // A refused write throws this out of the transaction so SQLite rolls back; it is caught below and returned.
+    // A refused write or a dry run throws this out of the transaction so SQLite rolls back; it is caught below and returned.
     class Rollback {
-      constructor(readonly failure: Result.Result<A, E>) {}
+      constructor(readonly outcome: Result.Result<A, E>) {}
     }
 
     try {
       outcome = this.options.storage.transactionSync(() => {
         this.db.delete(retry).where(lte(retry.expiresAt, now)).run()
 
-        if (key !== undefined) {
+        if (key !== undefined && !dryRun) {
           const hit = this.db
             .select({ result: retry.result })
             .from(retry)
@@ -324,7 +327,7 @@ export class Library {
 
         const result = run(writes)
 
-        if (Result.isFailure(result)) throw new Rollback(result)
+        if (Result.isFailure(result) || dryRun) throw new Rollback(result)
 
         if (key !== undefined) {
           // Only the connection's latest write can be retried: tagging, untagging, and tagging again must write each time.
@@ -335,7 +338,7 @@ export class Library {
         return result
       })
     } catch (thrown) {
-      if (thrown instanceof Rollback) return thrown.failure
+      if (thrown instanceof Rollback) return thrown.outcome
       throw thrown
     }
 
