@@ -17,19 +17,20 @@ Claude gets no tool for what it may not do (account rule 6): emptying the trash,
 |---|---|---|---|
 | `search_recipes` | `text?`, `tags?: {all?, any?, none?}`, `items?`, `maxTotalMinutes?`, `hasFlow?`, `collection?`, `smartCollection?`, `limit?` (20, max 100), `cursor?` | `recipes: RecipeSummary[]`, `cursor?` | cooking 9 |
 | `get_recipe` | `recipeId`, `revision?` | `RecipeView` | cooking 10 |
-| `list_revisions` | `recipeId` | `Revision[]`, newest first | revising 3 |
+| `list_revisions` | `recipeId` | `{revisions: Revision[]}`, newest first | revising 3 |
 | `get_library` | — | `tags: {name, recipes}[]`, `collections: {name, recipes}[]`, `smartCollections: {name, filter}[]` | library |
-| `list_trash` | — | `{id, title, trashedAt, purgeAt}[]` | revising 6, 7 |
+| `list_trash` | — | `{recipes: {id, title, trashedAt, purgeAt}[]}` | revising 6, 7 |
 | `add_recipe` | `title`, `yield`, `source?`, `edits: RecipeEdit[]` | `recipeId`, `revision: 1`, `recipe: RecipeView` | adding 1–4, 6 (photos, rule 5, later) |
 | `edit_recipe` | `recipeId`, `fromRevision`, `edits: RecipeEdit[]` | `revision`, `recipe: RecipeView` | revising 1–4 |
 | `restore_revision` | `recipeId`, `fromRevision`, `revision` | `revision`, `recipe: RecipeView` | revising 5 |
-| `trash_recipes` | `recipeIds` | `{id, purgeAt}[]` | revising 6, 7, 10 |
+| `trash_recipes` | `recipeIds` | `{trashed: {id, purgeAt}[]}` | revising 6, 7, 10 |
 | `restore_recipes` | `recipeIds` | `recipeIds` | revising 8–10 |
 | `edit_library` | `edits: LibraryEdit[]` | as `get_library` | library 1–15 |
 
 - Reads are `readOnlyHint: true`. Writes are `destructiveHint: false`: everything Claude does is undoable (account rule 6).
 - `search_recipes` with `collection` returns the collection's order; with `text`, relevance; otherwise by title.
 - `add_recipe`, `edit_recipe`, and `restore_revision` return the recipe with its derived flow, so Claude sees what followed from its steps (recipe rule 11) and can fix it right away.
+- Results are objects: MCP structured content can't be a bare list.
 - `list_trash` and `get_recipe` show trashed recipes; `search_recipes` doesn't.
 
 ## Types
@@ -210,11 +211,11 @@ A refused write is a tool result with `isError: true`, so Claude reads it:
 - Every problem at once (revising rule 1, library rule 1). `edit` is the 1-based position in the batch.
 - A problem from a derived link says which derivation made it (chain, join, prep step).
 - A stale `fromRevision` (revising rule 2) returns `latestRevision`; Claude reads it with `get_recipe` and rebuilds the batch.
-- A protocol error is only for a bad session or token.
+- A protocol error is for a bad session or token, and for input that doesn't decode (a bad key or unit: `-32602` naming the path, no edit number).
 
 ## Retries
 
-The same write from the same connection with the same arguments within 10 minutes returns the stored first result and changes nothing. Stored per cook as `(connection, tool, hash of canonical arguments) → result`, dropped after 10 minutes. Reads aren't stored.
+The same write from the same connection with the same arguments within 10 minutes returns the stored first result and changes nothing. Only a connection's latest write can be retried: any other write from that connection drops its stored result, so tag → untag → tag applies all three. Stored per cook as `(connection, tool, hash of canonical arguments) → result`, dropped after 10 minutes. Reads aren't stored.
 
 This covers `add_recipe` without a source and renames. `edit_recipe` is safe through `fromRevision` but would otherwise return a refusal to its own retry.
 

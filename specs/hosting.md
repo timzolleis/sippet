@@ -143,21 +143,22 @@ Rejected: `requireMcpAuth`. It fetches the JWKS over HTTP, which here would be t
 - Rejected: one module-scope handler, as in the spike. Several DOs can share an isolate, and their sessions and storage would mix.
 - Writes run in `ctx.storage.transactionSync`: the content, the derived columns, the FTS row, the change, and the retry row commit together.
 
-### Built (`src/store/`)
+### Built
 
 ```text
-schema.ts       Drizzle tables; migrations/cook-library: 0000 (tables, generated), 0001 (recipe_text FTS5, hand-written; drizzle-kit can't model virtual tables)
-library.ts      Library: reads, search, transact({ retry?, run: (writes) => Result }); Writes: addRecipe, addRevision, trashRecipes, restoreRecipes, purgeDue, appendChange
-source.ts       cleanSource, normalizeSource      retry.ts   retryKey, canonicalJson
-mcp-proof.ts    Verify 4 proof; replaced by the real toolkit
-dev.ts          localhost-only ops behind /api/dev/*, for scripts/verify-library.ts
+src/store/  schema.ts        Drizzle tables; migrations/cook-library: 0000 (generated), 0001 (recipe_text FTS5, hand-written; drizzle-kit can't model virtual tables)
+            library.ts       Library: reads, search, transact({ retry?, run }); ids chunked to 90 bound parameters (DO SQLite allows 100)
+            derive.ts        title, total_minutes, has_flow, item keys, search text from the domain's recipe content
+            recipe-ports.ts, library-ports.ts   the domain's repositories over Library.transact
+            library-change.ts                    diffs the library after a batch into tag/collection rows and the change payload; library rule 9
+            source.ts        cleanSource, normalizeSource      retry.ts   retryKey, canonicalJson
+src/mcp/    server.ts, tools.ts, handlers.ts, schemas.ts, recipe-view.ts, search.ts, refusal.ts, instructions.ts, unit-of-work.ts
 ```
 
 - `pnpm db:generate` after a schema change. The generated `migrations.js` imports `.sql` files; Alchemy's bundler inlines them.
-- `Library` gets a `derive(content)` from the wiring: it returns the title, `total_minutes`, `has_flow`, item keys, and the ingredient and step text. The store never reads the recipe's shape. `placeholder-derive.ts` stands in until the domain's Recipe exists.
+- `Library` gets `derive(content)` from `derive.ts`; the rest of the store never reads the recipe's shape.
 - `transact` is one `transactionSync`: expired retry rows deleted, retry hit returns the stored result, `run`, change rows, retry row. A `Result` failure or a throw rolls back everything. The alarm is set after the commit and again on activation.
 - `addRevision` is compare-and-set on `latest_revision`, and refuses a trashed recipe (the FTS row would break its invariant).
-- Library edits (tags, collections, smart collections) aren't written. `name_key` across `collection` and `smart_collection` (library rule 9) is the writer's to check.
 
 ### Tables
 
@@ -212,7 +213,7 @@ source = the cleaned address;  source_key = the same address without the scheme
 ### Retries ([mcp.md](mcp.md#retries))
 
 - The key is `(connection, tool, sha256(canonical JSON of the arguments))`, kept for 10 minutes and written in the same transaction as the write.
-- A hit returns the stored result. Expired rows are deleted at the start of each write.
+- A hit returns the stored result. Expired rows are deleted at the start of each write, and so is the connection's previous retry row when it writes something else.
 
 ### Connections
 
