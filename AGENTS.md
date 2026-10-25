@@ -12,7 +12,7 @@ Personal recipe app; Claude reads and edits a cook's library through MCP.
 |---|---|
 | `src/domain/`, `test/domain/` | domain: pure Effect 4, no Workers, no IO |
 | `alchemy.run.ts`, `src/worker.ts`, `src/auth.ts`, `src/cook-library.ts`, `scripts/`, `migrations/` | hosting |
-| `public/` | account UI: static, no build step |
+| `web/`, `vite.config.ts`, `components.json` | account UI: Vite + React on the Triargos design system; `web/src/components/ui`, `web/src/lib` are vendored from its registry |
 
 ## Rules
 
