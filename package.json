@@ -5,6 +5,7 @@
   "scripts": {
     "test": "vitest run --passWithNoTests",
     "typecheck": "tsc --noEmit",
+    "lint": "oxlint",
     "dev": "alchemy dev --stage dev_$(basename $(git rev-parse --show-toplevel))",
     "invite": "node scripts/invite.ts",
     "auth:generate": "auth generate --config scripts/auth-schema.ts --output migrations/auth/0001_better_auth.sql -y"
@@ -28,9 +29,11 @@
     "@alchemy.run/cloudflare": "2.0.0-beta.84",
     "@cloudflare/workers-types": "5.20261024.1",
     "@effect/platform-node": "4.0.5",
+    "@oxlint/plugins": "1.89.0",
     "@types/node": "26.6.5",
     "alchemy": "2.0.0-beta.84",
     "auth": "1.7.13",
+    "oxlint": "1.89.0",
     "typescript": "7.0.2",
     "vitest": "5.0.5"
   }
