@@ -3,7 +3,7 @@ import { Amount } from "./amount.ts"
 import { Key } from "./key.ts"
 import { Duration, ItemName, StepResult, Temperature, Yield } from "./recipe-content.ts"
 
-export const Position = Schema.Union([Schema.Literals(["start", "end"]), Schema.Struct({ after: Key })])
+export const Position = Schema.Union([Schema.Literals(["start", "end"]), Schema.Struct({ after: Key })]).annotate({ identifier: "Position" })
 export type Position = typeof Position.Type
 
 const KeyList = Schema.Array(Key)

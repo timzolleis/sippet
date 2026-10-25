@@ -18,7 +18,7 @@ export type UnitCode = typeof UnitCode.Type
 export const CustomUnit = Schema.Struct({ custom: Schema.NonEmptyString })
 export type CustomUnit = typeof CustomUnit.Type
 
-export const Unit = Schema.Union([UnitCode, CustomUnit])
+export const Unit = Schema.Union([UnitCode, CustomUnit]).annotate({ identifier: "Unit" })
 export type Unit = typeof Unit.Type
 
 export const gramsPerMassUnit: Readonly<Record<MassUnitCode, number>> = { g: 1, kg: 1000, oz: 28.349523125, lb: 453.59237 }

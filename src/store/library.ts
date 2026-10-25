@@ -298,13 +298,6 @@ export class Library {
     else await this.options.storage.setAlarm(next)
   }
 
-  // alarm(): purge every due recipe in one change, then set the next alarm. A second run finds nothing due.
-  async purgeDue(): Promise<ReadonlyArray<string>> {
-    const purged = await this.transact({ run: (writes) => Result.succeed(writes.purgeDue() as Json) })
-    await this.scheduleAlarm()
-    return Result.isSuccess(purged) ? (purged.success as ReadonlyArray<string>) : []
-  }
-
   getRecipe(id: string, revisionNumber?: number): (RecipeRow & StoredRevision) | undefined {
     const row = this.db.select().from(recipe).where(eq(recipe.id, id)).get()
     if (row === undefined) return undefined

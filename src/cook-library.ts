@@ -5,8 +5,9 @@ import { drizzle } from "drizzle-orm/durable-sqlite"
 import { migrate } from "drizzle-orm/durable-sqlite/migrator"
 import migrations from "../migrations/cook-library/migrations.js"
 import { isLocal, runDevOp } from "./store/dev.ts"
+import { makeMcpHandler } from "./mcp/server.ts"
+import { purgeDueRecipes } from "./mcp/unit-of-work.ts"
 import { Library, type Db } from "./store/library.ts"
-import { makeMcpHandler } from "./store/mcp-proof.ts"
 import { derive } from "./store/derive.ts"
 import * as schema from "./store/schema.ts"
 
@@ -25,7 +26,7 @@ export class CookLibrary extends DurableObject {
     super(ctx, env)
     this.db = drizzle(ctx.storage, { schema })
     this.library = new Library({ db: this.db, storage: ctx.storage, derive })
-    this.mcp = makeMcpHandler({ sql: ctx.storage.sql })
+    this.mcp = makeMcpHandler({ library: this.library })
     ctx.blockConcurrencyWhile(async () => {
       await migrate(this.db, migrations)
       await this.library.scheduleAlarm() // self-heal: the alarm is set after the commit that changed purge_at
@@ -34,7 +35,7 @@ export class CookLibrary extends DurableObject {
 
   // Revising rules 7, 9: purge every due recipe, then set the next alarm. Alarms retry on failure; a second run finds nothing due.
   override async alarm(): Promise<void> {
-    await this.library.purgeDue()
+    await purgeDueRecipes(this.library)
   }
 
   // account rule 4: the cook approved this client. A later connectClient keeps disconnected_at, so older tokens stay refused.
