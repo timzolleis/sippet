@@ -2,11 +2,11 @@
 // Drives the real tools over MCP against `pnpm dev` (local state only) with a minted token: add the Zupfkuchen, read it back, revise,
 // restore a revision, trash and restore, search, tag and collection edits, a retry, refusals, a second cook.
 // Run: node scripts/verify-mcp.ts [http://localhost:1337]
-import { Schema } from "effect"
 import { zupfkuchenEdits, zupfkuchenTitle, zupfkuchenYield } from "../test/domain/fixtures.ts"
 import { signInLocalCook } from "./local-cook.ts"
+import { at, connectMcp, list, textOf, type Json } from "./support.ts"
 
-type Json = Schema.Json
+
 
 const origin = process.argv[2] ?? "http://localhost:1337"
 const step = (text: string) => console.log(`\n── ${text}`)
@@ -17,66 +17,9 @@ const check = (label: string, ok: boolean, detail?: Json) => {
   if (!ok) process.exitCode = 1
 }
 
-// Replies are plain JSON; `at` reads a path out of one without assuming its shape.
-const isJsonObject = Schema.is(Schema.Record(Schema.String, Schema.Json))
-
-const at = (value: Json | undefined, ...path: ReadonlyArray<string | number>): Json | undefined =>
-  path.reduce<Json | undefined>((node, key) => {
-    if (Array.isArray(node)) return node[Number(key)]
-
-    return isJsonObject(node) ? node[String(key)] : undefined
-  }, value)
-
-const list = (value: Json | undefined): ReadonlyArray<Json> => (Array.isArray(value) ? value : [])
-const textOf = (value: Json | undefined): string => (Schema.is(Schema.String)(value) ? value : "")
 const names = (value: Json | undefined, field: string) => list(value).map((entry) => at(entry, field))
 
-const decodeJson = Schema.decodeUnknownSync(Schema.Json)
-const protocol = "2025-06-18"
-
-type Outcome = { readonly isError: boolean; readonly value: Json }
-
-// One MCP session on one token. `headers` are extra request headers (to check the Worker drops forged sippet-* ones).
-const connect = async (token: string, headers: Record<string, string> = {}) => {
-  let session: string | null = null
-  let id = 0
-
-  const post = (body: Json) => {
-    const sent = new Headers({
-      accept: "application/json, text/event-stream",
-      "content-type": "application/json",
-      authorization: `Bearer ${token}`,
-      "mcp-protocol-version": protocol,
-    })
-
-    if (session !== null) sent.set("mcp-session-id", session)
-
-    for (const [name, value] of Object.entries(headers)) sent.set(name, value)
-
-    return fetch(`${origin}/mcp`, { method: "POST", headers: sent, body: JSON.stringify(body) })
-  }
-
-  const init = await post({ jsonrpc: "2.0", id: ++id, method: "initialize", params: { protocolVersion: protocol, capabilities: {}, clientInfo: { name: "verify-mcp", version: "0" } } })
-
-  if (init.status !== 200) throw new Error(`initialize answered ${init.status}`)
-  session = init.headers.get("mcp-session-id")
-  const initialized = decodeJson(await init.json())
-  await post({ jsonrpc: "2.0", method: "notifications/initialized" })
-
-  const request = async (method: string, params: Json = {}) => decodeJson(await (await post({ jsonrpc: "2.0", id: ++id, method, params })).json())
-
-  const call = async (name: string, args: Json = {}): Promise<Outcome> => {
-    const reply = await request("tools/call", { name, arguments: args })
-    const error = at(reply, "error")
-
-    if (error !== undefined) throw new Error(`${name}: protocol error ${JSON.stringify(error)}`)
-    const isError = at(reply, "result", "isError") === true
-
-    return { isError, value: isError ? decodeJson(JSON.parse(textOf(at(reply, "result", "content", 0, "text")))) : (at(reply, "result", "structuredContent") ?? null) }
-  }
-
-  return { call, request, initialized }
-}
+const connect = (token: string, headers: Record<string, string> = {}) => connectMcp({ origin, token, headers })
 
 const cook = await signInLocalCook(origin)
 const claude = await connect(cook.token)

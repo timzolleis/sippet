@@ -3,10 +3,8 @@
 import { DurableObject } from "cloudflare:workers"
 import { drizzle } from "drizzle-orm/durable-sqlite"
 import { migrate } from "drizzle-orm/durable-sqlite/migrator"
-import { Schema } from "effect"
 import type { Env } from "../alchemy.run.ts"
 import migrations from "../migrations/cook-library/migrations.js"
-import { isLocal, runDevOp } from "./store/dev.ts"
 import { mcpWebHandler } from "./mcp/server.ts"
 import { purgeDueRecipes } from "./mcp/unit-of-work.ts"
 import { Library, type Db } from "./store/library.ts"
@@ -83,8 +81,6 @@ export class CookLibrary extends DurableObject<Env> {
 
     if (this.isRefused({ connection, issuedAt })) return new Response("unauthorized", { status: 401 })
 
-    if (new URL(request.url).pathname.startsWith("/api/dev/")) return this.dev(request, connection)
-
     return this.mcp.handler(request)
   }
 
@@ -107,26 +103,5 @@ export class CookLibrary extends DurableObject<Env> {
     }
 
     return row.disconnected_at !== null && issuedAt * 1000 < row.disconnected_at
-  }
-
-  // Local checks only (store/dev.ts): refused unless PUBLIC_URL is localhost.
-  private async dev(request: Request, connection: string): Promise<Response> {
-    if (!isLocal(this.env)) return new Response("not found", { status: 404 })
-    const op = new URL(request.url).pathname.slice("/api/dev/".length)
-
-    if (op === "headers") return Response.json(Object.fromEntries([...request.headers].filter(([name]) => name.startsWith("sippet-"))))
-    const args = request.method === "POST" ? Schema.decodeUnknownSync(Schema.Record(Schema.String, Schema.Json))(await request.json()) : {}
-
-    const value = await runDevOp({
-      op,
-      args,
-      library: this.library,
-      db: this.db,
-      storage: this.ctx.storage,
-      connection,
-      setAlarmNow: () => this.library.scheduleAlarm(),
-    })
-
-    return Response.json(value)
   }
 }
