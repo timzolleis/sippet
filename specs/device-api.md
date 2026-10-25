@@ -138,6 +138,7 @@ DeviceViews.listChangesAfter({ after }): Effect<ChangesAfter, ChangesNotReachedE
 ```
 
 - Each view reads in one synchronous pass over the DO's SQLite, so `seq` and the contents agree. No write interleaves inside a DO request without an `await`.
+- Built: a `library_changed` change names recipe ids in `ChangeView.recipeIds` but adds nothing to `recipes` (a library edit changes no recipe's content; the Cases show Zupfkuchen only). Purged ids come from every `recipes_purged` change after `after`, not only the newest 100.
 - `after = seq` returns no changes and no recipes. `after = 0` is valid, but a device never sends it: a device without a library calls `getLibrary`.
 - Cost: a device more than 100 changes behind shows a summary of the newest 100 only. Its recipes are still complete.
 
@@ -183,6 +184,8 @@ constructor                          ctx.setWebSocketAutoResponse(new WebSocketR
 webSocketMessage / webSocketClose    nothing to do
 ```
 
+- Built: `sippet-expires-at` is the token's `exp` in epoch seconds (like `sippet-issued-at`); `acceptLive` stores it in milliseconds. `live` is not in `DeviceApi` (HttpApi has no upgrade endpoint): `CookLibrary.fetch` answers it before the handler.
+- Built: the stored retry result is `{}` (editLibrary) or `{ recipeIds }` (trash, restore), never `null` (the retry column is NOT NULL); the response is read back from the current state, so a retry answers with the state now.
 - Hibernation API: an idle socket costs no DO duration. A broadcast after eviction finds the sockets through `getWebSockets`.
 - The message carries only `seq`. The device calls `listChangesAfter`, so the change log stays the one path that brings data (sync rule 2).
 - 4401 means "refresh the token and reconnect". A token that can't refresh means the device is signed out.
