@@ -10,7 +10,7 @@ state: draft
 One Cloudflare Worker on the Free plan. Better Auth on D1 handles accounts and OAuth. Each cook's library is one `CookLibrary` Durable Object with its own SQLite, and it also runs the MCP server ([mcp.md](mcp.md)).
 
 Stories: [account](../stories/account.md), [adding-recipes](../stories/adding-recipes.md) rule 6, [revising-recipes](../stories/revising-recipes.md) rules 6–9, [sync](../stories/sync.md) rules 1, 4, [cooking](../stories/cooking.md) rule 9.
-Not in this build: photos (adding rule 5), the device API, catch-up and live updates (sync rules 2, 3), emptying the trash by hand.
+Not in this build: photos (adding rule 5), emptying the trash by hand. The device API, catch-up, and live updates (sync rules 2, 3, 6) are in [device-api.md](device-api.md).
 
 ## Request path
 
@@ -21,6 +21,7 @@ Worker (10 ms CPU)
 ├─ /.well-known/oauth-authorization-server Better Auth
 ├─ /api/auth/*                            Better Auth: passkey, oauth2 authorize/token/register, jwks
 ├─ /api/invitation                       invitation name for /join (account-ui.md)
+├─ /api/device/*                          the app's API ([device-api.md](device-api.md))
 └─ /join  /connect  /account              static files, no Worker run ([account-ui.md](account-ui.md))
 
 CookLibrary (one per cook, 30 s CPU)
@@ -177,7 +178,7 @@ connection(client_id PK, name, connected_at, disconnected_at)
 ```
 
 - `revision.content` is the whole recipe as written (revising Data). The flow is derived on read and never stored (recipe rule 11).
-- `by`: `{ kind: "claude", connection }`, `{ kind: "device", device }` (later), or `{ kind: "trash" }` for purges (sync rule 4).
+- `by`: `{ kind: "claude", connection }`, `{ kind: "device", device }` (device name, device-api.md), or `{ kind: "trash" }` for purges (sync rule 4).
 - Trashed recipes keep their `recipe_tag` and `collection_recipe` rows (revising rules 6, 8). Every library and search read filters on `trashed_at IS NULL`.
 
 ### Search (cooking rule 9)

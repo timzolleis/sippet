@@ -19,6 +19,7 @@ state: draft
 - **Translating a recipe**: item names and steps in another language. Until then Claude translates in chat or adds a translated copy.
 - **Sharing**: send a recipe to another cook, or share a collection.
 - **"Claude is editing …"**: live presence while Claude works on a recipe. Not stored, not replayed.
+- **Per-device connections**: one client per install, so the account page lists and disconnects each device ([account.md](account.md), rule 8).
 - **Background sync**: silent push so a device is current before it's opened.
 - **Watch**: cook mode timers on the Apple Watch.
 - **Nutrition** per serving from items.

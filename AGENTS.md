@@ -3,7 +3,7 @@
 Personal recipe app; Claude reads and edits a cook's library through MCP.
 
 - `stories/` — the what. Rules are cited as "rule 3" (same file) or "recipe rule 11" (other file).
-- `specs/` — the how. Read in order: `mcp.md`, `hosting.md`, `account-ui.md`.
+- `specs/` — the how. Read in order: `mcp.md`, `hosting.md`, `account-ui.md`, `device-api.md`, `ios.md`.
 - `spike/` — throwaway reference. Don't import from it.
 
 ## Layout
@@ -13,12 +13,16 @@ Personal recipe app; Claude reads and edits a cook's library through MCP.
 | `src/domain/`, `test/domain/` | domain: pure Effect 4, no Workers, no IO |
 | `alchemy.run.ts`, `src/worker.ts`, `src/auth.ts`, `src/cook-library.ts`, `scripts/`, `migrations/` | hosting |
 | `web/`, `vite.config.ts`, `components.json` | account UI: Vite + React on the Triargos design system; `web/src/components/ui`, `web/src/lib` are vendored from its registry |
+| `src/auth.ts`, `src/worker.ts`, `scripts/device-token.ts` | device sign-in (device-api.md Sign-in, Request path) |
+| `src/device/`, `src/store/`, `src/cook-library.ts`, `test/device/`, `scripts/verify-device.ts` | device API (device-api.md) |
+| `ios/SippetCore/`, `scripts/golden.ts`, `test/golden/` | Swift core: model, cooking port, library, sync, auth (ios.md SippetCore) |
+| `ios/project.yml`, `ios/Sippet/` | SwiftUI app (ios.md Screens); uses only SippetCore's public surface |
 
 ## Rules
 
 - Code style: the effect-ddd skill (`~/.agents/skills/effect-ddd/SKILL.md`).
 - Stay inside your paths. Need a change elsewhere? Say so in your final report.
 - Only hosting adds dependencies. Pin exact versions (`pnpm add -E`).
-- `pnpm test`, `pnpm typecheck` and `pnpm lint` pass before you report done.
+- `pnpm test`, `pnpm typecheck` and `pnpm lint` pass before you report done. Swift: `swift test` in `ios/SippetCore`; the app builds with `xcodebuild`.
 - Commit on your branch with conventional commits. Don't merge, rebase, or push.
 - Spec wrong or a Verify item fails: stop, report the finding and options. Don't redesign silently.

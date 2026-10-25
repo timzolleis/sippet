@@ -20,7 +20,9 @@ No passwords, and no open sign-up: the owner invites each cook. Claude connects 
 | The cook signs in. | 2 |
 | The cook adds or removes a passkey. | 3 |
 | The cook connects Claude. | 4, 6 |
-| The cook sees connections and disconnects one. | 5 |
+| The cook sees connections and disconnects one. | 5, 8 |
+| The cook signs in on a device. | 2, 8 |
+| The cook signs a device out. | 8 |
 
 ## Data
 
@@ -29,7 +31,8 @@ No passwords, and no open sign-up: the owner invites each cook. Claude connects 
 | invitation | who invited, created at, expires at, used or not |
 | cook | id |
 | passkey | name, added at; at least one per cook |
-| connection | which client (Claude on claude.ai, Claude Code), connected at |
+| connection | which client (Claude on claude.ai, Claude Code, the Sippet app), connected at |
+| device | a name ("iPhone", "iPad"), shown as who made a change ([sync.md](sync.md), rule 4) |
 
 ## Rules
 
@@ -45,6 +48,7 @@ No passwords, and no open sign-up: the owner invites each cook. Claude connects 
 
    Everything Claude does must stay undoable, through revisions and the trash.
 7. **By invitation.** An account is created only from an invitation by the owner. One invitation creates one account, within 14 days; a forgotten link must not open an account months later. It's a personal app: every account costs storage, and Claude can write into it.
+8. **A device signs in like Claude connects.** The app opens the sign-in page; the cook signs in with a passkey and approves, once per device. A device may do in the library what the cook may; passkeys and connections stay on the account page, which the app opens. Signing out forgets the sign-in on that device only. All devices share one connection, "Sippet app": disconnecting it signs every device out. Per-device connections need their own client per install, which is in [later.md](later.md).
 
 ## Examples
 
@@ -57,3 +61,7 @@ No passwords, and no open sign-up: the owner invites each cook. Claude connects 
 | someone opens the sign-up page without an invitation | refused (rule 7) |
 | a second person uses an invitation that already created an account | refused (rule 7) |
 | a person opens an invitation 15 days after it was made | refused, the owner sends a new one (rule 7) |
+| the cook signs in on the iPad with Face ID | the iPad loads the library ([sync.md](sync.md), rule 6) |
+| the cook signs out on the iPhone | the iPhone forgets the sign-in; the iPad stays signed in (rule 8) |
+| the cook disconnects "Sippet app" on the account page | iPhone and iPad are signed out at their next request (rule 8) |
+| Claude's token is used on the device API | refused (rule 6) |
