@@ -56,7 +56,9 @@ const device = async (token: string, path: string, body?: Json) => {
   const response = await fetch(`${origin}${path}`, { method: body === undefined ? "GET" : "POST", headers: deviceHeaders(token), body: body === undefined ? null : JSON.stringify(body) })
   const text = await response.text()
 
-  return { status: response.status, body: text === "" ? null : decodeJson(JSON.parse(text)) }
+  const isJson = response.headers.get("content-type")?.includes("json") === true // the Worker's and the DO's 401 are plain text
+
+  return { status: response.status, body: text === "" || !isJson ? null : decodeJson(JSON.parse(text)) }
 }
 
 // A live socket with its messages and close code. Bearer goes in the header; the Worker forwards the upgrade.
@@ -65,7 +67,11 @@ const openLive = async (token: string) => {
   let closed: number | undefined
   // SAFETY: Node's WebSocket (undici) takes {headers} as its second argument; the DOM typings don't know it.
   const socket = new WebSocket(`${wsOrigin}/api/device/live`, { headers: deviceHeaders(token) } as never)
-  socket.addEventListener("message", (event) => messages.push(decodeJson(JSON.parse(String(event.data)))))
+  socket.addEventListener("message", (event) => {
+    const text = String(event.data)
+
+    if (text !== "pong") messages.push(decodeJson(JSON.parse(text))) // "pong" is the runtime's auto-response, not a change notice
+  })
   socket.addEventListener("close", (event) => void (closed = event.code))
   await new Promise<void>((resolve, reject) => {
     socket.addEventListener("open", () => resolve())

@@ -268,3 +268,5 @@ live (scripts/verify-device.ts against pnpm dev; WebSocketPair isn't in node)
 2. ✅ `/connect` shows "Sippet app" and approves in one tap, unchanged. The `iss` parameter reaches the custom-scheme redirect: `de.bastelboxx.sippet:/oauth?code=…&state=…&iss=<PUBLIC_URL>`. The approval creates the connection "Sippet app".
 3. ✅ A refresh rotates the refresh token and keeps `azp`. A refresh after the disconnect fails (400). The access token issued before the disconnect is forwarded by the Worker and refused by the DO (401).
 4. A WebSocket upgrade passes through the Worker to the DO in `alchemy dev` and in production. Hibernation keeps the socket across a DO eviction (wait for eviction, then send a change).
+   - ✅ `alchemy dev` (`scripts/verify-device.ts`): open → `{seq}`, a change → `{seq: n+1}` within a second, ping → pong from the runtime, disconnect → close 4401 and the next request 401.
+   - Open: production, eviction, and the expired-token close (`SIPPET_WAIT_FOR_EXPIRY=1`).

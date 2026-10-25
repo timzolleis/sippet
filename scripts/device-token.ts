@@ -27,16 +27,17 @@ export type Tokens = typeof Tokens.Type
 
 // ── a browser: one cookie jar, Origin set like the account pages ───────────
 
-export type Browser = { request: (path: string, init?: RequestInit & { json?: Schema.Json }) => Promise<Response>; signedIn: () => boolean }
+export type Browser = { request: (path: string, init?: RequestInit & { json?: Schema.Json }) => Promise<Response>; signedIn: () => boolean; cookie: () => string }
 
 export const browser = (origin: string): Browser => {
   const jar = new Map<string, string>()
+  const cookie = () => [...jar].map(([key, value]) => `${key}=${value}`).join("; ")
 
   const request = async (path: string, init: RequestInit & { json?: Schema.Json } = {}): Promise<Response> => {
     const headers = new Headers(init.headers)
     headers.set("origin", origin)
 
-    if (jar.size > 0) headers.set("cookie", [...jar].map(([key, value]) => `${key}=${value}`).join("; "))
+    if (jar.size > 0) headers.set("cookie", cookie())
 
     if (init.json !== undefined) headers.set("content-type", "application/json")
     const body = init.json === undefined ? (init.body ?? null) : JSON.stringify(init.json)
@@ -54,7 +55,7 @@ export const browser = (origin: string): Browser => {
     return response
   }
 
-  return { request, signedIn: () => [...jar.keys()].some((key) => key.includes("session_token")) }
+  return { request, signedIn: () => [...jar.keys()].some((key) => key.includes("session_token")), cookie }
 }
 
 // ── a cook with a software passkey (ES256, "none" attestation) ─────────────
@@ -202,4 +203,5 @@ if (import.meta.main) {
   console.log(`access token:  ${tokens.access_token}`)
   console.log(`refresh token: ${tokens.refresh_token}`)
   console.log(`\nSIPPET_REFRESH_TOKEN=${tokens.refresh_token}`)
+  console.log(`SIPPET_SESSION_COOKIE='${cook.browser.cookie()}'`) // the cook's account session, for verify-device's disconnect check
 }
