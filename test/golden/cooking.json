@@ -1,0 +1,6415 @@
+{
+  "recipes": {
+    "zupfkuchen": {
+      "id": "rcp_zupfkuchen",
+      "revision": 1,
+      "title": "Veganer Russischer Zupfkuchen",
+      "yield": {
+        "amount": {
+          "value": 12,
+          "unit": "piece"
+        },
+        "vessel": "springform"
+      },
+      "totalMinutes": 65,
+      "sections": [
+        {
+          "key": "teig",
+          "name": "Teig"
+        },
+        {
+          "key": "fuellung",
+          "name": "Füllung"
+        }
+      ],
+      "equipment": [
+        {
+          "key": "springform",
+          "name": "Springform 26 cm"
+        },
+        {
+          "key": "ofen",
+          "name": "Ofen"
+        }
+      ],
+      "ingredients": [
+        {
+          "key": "mehl",
+          "item": "Mehl",
+          "amount": {
+            "value": 300,
+            "unit": "g"
+          },
+          "section": "teig"
+        },
+        {
+          "key": "zucker-teig",
+          "item": "Zucker",
+          "amount": {
+            "value": 180,
+            "unit": "g"
+          },
+          "section": "teig"
+        },
+        {
+          "key": "vanillezucker",
+          "item": "Vanillezucker",
+          "amount": {
+            "value": 1,
+            "unit": "packet"
+          },
+          "section": "teig"
+        },
+        {
+          "key": "backpulver",
+          "item": "Backpulver",
+          "amount": {
+            "value": 1,
+            "unit": "packet"
+          },
+          "section": "teig"
+        },
+        {
+          "key": "kakao",
+          "item": "Kakao",
+          "amount": {
+            "value": 50,
+            "unit": "g"
+          },
+          "section": "teig"
+        },
+        {
+          "key": "salz",
+          "item": "Salz",
+          "amount": {
+            "value": 0.25,
+            "unit": "tsp",
+            "second": {
+              "value": 2,
+              "unit": "g"
+            }
+          },
+          "section": "teig"
+        },
+        {
+          "key": "butter-teig",
+          "item": "vegane Butter",
+          "amount": {
+            "value": 200,
+            "unit": "g"
+          },
+          "section": "teig"
+        },
+        {
+          "key": "skyr",
+          "item": "Vanille-Skyr",
+          "amount": {
+            "value": 800,
+            "unit": "g",
+            "second": {
+              "value": 2,
+              "unit": "tub"
+            }
+          },
+          "section": "fuellung"
+        },
+        {
+          "key": "zucker-fuellung",
+          "item": "Zucker",
+          "amount": {
+            "value": 200,
+            "unit": "g"
+          },
+          "section": "fuellung"
+        },
+        {
+          "key": "zitronensaft",
+          "item": "Zitronensaft",
+          "amount": {
+            "value": 30,
+            "unit": "g"
+          },
+          "section": "fuellung",
+          "prep": "auspressen"
+        },
+        {
+          "key": "zitronenaroma",
+          "item": "Zitronenaroma",
+          "amount": {
+            "value": 0.5,
+            "unit": "bottle"
+          },
+          "section": "fuellung",
+          "optional": true
+        },
+        {
+          "key": "zitronenschale",
+          "item": "Zitronenschale",
+          "amount": {
+            "value": 1,
+            "unit": "packet"
+          },
+          "section": "fuellung",
+          "optional": true
+        },
+        {
+          "key": "butter-fuellung",
+          "item": "vegane Butter",
+          "amount": {
+            "value": 100,
+            "unit": "g"
+          },
+          "section": "fuellung",
+          "prep": "schmelzen"
+        },
+        {
+          "key": "puddingpulver",
+          "item": "Puddingpulver",
+          "amount": {
+            "value": 2,
+            "unit": "packet",
+            "second": {
+              "value": 74,
+              "unit": "g"
+            }
+          },
+          "section": "fuellung"
+        }
+      ],
+      "steps": [
+        {
+          "key": "einfetten",
+          "label": "Springform einfetten",
+          "sentence": "Springform einfetten, optional mit Backpapier auslegen.",
+          "equipment": [
+            "springform"
+          ],
+          "flow": {
+            "takes": [],
+            "waitsFor": [],
+            "makes": false
+          }
+        },
+        {
+          "key": "mischen",
+          "label": "mischen",
+          "section": "teig",
+          "uses": [
+            "mehl",
+            "zucker-teig",
+            "vanillezucker",
+            "backpulver",
+            "kakao",
+            "salz"
+          ],
+          "flow": {
+            "takes": [],
+            "waitsFor": [],
+            "makes": true
+          }
+        },
+        {
+          "key": "verkneten",
+          "label": "verkneten",
+          "section": "teig",
+          "uses": [
+            "butter-teig"
+          ],
+          "result": {
+            "name": "Teig",
+            "amount": {
+              "value": 750,
+              "unit": "g"
+            },
+            "split": [
+              {
+                "key": "boden-teig",
+                "name": "Boden",
+                "amount": {
+                  "value": 500,
+                  "unit": "g"
+                }
+              },
+              {
+                "key": "zupfteig",
+                "name": "Zupfteig",
+                "amount": {
+                  "value": 250,
+                  "unit": "g"
+                }
+              }
+            ]
+          },
+          "flow": {
+            "takes": [
+              "mischen"
+            ],
+            "waitsFor": [],
+            "makes": true
+          }
+        },
+        {
+          "key": "boden",
+          "label": "als Boden in die Form drücken, Rand ca. 2,5 cm",
+          "section": "teig",
+          "equipment": [
+            "springform"
+          ],
+          "takes": [
+            "boden-teig"
+          ],
+          "flow": {
+            "takes": [
+              "boden-teig"
+            ],
+            "waitsFor": [
+              "einfetten"
+            ],
+            "makes": true
+          }
+        },
+        {
+          "key": "vorheizen",
+          "label": "Ofen vorheizen",
+          "section": "fuellung",
+          "equipment": [
+            "ofen"
+          ],
+          "temperature": {
+            "celsius": 170,
+            "mode": "top_bottom"
+          },
+          "flow": {
+            "takes": [],
+            "waitsFor": [],
+            "makes": false
+          }
+        },
+        {
+          "key": "verruehren",
+          "label": "mit dem Mixer gut verrühren",
+          "section": "fuellung",
+          "uses": [
+            "skyr",
+            "zucker-fuellung",
+            "zitronensaft",
+            "zitronenaroma",
+            "zitronenschale",
+            "butter-fuellung"
+          ],
+          "result": {
+            "name": "Masse"
+          },
+          "flow": {
+            "takes": [],
+            "waitsFor": [],
+            "makes": true
+          }
+        },
+        {
+          "key": "untermixen",
+          "label": "Puddingpulver untermixen, bis die Masse glatt ist",
+          "section": "fuellung",
+          "uses": [
+            "puddingpulver"
+          ],
+          "result": {
+            "name": "Füllung"
+          },
+          "flow": {
+            "takes": [
+              "verruehren"
+            ],
+            "waitsFor": [],
+            "makes": true
+          }
+        },
+        {
+          "key": "giessen",
+          "label": "Füllung auf den Boden gießen, restlichen Teig als Zupfen darauf verteilen",
+          "flow": {
+            "takes": [
+              "boden",
+              "untermixen",
+              "zupfteig"
+            ],
+            "waitsFor": [],
+            "makes": true
+          }
+        },
+        {
+          "key": "backen",
+          "label": "backen",
+          "equipment": [
+            "ofen"
+          ],
+          "duration": {
+            "minutes": 60,
+            "maxMinutes": 65,
+            "kind": "passive"
+          },
+          "temperature": {
+            "celsius": 170,
+            "mode": "top_bottom"
+          },
+          "flow": {
+            "takes": [
+              "giessen"
+            ],
+            "waitsFor": [
+              "vorheizen"
+            ],
+            "makes": true
+          }
+        },
+        {
+          "key": "auskuehlen",
+          "label": "im geöffneten Ofen vollständig auskühlen",
+          "equipment": [
+            "ofen"
+          ],
+          "result": {
+            "name": "Zupfkuchen"
+          },
+          "flow": {
+            "takes": [
+              "backen"
+            ],
+            "waitsFor": [],
+            "makes": true
+          }
+        }
+      ],
+      "hasFlow": true,
+      "makes": [
+        "auskuehlen"
+      ]
+    },
+    "pasta": {
+      "id": "rcp_pasta",
+      "revision": 1,
+      "title": "Spaghetti al pomodoro",
+      "yield": {
+        "amount": {
+          "value": 4,
+          "unit": "serving"
+        }
+      },
+      "sections": [],
+      "equipment": [],
+      "ingredients": [
+        {
+          "key": "wasser",
+          "item": "Wasser",
+          "amount": {
+            "value": 4,
+            "unit": "l"
+          }
+        },
+        {
+          "key": "salz",
+          "item": "Salz",
+          "amount": {
+            "value": 1,
+            "unit": "tbsp"
+          }
+        },
+        {
+          "key": "spaghetti",
+          "item": "Spaghetti",
+          "amount": {
+            "value": 500,
+            "unit": "g"
+          }
+        },
+        {
+          "key": "olivenoel",
+          "item": "Olivenöl",
+          "amount": {
+            "value": 3,
+            "unit": "tbsp"
+          }
+        },
+        {
+          "key": "knoblauch",
+          "item": "Knoblauch",
+          "amount": {
+            "value": 2,
+            "unit": "clove"
+          }
+        },
+        {
+          "key": "tomaten",
+          "item": "gehackte Tomaten",
+          "amount": {
+            "value": 1,
+            "unit": "can"
+          }
+        },
+        {
+          "key": "parmesan",
+          "item": "Parmesan",
+          "note": "nach Geschmack"
+        }
+      ],
+      "steps": [
+        {
+          "key": "aufkochen",
+          "label": "Wasser aufkochen und salzen"
+        },
+        {
+          "key": "kochen",
+          "label": "Spaghetti al dente kochen"
+        },
+        {
+          "key": "sosse",
+          "label": "Inzwischen Knoblauch in Öl anschwitzen, Tomaten dazugeben"
+        },
+        {
+          "key": "abgiessen",
+          "label": "Spaghetti abgießen"
+        },
+        {
+          "key": "vermengen",
+          "label": "Spaghetti mit der Soße vermengen"
+        },
+        {
+          "key": "servieren",
+          "label": "mit Parmesan servieren"
+        }
+      ],
+      "hasFlow": false,
+      "makes": []
+    },
+    "pastaWithUses": {
+      "id": "rcp_pasta_uses",
+      "revision": 1,
+      "title": "Spaghetti al pomodoro",
+      "yield": {
+        "amount": {
+          "value": 4,
+          "unit": "serving"
+        }
+      },
+      "sections": [],
+      "equipment": [],
+      "ingredients": [
+        {
+          "key": "wasser",
+          "item": "Wasser",
+          "amount": {
+            "value": 4,
+            "unit": "l"
+          }
+        },
+        {
+          "key": "salz",
+          "item": "Salz",
+          "amount": {
+            "value": 1,
+            "unit": "tbsp"
+          }
+        },
+        {
+          "key": "spaghetti",
+          "item": "Spaghetti",
+          "amount": {
+            "value": 500,
+            "unit": "g"
+          }
+        },
+        {
+          "key": "olivenoel",
+          "item": "Olivenöl",
+          "amount": {
+            "value": 3,
+            "unit": "tbsp"
+          }
+        },
+        {
+          "key": "knoblauch",
+          "item": "Knoblauch",
+          "amount": {
+            "value": 2,
+            "unit": "clove"
+          }
+        },
+        {
+          "key": "tomaten",
+          "item": "gehackte Tomaten",
+          "amount": {
+            "value": 1,
+            "unit": "can"
+          }
+        },
+        {
+          "key": "parmesan",
+          "item": "Parmesan",
+          "note": "nach Geschmack"
+        }
+      ],
+      "steps": [
+        {
+          "key": "aufkochen",
+          "label": "Wasser aufkochen und salzen",
+          "uses": [
+            "wasser",
+            "salz"
+          ],
+          "flow": {
+            "takes": [],
+            "waitsFor": [],
+            "makes": true
+          }
+        },
+        {
+          "key": "kochen",
+          "label": "Spaghetti al dente kochen",
+          "uses": [
+            "spaghetti"
+          ],
+          "flow": {
+            "takes": [
+              "aufkochen"
+            ],
+            "waitsFor": [],
+            "makes": true
+          }
+        },
+        {
+          "key": "sosse",
+          "label": "Inzwischen Knoblauch in Öl anschwitzen, Tomaten dazugeben",
+          "uses": [
+            "olivenoel",
+            "knoblauch",
+            "tomaten"
+          ],
+          "flow": {
+            "takes": [
+              "kochen"
+            ],
+            "waitsFor": [],
+            "makes": true
+          }
+        },
+        {
+          "key": "abgiessen",
+          "label": "Spaghetti abgießen",
+          "flow": {
+            "takes": [
+              "sosse"
+            ],
+            "waitsFor": [],
+            "makes": true
+          }
+        },
+        {
+          "key": "vermengen",
+          "label": "Spaghetti mit der Soße vermengen",
+          "flow": {
+            "takes": [
+              "abgiessen"
+            ],
+            "waitsFor": [],
+            "makes": true
+          }
+        },
+        {
+          "key": "servieren",
+          "label": "mit Parmesan servieren",
+          "uses": [
+            "parmesan"
+          ],
+          "flow": {
+            "takes": [
+              "vermengen"
+            ],
+            "waitsFor": [],
+            "makes": true
+          }
+        }
+      ],
+      "hasFlow": true,
+      "makes": [
+        "servieren"
+      ]
+    },
+    "kekse": {
+      "id": "rcp_kekse",
+      "revision": 1,
+      "title": "Kekse",
+      "yield": {
+        "amount": {
+          "value": 24,
+          "unit": "piece"
+        }
+      },
+      "totalMinutes": 70,
+      "sections": [
+        {
+          "key": "teig",
+          "name": "Teig"
+        }
+      ],
+      "equipment": [],
+      "ingredients": [
+        {
+          "key": "mehl-a",
+          "item": "Mehl",
+          "amount": {
+            "value": 500,
+            "unit": "g"
+          },
+          "section": "teig"
+        },
+        {
+          "key": "mehl-b",
+          "item": "Mehl",
+          "amount": {
+            "value": 1,
+            "unit": "kg"
+          }
+        },
+        {
+          "key": "milch-a",
+          "item": "Milch",
+          "amount": {
+            "value": 1,
+            "unit": "cup"
+          }
+        },
+        {
+          "key": "milch-b",
+          "item": "Milch",
+          "amount": {
+            "value": 100,
+            "unit": "ml"
+          }
+        },
+        {
+          "key": "zimt",
+          "item": "Zimt",
+          "amount": {
+            "value": 1,
+            "unit": {
+              "custom": "Messerspitze"
+            }
+          }
+        },
+        {
+          "key": "knoblauch",
+          "item": "Knoblauch",
+          "amount": {
+            "value": 1,
+            "max": 2,
+            "unit": "clove"
+          }
+        },
+        {
+          "key": "ei",
+          "item": "Ei",
+          "amount": {
+            "value": 3
+          },
+          "note": "Größe M"
+        },
+        {
+          "key": "butter",
+          "item": "Butter",
+          "amount": {
+            "value": 0.33,
+            "unit": "lb",
+            "second": {
+              "value": 150,
+              "unit": "g"
+            }
+          }
+        },
+        {
+          "key": "wasser",
+          "item": "Wasser",
+          "amount": {
+            "value": 3,
+            "unit": "fl_oz"
+          }
+        }
+      ],
+      "steps": [
+        {
+          "key": "kneten",
+          "label": "Teig kneten",
+          "sentence": "Alles zu einem glatten Teig kneten.",
+          "duration": {
+            "minutes": 10,
+            "kind": "active"
+          }
+        },
+        {
+          "key": "ruhen",
+          "label": "ruhen lassen",
+          "duration": {
+            "minutes": 30,
+            "maxMinutes": 60,
+            "kind": "passive"
+          }
+        },
+        {
+          "key": "backen",
+          "label": "backen",
+          "temperature": {
+            "celsius": 180,
+            "maxCelsius": 190,
+            "mode": "fan"
+          }
+        }
+      ],
+      "hasFlow": false,
+      "makes": []
+    }
+  },
+  "scaleRecipe": [
+    {
+      "recipe": "zupfkuchen",
+      "toYield": 6,
+      "expected": {
+        "id": "rcp_zupfkuchen",
+        "revision": 1,
+        "title": "Veganer Russischer Zupfkuchen",
+        "yield": {
+          "amount": {
+            "value": 6,
+            "unit": "piece"
+          },
+          "vessel": "springform"
+        },
+        "totalMinutes": 65,
+        "sections": [
+          {
+            "key": "teig",
+            "name": "Teig"
+          },
+          {
+            "key": "fuellung",
+            "name": "Füllung"
+          }
+        ],
+        "equipment": [
+          {
+            "key": "springform",
+            "name": "Springform 26 cm"
+          },
+          {
+            "key": "ofen",
+            "name": "Ofen"
+          }
+        ],
+        "ingredients": [
+          {
+            "key": "mehl",
+            "item": "Mehl",
+            "amount": {
+              "value": 150,
+              "unit": "g"
+            },
+            "section": "teig"
+          },
+          {
+            "key": "zucker-teig",
+            "item": "Zucker",
+            "amount": {
+              "value": 90,
+              "unit": "g"
+            },
+            "section": "teig"
+          },
+          {
+            "key": "vanillezucker",
+            "item": "Vanillezucker",
+            "amount": {
+              "value": 0.5,
+              "unit": "packet"
+            },
+            "section": "teig"
+          },
+          {
+            "key": "backpulver",
+            "item": "Backpulver",
+            "amount": {
+              "value": 0.5,
+              "unit": "packet"
+            },
+            "section": "teig"
+          },
+          {
+            "key": "kakao",
+            "item": "Kakao",
+            "amount": {
+              "value": 25,
+              "unit": "g"
+            },
+            "section": "teig"
+          },
+          {
+            "key": "salz",
+            "item": "Salz",
+            "amount": {
+              "value": 0.125,
+              "unit": "tsp",
+              "second": {
+                "value": 1,
+                "unit": "g"
+              }
+            },
+            "section": "teig"
+          },
+          {
+            "key": "butter-teig",
+            "item": "vegane Butter",
+            "amount": {
+              "value": 100,
+              "unit": "g"
+            },
+            "section": "teig"
+          },
+          {
+            "key": "skyr",
+            "item": "Vanille-Skyr",
+            "amount": {
+              "value": 400,
+              "unit": "g",
+              "second": {
+                "value": 1,
+                "unit": "tub"
+              }
+            },
+            "section": "fuellung"
+          },
+          {
+            "key": "zucker-fuellung",
+            "item": "Zucker",
+            "amount": {
+              "value": 100,
+              "unit": "g"
+            },
+            "section": "fuellung"
+          },
+          {
+            "key": "zitronensaft",
+            "item": "Zitronensaft",
+            "amount": {
+              "value": 15,
+              "unit": "g"
+            },
+            "section": "fuellung",
+            "prep": "auspressen"
+          },
+          {
+            "key": "zitronenaroma",
+            "item": "Zitronenaroma",
+            "amount": {
+              "value": 0.25,
+              "unit": "bottle"
+            },
+            "section": "fuellung",
+            "optional": true
+          },
+          {
+            "key": "zitronenschale",
+            "item": "Zitronenschale",
+            "amount": {
+              "value": 0.5,
+              "unit": "packet"
+            },
+            "section": "fuellung",
+            "optional": true
+          },
+          {
+            "key": "butter-fuellung",
+            "item": "vegane Butter",
+            "amount": {
+              "value": 50,
+              "unit": "g"
+            },
+            "section": "fuellung",
+            "prep": "schmelzen"
+          },
+          {
+            "key": "puddingpulver",
+            "item": "Puddingpulver",
+            "amount": {
+              "value": 1,
+              "unit": "packet",
+              "second": {
+                "value": 35,
+                "unit": "g"
+              }
+            },
+            "section": "fuellung"
+          }
+        ],
+        "steps": [
+          {
+            "key": "einfetten",
+            "label": "Springform einfetten",
+            "sentence": "Springform einfetten, optional mit Backpapier auslegen.",
+            "equipment": [
+              "springform"
+            ],
+            "flow": {
+              "takes": [],
+              "waitsFor": [],
+              "makes": false
+            }
+          },
+          {
+            "key": "mischen",
+            "label": "mischen",
+            "section": "teig",
+            "uses": [
+              "mehl",
+              "zucker-teig",
+              "vanillezucker",
+              "backpulver",
+              "kakao",
+              "salz"
+            ],
+            "flow": {
+              "takes": [],
+              "waitsFor": [],
+              "makes": true
+            }
+          },
+          {
+            "key": "verkneten",
+            "label": "verkneten",
+            "section": "teig",
+            "uses": [
+              "butter-teig"
+            ],
+            "result": {
+              "name": "Teig",
+              "amount": {
+                "value": 375,
+                "unit": "g"
+              },
+              "split": [
+                {
+                  "key": "boden-teig",
+                  "name": "Boden",
+                  "amount": {
+                    "value": 250,
+                    "unit": "g"
+                  }
+                },
+                {
+                  "key": "zupfteig",
+                  "name": "Zupfteig",
+                  "amount": {
+                    "value": 125,
+                    "unit": "g"
+                  }
+                }
+              ]
+            },
+            "flow": {
+              "takes": [
+                "mischen"
+              ],
+              "waitsFor": [],
+              "makes": true
+            }
+          },
+          {
+            "key": "boden",
+            "label": "als Boden in die Form drücken, Rand ca. 2,5 cm",
+            "section": "teig",
+            "equipment": [
+              "springform"
+            ],
+            "takes": [
+              "boden-teig"
+            ],
+            "flow": {
+              "takes": [
+                "boden-teig"
+              ],
+              "waitsFor": [
+                "einfetten"
+              ],
+              "makes": true
+            }
+          },
+          {
+            "key": "vorheizen",
+            "label": "Ofen vorheizen",
+            "section": "fuellung",
+            "equipment": [
+              "ofen"
+            ],
+            "temperature": {
+              "celsius": 170,
+              "mode": "top_bottom"
+            },
+            "flow": {
+              "takes": [],
+              "waitsFor": [],
+              "makes": false
+            }
+          },
+          {
+            "key": "verruehren",
+            "label": "mit dem Mixer gut verrühren",
+            "section": "fuellung",
+            "uses": [
+              "skyr",
+              "zucker-fuellung",
+              "zitronensaft",
+              "zitronenaroma",
+              "zitronenschale",
+              "butter-fuellung"
+            ],
+            "result": {
+              "name": "Masse"
+            },
+            "flow": {
+              "takes": [],
+              "waitsFor": [],
+              "makes": true
+            }
+          },
+          {
+            "key": "untermixen",
+            "label": "Puddingpulver untermixen, bis die Masse glatt ist",
+            "section": "fuellung",
+            "uses": [
+              "puddingpulver"
+            ],
+            "result": {
+              "name": "Füllung"
+            },
+            "flow": {
+              "takes": [
+                "verruehren"
+              ],
+              "waitsFor": [],
+              "makes": true
+            }
+          },
+          {
+            "key": "giessen",
+            "label": "Füllung auf den Boden gießen, restlichen Teig als Zupfen darauf verteilen",
+            "flow": {
+              "takes": [
+                "boden",
+                "untermixen",
+                "zupfteig"
+              ],
+              "waitsFor": [],
+              "makes": true
+            }
+          },
+          {
+            "key": "backen",
+            "label": "backen",
+            "equipment": [
+              "ofen"
+            ],
+            "duration": {
+              "minutes": 60,
+              "maxMinutes": 65,
+              "kind": "passive"
+            },
+            "temperature": {
+              "celsius": 170,
+              "mode": "top_bottom"
+            },
+            "flow": {
+              "takes": [
+                "giessen"
+              ],
+              "waitsFor": [
+                "vorheizen"
+              ],
+              "makes": true
+            }
+          },
+          {
+            "key": "auskuehlen",
+            "label": "im geöffneten Ofen vollständig auskühlen",
+            "equipment": [
+              "ofen"
+            ],
+            "result": {
+              "name": "Zupfkuchen"
+            },
+            "flow": {
+              "takes": [
+                "backen"
+              ],
+              "waitsFor": [],
+              "makes": true
+            }
+          }
+        ],
+        "hasFlow": true,
+        "makes": [
+          "auskuehlen"
+        ]
+      }
+    },
+    {
+      "recipe": "zupfkuchen",
+      "toYield": 24,
+      "expected": {
+        "id": "rcp_zupfkuchen",
+        "revision": 1,
+        "title": "Veganer Russischer Zupfkuchen",
+        "yield": {
+          "amount": {
+            "value": 24,
+            "unit": "piece"
+          },
+          "vessel": "springform"
+        },
+        "totalMinutes": 65,
+        "sections": [
+          {
+            "key": "teig",
+            "name": "Teig"
+          },
+          {
+            "key": "fuellung",
+            "name": "Füllung"
+          }
+        ],
+        "equipment": [
+          {
+            "key": "springform",
+            "name": "Springform 26 cm"
+          },
+          {
+            "key": "ofen",
+            "name": "Ofen"
+          }
+        ],
+        "ingredients": [
+          {
+            "key": "mehl",
+            "item": "Mehl",
+            "amount": {
+              "value": 600,
+              "unit": "g"
+            },
+            "section": "teig"
+          },
+          {
+            "key": "zucker-teig",
+            "item": "Zucker",
+            "amount": {
+              "value": 360,
+              "unit": "g"
+            },
+            "section": "teig"
+          },
+          {
+            "key": "vanillezucker",
+            "item": "Vanillezucker",
+            "amount": {
+              "value": 2,
+              "unit": "packet"
+            },
+            "section": "teig"
+          },
+          {
+            "key": "backpulver",
+            "item": "Backpulver",
+            "amount": {
+              "value": 2,
+              "unit": "packet"
+            },
+            "section": "teig"
+          },
+          {
+            "key": "kakao",
+            "item": "Kakao",
+            "amount": {
+              "value": 100,
+              "unit": "g"
+            },
+            "section": "teig"
+          },
+          {
+            "key": "salz",
+            "item": "Salz",
+            "amount": {
+              "value": 0.5,
+              "unit": "tsp",
+              "second": {
+                "value": 4,
+                "unit": "g"
+              }
+            },
+            "section": "teig"
+          },
+          {
+            "key": "butter-teig",
+            "item": "vegane Butter",
+            "amount": {
+              "value": 400,
+              "unit": "g"
+            },
+            "section": "teig"
+          },
+          {
+            "key": "skyr",
+            "item": "Vanille-Skyr",
+            "amount": {
+              "value": 1600,
+              "unit": "g",
+              "second": {
+                "value": 4,
+                "unit": "tub"
+              }
+            },
+            "section": "fuellung"
+          },
+          {
+            "key": "zucker-fuellung",
+            "item": "Zucker",
+            "amount": {
+              "value": 400,
+              "unit": "g"
+            },
+            "section": "fuellung"
+          },
+          {
+            "key": "zitronensaft",
+            "item": "Zitronensaft",
+            "amount": {
+              "value": 60,
+              "unit": "g"
+            },
+            "section": "fuellung",
+            "prep": "auspressen"
+          },
+          {
+            "key": "zitronenaroma",
+            "item": "Zitronenaroma",
+            "amount": {
+              "value": 1,
+              "unit": "bottle"
+            },
+            "section": "fuellung",
+            "optional": true
+          },
+          {
+            "key": "zitronenschale",
+            "item": "Zitronenschale",
+            "amount": {
+              "value": 2,
+              "unit": "packet"
+            },
+            "section": "fuellung",
+            "optional": true
+          },
+          {
+            "key": "butter-fuellung",
+            "item": "vegane Butter",
+            "amount": {
+              "value": 200,
+              "unit": "g"
+            },
+            "section": "fuellung",
+            "prep": "schmelzen"
+          },
+          {
+            "key": "puddingpulver",
+            "item": "Puddingpulver",
+            "amount": {
+              "value": 4,
+              "unit": "packet",
+              "second": {
+                "value": 150,
+                "unit": "g"
+              }
+            },
+            "section": "fuellung"
+          }
+        ],
+        "steps": [
+          {
+            "key": "einfetten",
+            "label": "Springform einfetten",
+            "sentence": "Springform einfetten, optional mit Backpapier auslegen.",
+            "equipment": [
+              "springform"
+            ],
+            "flow": {
+              "takes": [],
+              "waitsFor": [],
+              "makes": false
+            }
+          },
+          {
+            "key": "mischen",
+            "label": "mischen",
+            "section": "teig",
+            "uses": [
+              "mehl",
+              "zucker-teig",
+              "vanillezucker",
+              "backpulver",
+              "kakao",
+              "salz"
+            ],
+            "flow": {
+              "takes": [],
+              "waitsFor": [],
+              "makes": true
+            }
+          },
+          {
+            "key": "verkneten",
+            "label": "verkneten",
+            "section": "teig",
+            "uses": [
+              "butter-teig"
+            ],
+            "result": {
+              "name": "Teig",
+              "amount": {
+                "value": 1500,
+                "unit": "g"
+              },
+              "split": [
+                {
+                  "key": "boden-teig",
+                  "name": "Boden",
+                  "amount": {
+                    "value": 1000,
+                    "unit": "g"
+                  }
+                },
+                {
+                  "key": "zupfteig",
+                  "name": "Zupfteig",
+                  "amount": {
+                    "value": 500,
+                    "unit": "g"
+                  }
+                }
+              ]
+            },
+            "flow": {
+              "takes": [
+                "mischen"
+              ],
+              "waitsFor": [],
+              "makes": true
+            }
+          },
+          {
+            "key": "boden",
+            "label": "als Boden in die Form drücken, Rand ca. 2,5 cm",
+            "section": "teig",
+            "equipment": [
+              "springform"
+            ],
+            "takes": [
+              "boden-teig"
+            ],
+            "flow": {
+              "takes": [
+                "boden-teig"
+              ],
+              "waitsFor": [
+                "einfetten"
+              ],
+              "makes": true
+            }
+          },
+          {
+            "key": "vorheizen",
+            "label": "Ofen vorheizen",
+            "section": "fuellung",
+            "equipment": [
+              "ofen"
+            ],
+            "temperature": {
+              "celsius": 170,
+              "mode": "top_bottom"
+            },
+            "flow": {
+              "takes": [],
+              "waitsFor": [],
+              "makes": false
+            }
+          },
+          {
+            "key": "verruehren",
+            "label": "mit dem Mixer gut verrühren",
+            "section": "fuellung",
+            "uses": [
+              "skyr",
+              "zucker-fuellung",
+              "zitronensaft",
+              "zitronenaroma",
+              "zitronenschale",
+              "butter-fuellung"
+            ],
+            "result": {
+              "name": "Masse"
+            },
+            "flow": {
+              "takes": [],
+              "waitsFor": [],
+              "makes": true
+            }
+          },
+          {
+            "key": "untermixen",
+            "label": "Puddingpulver untermixen, bis die Masse glatt ist",
+            "section": "fuellung",
+            "uses": [
+              "puddingpulver"
+            ],
+            "result": {
+              "name": "Füllung"
+            },
+            "flow": {
+              "takes": [
+                "verruehren"
+              ],
+              "waitsFor": [],
+              "makes": true
+            }
+          },
+          {
+            "key": "giessen",
+            "label": "Füllung auf den Boden gießen, restlichen Teig als Zupfen darauf verteilen",
+            "flow": {
+              "takes": [
+                "boden",
+                "untermixen",
+                "zupfteig"
+              ],
+              "waitsFor": [],
+              "makes": true
+            }
+          },
+          {
+            "key": "backen",
+            "label": "backen",
+            "equipment": [
+              "ofen"
+            ],
+            "duration": {
+              "minutes": 60,
+              "maxMinutes": 65,
+              "kind": "passive"
+            },
+            "temperature": {
+              "celsius": 170,
+              "mode": "top_bottom"
+            },
+            "flow": {
+              "takes": [
+                "giessen"
+              ],
+              "waitsFor": [
+                "vorheizen"
+              ],
+              "makes": true
+            }
+          },
+          {
+            "key": "auskuehlen",
+            "label": "im geöffneten Ofen vollständig auskühlen",
+            "equipment": [
+              "ofen"
+            ],
+            "result": {
+              "name": "Zupfkuchen"
+            },
+            "flow": {
+              "takes": [
+                "backen"
+              ],
+              "waitsFor": [],
+              "makes": true
+            }
+          }
+        ],
+        "hasFlow": true,
+        "makes": [
+          "auskuehlen"
+        ]
+      }
+    },
+    {
+      "recipe": "zupfkuchen",
+      "toYield": 7,
+      "expected": {
+        "id": "rcp_zupfkuchen",
+        "revision": 1,
+        "title": "Veganer Russischer Zupfkuchen",
+        "yield": {
+          "amount": {
+            "value": 7,
+            "unit": "piece"
+          },
+          "vessel": "springform"
+        },
+        "totalMinutes": 65,
+        "sections": [
+          {
+            "key": "teig",
+            "name": "Teig"
+          },
+          {
+            "key": "fuellung",
+            "name": "Füllung"
+          }
+        ],
+        "equipment": [
+          {
+            "key": "springform",
+            "name": "Springform 26 cm"
+          },
+          {
+            "key": "ofen",
+            "name": "Ofen"
+          }
+        ],
+        "ingredients": [
+          {
+            "key": "mehl",
+            "item": "Mehl",
+            "amount": {
+              "value": 175,
+              "unit": "g"
+            },
+            "section": "teig"
+          },
+          {
+            "key": "zucker-teig",
+            "item": "Zucker",
+            "amount": {
+              "value": 105,
+              "unit": "g"
+            },
+            "section": "teig"
+          },
+          {
+            "key": "vanillezucker",
+            "item": "Vanillezucker",
+            "amount": {
+              "value": 0.5,
+              "unit": "packet"
+            },
+            "section": "teig"
+          },
+          {
+            "key": "backpulver",
+            "item": "Backpulver",
+            "amount": {
+              "value": 0.5,
+              "unit": "packet"
+            },
+            "section": "teig"
+          },
+          {
+            "key": "kakao",
+            "item": "Kakao",
+            "amount": {
+              "value": 30,
+              "unit": "g"
+            },
+            "section": "teig"
+          },
+          {
+            "key": "salz",
+            "item": "Salz",
+            "amount": {
+              "value": 0.125,
+              "unit": "tsp",
+              "second": {
+                "value": 1,
+                "unit": "g"
+              }
+            },
+            "section": "teig"
+          },
+          {
+            "key": "butter-teig",
+            "item": "vegane Butter",
+            "amount": {
+              "value": 115,
+              "unit": "g"
+            },
+            "section": "teig"
+          },
+          {
+            "key": "skyr",
+            "item": "Vanille-Skyr",
+            "amount": {
+              "value": 465,
+              "unit": "g",
+              "second": {
+                "value": 1.1666666666666667,
+                "unit": "tub"
+              }
+            },
+            "section": "fuellung"
+          },
+          {
+            "key": "zucker-fuellung",
+            "item": "Zucker",
+            "amount": {
+              "value": 115,
+              "unit": "g"
+            },
+            "section": "fuellung"
+          },
+          {
+            "key": "zitronensaft",
+            "item": "Zitronensaft",
+            "amount": {
+              "value": 18,
+              "unit": "g"
+            },
+            "section": "fuellung",
+            "prep": "auspressen"
+          },
+          {
+            "key": "zitronenaroma",
+            "item": "Zitronenaroma",
+            "amount": {
+              "value": 0.2916666666666667,
+              "unit": "bottle"
+            },
+            "section": "fuellung",
+            "optional": true
+          },
+          {
+            "key": "zitronenschale",
+            "item": "Zitronenschale",
+            "amount": {
+              "value": 0.5,
+              "unit": "packet"
+            },
+            "section": "fuellung",
+            "optional": true
+          },
+          {
+            "key": "butter-fuellung",
+            "item": "vegane Butter",
+            "amount": {
+              "value": 60,
+              "unit": "g"
+            },
+            "section": "fuellung",
+            "prep": "schmelzen"
+          },
+          {
+            "key": "puddingpulver",
+            "item": "Puddingpulver",
+            "amount": {
+              "value": 1,
+              "unit": "packet",
+              "second": {
+                "value": 45,
+                "unit": "g"
+              }
+            },
+            "section": "fuellung"
+          }
+        ],
+        "steps": [
+          {
+            "key": "einfetten",
+            "label": "Springform einfetten",
+            "sentence": "Springform einfetten, optional mit Backpapier auslegen.",
+            "equipment": [
+              "springform"
+            ],
+            "flow": {
+              "takes": [],
+              "waitsFor": [],
+              "makes": false
+            }
+          },
+          {
+            "key": "mischen",
+            "label": "mischen",
+            "section": "teig",
+            "uses": [
+              "mehl",
+              "zucker-teig",
+              "vanillezucker",
+              "backpulver",
+              "kakao",
+              "salz"
+            ],
+            "flow": {
+              "takes": [],
+              "waitsFor": [],
+              "makes": true
+            }
+          },
+          {
+            "key": "verkneten",
+            "label": "verkneten",
+            "section": "teig",
+            "uses": [
+              "butter-teig"
+            ],
+            "result": {
+              "name": "Teig",
+              "amount": {
+                "value": 440,
+                "unit": "g"
+              },
+              "split": [
+                {
+                  "key": "boden-teig",
+                  "name": "Boden",
+                  "amount": {
+                    "value": 290,
+                    "unit": "g"
+                  }
+                },
+                {
+                  "key": "zupfteig",
+                  "name": "Zupfteig",
+                  "amount": {
+                    "value": 145,
+                    "unit": "g"
+                  }
+                }
+              ]
+            },
+            "flow": {
+              "takes": [
+                "mischen"
+              ],
+              "waitsFor": [],
+              "makes": true
+            }
+          },
+          {
+            "key": "boden",
+            "label": "als Boden in die Form drücken, Rand ca. 2,5 cm",
+            "section": "teig",
+            "equipment": [
+              "springform"
+            ],
+            "takes": [
+              "boden-teig"
+            ],
+            "flow": {
+              "takes": [
+                "boden-teig"
+              ],
+              "waitsFor": [
+                "einfetten"
+              ],
+              "makes": true
+            }
+          },
+          {
+            "key": "vorheizen",
+            "label": "Ofen vorheizen",
+            "section": "fuellung",
+            "equipment": [
+              "ofen"
+            ],
+            "temperature": {
+              "celsius": 170,
+              "mode": "top_bottom"
+            },
+            "flow": {
+              "takes": [],
+              "waitsFor": [],
+              "makes": false
+            }
+          },
+          {
+            "key": "verruehren",
+            "label": "mit dem Mixer gut verrühren",
+            "section": "fuellung",
+            "uses": [
+              "skyr",
+              "zucker-fuellung",
+              "zitronensaft",
+              "zitronenaroma",
+              "zitronenschale",
+              "butter-fuellung"
+            ],
+            "result": {
+              "name": "Masse"
+            },
+            "flow": {
+              "takes": [],
+              "waitsFor": [],
+              "makes": true
+            }
+          },
+          {
+            "key": "untermixen",
+            "label": "Puddingpulver untermixen, bis die Masse glatt ist",
+            "section": "fuellung",
+            "uses": [
+              "puddingpulver"
+            ],
+            "result": {
+              "name": "Füllung"
+            },
+            "flow": {
+              "takes": [
+                "verruehren"
+              ],
+              "waitsFor": [],
+              "makes": true
+            }
+          },
+          {
+            "key": "giessen",
+            "label": "Füllung auf den Boden gießen, restlichen Teig als Zupfen darauf verteilen",
+            "flow": {
+              "takes": [
+                "boden",
+                "untermixen",
+                "zupfteig"
+              ],
+              "waitsFor": [],
+              "makes": true
+            }
+          },
+          {
+            "key": "backen",
+            "label": "backen",
+            "equipment": [
+              "ofen"
+            ],
+            "duration": {
+              "minutes": 60,
+              "maxMinutes": 65,
+              "kind": "passive"
+            },
+            "temperature": {
+              "celsius": 170,
+              "mode": "top_bottom"
+            },
+            "flow": {
+              "takes": [
+                "giessen"
+              ],
+              "waitsFor": [
+                "vorheizen"
+              ],
+              "makes": true
+            }
+          },
+          {
+            "key": "auskuehlen",
+            "label": "im geöffneten Ofen vollständig auskühlen",
+            "equipment": [
+              "ofen"
+            ],
+            "result": {
+              "name": "Zupfkuchen"
+            },
+            "flow": {
+              "takes": [
+                "backen"
+              ],
+              "waitsFor": [],
+              "makes": true
+            }
+          }
+        ],
+        "hasFlow": true,
+        "makes": [
+          "auskuehlen"
+        ]
+      }
+    },
+    {
+      "recipe": "zupfkuchen",
+      "toYield": 1,
+      "expected": {
+        "id": "rcp_zupfkuchen",
+        "revision": 1,
+        "title": "Veganer Russischer Zupfkuchen",
+        "yield": {
+          "amount": {
+            "value": 1,
+            "unit": "piece"
+          },
+          "vessel": "springform"
+        },
+        "totalMinutes": 65,
+        "sections": [
+          {
+            "key": "teig",
+            "name": "Teig"
+          },
+          {
+            "key": "fuellung",
+            "name": "Füllung"
+          }
+        ],
+        "equipment": [
+          {
+            "key": "springform",
+            "name": "Springform 26 cm"
+          },
+          {
+            "key": "ofen",
+            "name": "Ofen"
+          }
+        ],
+        "ingredients": [
+          {
+            "key": "mehl",
+            "item": "Mehl",
+            "amount": {
+              "value": 25,
+              "unit": "g"
+            },
+            "section": "teig"
+          },
+          {
+            "key": "zucker-teig",
+            "item": "Zucker",
+            "amount": {
+              "value": 15,
+              "unit": "g"
+            },
+            "section": "teig"
+          },
+          {
+            "key": "vanillezucker",
+            "item": "Vanillezucker",
+            "amount": {
+              "value": 0.5,
+              "unit": "packet"
+            },
+            "section": "teig"
+          },
+          {
+            "key": "backpulver",
+            "item": "Backpulver",
+            "amount": {
+              "value": 0.5,
+              "unit": "packet"
+            },
+            "section": "teig"
+          },
+          {
+            "key": "kakao",
+            "item": "Kakao",
+            "amount": {
+              "value": 4,
+              "unit": "g"
+            },
+            "section": "teig"
+          },
+          {
+            "key": "salz",
+            "item": "Salz",
+            "amount": {
+              "value": 0.125,
+              "unit": "tsp",
+              "second": {
+                "value": 1,
+                "unit": "g"
+              }
+            },
+            "section": "teig"
+          },
+          {
+            "key": "butter-teig",
+            "item": "vegane Butter",
+            "amount": {
+              "value": 17,
+              "unit": "g"
+            },
+            "section": "teig"
+          },
+          {
+            "key": "skyr",
+            "item": "Vanille-Skyr",
+            "amount": {
+              "value": 65,
+              "unit": "g",
+              "second": {
+                "value": 0.16666666666666666,
+                "unit": "tub"
+              }
+            },
+            "section": "fuellung"
+          },
+          {
+            "key": "zucker-fuellung",
+            "item": "Zucker",
+            "amount": {
+              "value": 17,
+              "unit": "g"
+            },
+            "section": "fuellung"
+          },
+          {
+            "key": "zitronensaft",
+            "item": "Zitronensaft",
+            "amount": {
+              "value": 3,
+              "unit": "g"
+            },
+            "section": "fuellung",
+            "prep": "auspressen"
+          },
+          {
+            "key": "zitronenaroma",
+            "item": "Zitronenaroma",
+            "amount": {
+              "value": 0.041666666666666664,
+              "unit": "bottle"
+            },
+            "section": "fuellung",
+            "optional": true
+          },
+          {
+            "key": "zitronenschale",
+            "item": "Zitronenschale",
+            "amount": {
+              "value": 0.5,
+              "unit": "packet"
+            },
+            "section": "fuellung",
+            "optional": true
+          },
+          {
+            "key": "butter-fuellung",
+            "item": "vegane Butter",
+            "amount": {
+              "value": 8,
+              "unit": "g"
+            },
+            "section": "fuellung",
+            "prep": "schmelzen"
+          },
+          {
+            "key": "puddingpulver",
+            "item": "Puddingpulver",
+            "amount": {
+              "value": 0.5,
+              "unit": "packet",
+              "second": {
+                "value": 6,
+                "unit": "g"
+              }
+            },
+            "section": "fuellung"
+          }
+        ],
+        "steps": [
+          {
+            "key": "einfetten",
+            "label": "Springform einfetten",
+            "sentence": "Springform einfetten, optional mit Backpapier auslegen.",
+            "equipment": [
+              "springform"
+            ],
+            "flow": {
+              "takes": [],
+              "waitsFor": [],
+              "makes": false
+            }
+          },
+          {
+            "key": "mischen",
+            "label": "mischen",
+            "section": "teig",
+            "uses": [
+              "mehl",
+              "zucker-teig",
+              "vanillezucker",
+              "backpulver",
+              "kakao",
+              "salz"
+            ],
+            "flow": {
+              "takes": [],
+              "waitsFor": [],
+              "makes": true
+            }
+          },
+          {
+            "key": "verkneten",
+            "label": "verkneten",
+            "section": "teig",
+            "uses": [
+              "butter-teig"
+            ],
+            "result": {
+              "name": "Teig",
+              "amount": {
+                "value": 65,
+                "unit": "g"
+              },
+              "split": [
+                {
+                  "key": "boden-teig",
+                  "name": "Boden",
+                  "amount": {
+                    "value": 40,
+                    "unit": "g"
+                  }
+                },
+                {
+                  "key": "zupfteig",
+                  "name": "Zupfteig",
+                  "amount": {
+                    "value": 20,
+                    "unit": "g"
+                  }
+                }
+              ]
+            },
+            "flow": {
+              "takes": [
+                "mischen"
+              ],
+              "waitsFor": [],
+              "makes": true
+            }
+          },
+          {
+            "key": "boden",
+            "label": "als Boden in die Form drücken, Rand ca. 2,5 cm",
+            "section": "teig",
+            "equipment": [
+              "springform"
+            ],
+            "takes": [
+              "boden-teig"
+            ],
+            "flow": {
+              "takes": [
+                "boden-teig"
+              ],
+              "waitsFor": [
+                "einfetten"
+              ],
+              "makes": true
+            }
+          },
+          {
+            "key": "vorheizen",
+            "label": "Ofen vorheizen",
+            "section": "fuellung",
+            "equipment": [
+              "ofen"
+            ],
+            "temperature": {
+              "celsius": 170,
+              "mode": "top_bottom"
+            },
+            "flow": {
+              "takes": [],
+              "waitsFor": [],
+              "makes": false
+            }
+          },
+          {
+            "key": "verruehren",
+            "label": "mit dem Mixer gut verrühren",
+            "section": "fuellung",
+            "uses": [
+              "skyr",
+              "zucker-fuellung",
+              "zitronensaft",
+              "zitronenaroma",
+              "zitronenschale",
+              "butter-fuellung"
+            ],
+            "result": {
+              "name": "Masse"
+            },
+            "flow": {
+              "takes": [],
+              "waitsFor": [],
+              "makes": true
+            }
+          },
+          {
+            "key": "untermixen",
+            "label": "Puddingpulver untermixen, bis die Masse glatt ist",
+            "section": "fuellung",
+            "uses": [
+              "puddingpulver"
+            ],
+            "result": {
+              "name": "Füllung"
+            },
+            "flow": {
+              "takes": [
+                "verruehren"
+              ],
+              "waitsFor": [],
+              "makes": true
+            }
+          },
+          {
+            "key": "giessen",
+            "label": "Füllung auf den Boden gießen, restlichen Teig als Zupfen darauf verteilen",
+            "flow": {
+              "takes": [
+                "boden",
+                "untermixen",
+                "zupfteig"
+              ],
+              "waitsFor": [],
+              "makes": true
+            }
+          },
+          {
+            "key": "backen",
+            "label": "backen",
+            "equipment": [
+              "ofen"
+            ],
+            "duration": {
+              "minutes": 60,
+              "maxMinutes": 65,
+              "kind": "passive"
+            },
+            "temperature": {
+              "celsius": 170,
+              "mode": "top_bottom"
+            },
+            "flow": {
+              "takes": [
+                "giessen"
+              ],
+              "waitsFor": [
+                "vorheizen"
+              ],
+              "makes": true
+            }
+          },
+          {
+            "key": "auskuehlen",
+            "label": "im geöffneten Ofen vollständig auskühlen",
+            "equipment": [
+              "ofen"
+            ],
+            "result": {
+              "name": "Zupfkuchen"
+            },
+            "flow": {
+              "takes": [
+                "backen"
+              ],
+              "waitsFor": [],
+              "makes": true
+            }
+          }
+        ],
+        "hasFlow": true,
+        "makes": [
+          "auskuehlen"
+        ]
+      }
+    },
+    {
+      "recipe": "zupfkuchen",
+      "toYield": 12,
+      "expected": {
+        "id": "rcp_zupfkuchen",
+        "revision": 1,
+        "title": "Veganer Russischer Zupfkuchen",
+        "yield": {
+          "amount": {
+            "value": 12,
+            "unit": "piece"
+          },
+          "vessel": "springform"
+        },
+        "totalMinutes": 65,
+        "sections": [
+          {
+            "key": "teig",
+            "name": "Teig"
+          },
+          {
+            "key": "fuellung",
+            "name": "Füllung"
+          }
+        ],
+        "equipment": [
+          {
+            "key": "springform",
+            "name": "Springform 26 cm"
+          },
+          {
+            "key": "ofen",
+            "name": "Ofen"
+          }
+        ],
+        "ingredients": [
+          {
+            "key": "mehl",
+            "item": "Mehl",
+            "amount": {
+              "value": 300,
+              "unit": "g"
+            },
+            "section": "teig"
+          },
+          {
+            "key": "zucker-teig",
+            "item": "Zucker",
+            "amount": {
+              "value": 180,
+              "unit": "g"
+            },
+            "section": "teig"
+          },
+          {
+            "key": "vanillezucker",
+            "item": "Vanillezucker",
+            "amount": {
+              "value": 1,
+              "unit": "packet"
+            },
+            "section": "teig"
+          },
+          {
+            "key": "backpulver",
+            "item": "Backpulver",
+            "amount": {
+              "value": 1,
+              "unit": "packet"
+            },
+            "section": "teig"
+          },
+          {
+            "key": "kakao",
+            "item": "Kakao",
+            "amount": {
+              "value": 50,
+              "unit": "g"
+            },
+            "section": "teig"
+          },
+          {
+            "key": "salz",
+            "item": "Salz",
+            "amount": {
+              "value": 0.25,
+              "unit": "tsp",
+              "second": {
+                "value": 2,
+                "unit": "g"
+              }
+            },
+            "section": "teig"
+          },
+          {
+            "key": "butter-teig",
+            "item": "vegane Butter",
+            "amount": {
+              "value": 200,
+              "unit": "g"
+            },
+            "section": "teig"
+          },
+          {
+            "key": "skyr",
+            "item": "Vanille-Skyr",
+            "amount": {
+              "value": 800,
+              "unit": "g",
+              "second": {
+                "value": 2,
+                "unit": "tub"
+              }
+            },
+            "section": "fuellung"
+          },
+          {
+            "key": "zucker-fuellung",
+            "item": "Zucker",
+            "amount": {
+              "value": 200,
+              "unit": "g"
+            },
+            "section": "fuellung"
+          },
+          {
+            "key": "zitronensaft",
+            "item": "Zitronensaft",
+            "amount": {
+              "value": 30,
+              "unit": "g"
+            },
+            "section": "fuellung",
+            "prep": "auspressen"
+          },
+          {
+            "key": "zitronenaroma",
+            "item": "Zitronenaroma",
+            "amount": {
+              "value": 0.5,
+              "unit": "bottle"
+            },
+            "section": "fuellung",
+            "optional": true
+          },
+          {
+            "key": "zitronenschale",
+            "item": "Zitronenschale",
+            "amount": {
+              "value": 1,
+              "unit": "packet"
+            },
+            "section": "fuellung",
+            "optional": true
+          },
+          {
+            "key": "butter-fuellung",
+            "item": "vegane Butter",
+            "amount": {
+              "value": 100,
+              "unit": "g"
+            },
+            "section": "fuellung",
+            "prep": "schmelzen"
+          },
+          {
+            "key": "puddingpulver",
+            "item": "Puddingpulver",
+            "amount": {
+              "value": 2,
+              "unit": "packet",
+              "second": {
+                "value": 75,
+                "unit": "g"
+              }
+            },
+            "section": "fuellung"
+          }
+        ],
+        "steps": [
+          {
+            "key": "einfetten",
+            "label": "Springform einfetten",
+            "sentence": "Springform einfetten, optional mit Backpapier auslegen.",
+            "equipment": [
+              "springform"
+            ],
+            "flow": {
+              "takes": [],
+              "waitsFor": [],
+              "makes": false
+            }
+          },
+          {
+            "key": "mischen",
+            "label": "mischen",
+            "section": "teig",
+            "uses": [
+              "mehl",
+              "zucker-teig",
+              "vanillezucker",
+              "backpulver",
+              "kakao",
+              "salz"
+            ],
+            "flow": {
+              "takes": [],
+              "waitsFor": [],
+              "makes": true
+            }
+          },
+          {
+            "key": "verkneten",
+            "label": "verkneten",
+            "section": "teig",
+            "uses": [
+              "butter-teig"
+            ],
+            "result": {
+              "name": "Teig",
+              "amount": {
+                "value": 750,
+                "unit": "g"
+              },
+              "split": [
+                {
+                  "key": "boden-teig",
+                  "name": "Boden",
+                  "amount": {
+                    "value": 500,
+                    "unit": "g"
+                  }
+                },
+                {
+                  "key": "zupfteig",
+                  "name": "Zupfteig",
+                  "amount": {
+                    "value": 250,
+                    "unit": "g"
+                  }
+                }
+              ]
+            },
+            "flow": {
+              "takes": [
+                "mischen"
+              ],
+              "waitsFor": [],
+              "makes": true
+            }
+          },
+          {
+            "key": "boden",
+            "label": "als Boden in die Form drücken, Rand ca. 2,5 cm",
+            "section": "teig",
+            "equipment": [
+              "springform"
+            ],
+            "takes": [
+              "boden-teig"
+            ],
+            "flow": {
+              "takes": [
+                "boden-teig"
+              ],
+              "waitsFor": [
+                "einfetten"
+              ],
+              "makes": true
+            }
+          },
+          {
+            "key": "vorheizen",
+            "label": "Ofen vorheizen",
+            "section": "fuellung",
+            "equipment": [
+              "ofen"
+            ],
+            "temperature": {
+              "celsius": 170,
+              "mode": "top_bottom"
+            },
+            "flow": {
+              "takes": [],
+              "waitsFor": [],
+              "makes": false
+            }
+          },
+          {
+            "key": "verruehren",
+            "label": "mit dem Mixer gut verrühren",
+            "section": "fuellung",
+            "uses": [
+              "skyr",
+              "zucker-fuellung",
+              "zitronensaft",
+              "zitronenaroma",
+              "zitronenschale",
+              "butter-fuellung"
+            ],
+            "result": {
+              "name": "Masse"
+            },
+            "flow": {
+              "takes": [],
+              "waitsFor": [],
+              "makes": true
+            }
+          },
+          {
+            "key": "untermixen",
+            "label": "Puddingpulver untermixen, bis die Masse glatt ist",
+            "section": "fuellung",
+            "uses": [
+              "puddingpulver"
+            ],
+            "result": {
+              "name": "Füllung"
+            },
+            "flow": {
+              "takes": [
+                "verruehren"
+              ],
+              "waitsFor": [],
+              "makes": true
+            }
+          },
+          {
+            "key": "giessen",
+            "label": "Füllung auf den Boden gießen, restlichen Teig als Zupfen darauf verteilen",
+            "flow": {
+              "takes": [
+                "boden",
+                "untermixen",
+                "zupfteig"
+              ],
+              "waitsFor": [],
+              "makes": true
+            }
+          },
+          {
+            "key": "backen",
+            "label": "backen",
+            "equipment": [
+              "ofen"
+            ],
+            "duration": {
+              "minutes": 60,
+              "maxMinutes": 65,
+              "kind": "passive"
+            },
+            "temperature": {
+              "celsius": 170,
+              "mode": "top_bottom"
+            },
+            "flow": {
+              "takes": [
+                "giessen"
+              ],
+              "waitsFor": [
+                "vorheizen"
+              ],
+              "makes": true
+            }
+          },
+          {
+            "key": "auskuehlen",
+            "label": "im geöffneten Ofen vollständig auskühlen",
+            "equipment": [
+              "ofen"
+            ],
+            "result": {
+              "name": "Zupfkuchen"
+            },
+            "flow": {
+              "takes": [
+                "backen"
+              ],
+              "waitsFor": [],
+              "makes": true
+            }
+          }
+        ],
+        "hasFlow": true,
+        "makes": [
+          "auskuehlen"
+        ]
+      }
+    },
+    {
+      "recipe": "pasta",
+      "toYield": 2,
+      "expected": {
+        "id": "rcp_pasta",
+        "revision": 1,
+        "title": "Spaghetti al pomodoro",
+        "yield": {
+          "amount": {
+            "value": 2,
+            "unit": "serving"
+          }
+        },
+        "sections": [],
+        "equipment": [],
+        "ingredients": [
+          {
+            "key": "wasser",
+            "item": "Wasser",
+            "amount": {
+              "value": 2,
+              "unit": "l"
+            }
+          },
+          {
+            "key": "salz",
+            "item": "Salz",
+            "amount": {
+              "value": 0.5,
+              "unit": "tbsp"
+            }
+          },
+          {
+            "key": "spaghetti",
+            "item": "Spaghetti",
+            "amount": {
+              "value": 250,
+              "unit": "g"
+            }
+          },
+          {
+            "key": "olivenoel",
+            "item": "Olivenöl",
+            "amount": {
+              "value": 1.5,
+              "unit": "tbsp"
+            }
+          },
+          {
+            "key": "knoblauch",
+            "item": "Knoblauch",
+            "amount": {
+              "value": 1,
+              "unit": "clove"
+            }
+          },
+          {
+            "key": "tomaten",
+            "item": "gehackte Tomaten",
+            "amount": {
+              "value": 0.5,
+              "unit": "can"
+            }
+          },
+          {
+            "key": "parmesan",
+            "item": "Parmesan",
+            "note": "nach Geschmack"
+          }
+        ],
+        "steps": [
+          {
+            "key": "aufkochen",
+            "label": "Wasser aufkochen und salzen"
+          },
+          {
+            "key": "kochen",
+            "label": "Spaghetti al dente kochen"
+          },
+          {
+            "key": "sosse",
+            "label": "Inzwischen Knoblauch in Öl anschwitzen, Tomaten dazugeben"
+          },
+          {
+            "key": "abgiessen",
+            "label": "Spaghetti abgießen"
+          },
+          {
+            "key": "vermengen",
+            "label": "Spaghetti mit der Soße vermengen"
+          },
+          {
+            "key": "servieren",
+            "label": "mit Parmesan servieren"
+          }
+        ],
+        "hasFlow": false,
+        "makes": []
+      }
+    },
+    {
+      "recipe": "pasta",
+      "toYield": 6,
+      "expected": {
+        "id": "rcp_pasta",
+        "revision": 1,
+        "title": "Spaghetti al pomodoro",
+        "yield": {
+          "amount": {
+            "value": 6,
+            "unit": "serving"
+          }
+        },
+        "sections": [],
+        "equipment": [],
+        "ingredients": [
+          {
+            "key": "wasser",
+            "item": "Wasser",
+            "amount": {
+              "value": 6,
+              "unit": "l"
+            }
+          },
+          {
+            "key": "salz",
+            "item": "Salz",
+            "amount": {
+              "value": 1.5,
+              "unit": "tbsp"
+            }
+          },
+          {
+            "key": "spaghetti",
+            "item": "Spaghetti",
+            "amount": {
+              "value": 750,
+              "unit": "g"
+            }
+          },
+          {
+            "key": "olivenoel",
+            "item": "Olivenöl",
+            "amount": {
+              "value": 4.5,
+              "unit": "tbsp"
+            }
+          },
+          {
+            "key": "knoblauch",
+            "item": "Knoblauch",
+            "amount": {
+              "value": 3,
+              "unit": "clove"
+            }
+          },
+          {
+            "key": "tomaten",
+            "item": "gehackte Tomaten",
+            "amount": {
+              "value": 1.5,
+              "unit": "can"
+            }
+          },
+          {
+            "key": "parmesan",
+            "item": "Parmesan",
+            "note": "nach Geschmack"
+          }
+        ],
+        "steps": [
+          {
+            "key": "aufkochen",
+            "label": "Wasser aufkochen und salzen"
+          },
+          {
+            "key": "kochen",
+            "label": "Spaghetti al dente kochen"
+          },
+          {
+            "key": "sosse",
+            "label": "Inzwischen Knoblauch in Öl anschwitzen, Tomaten dazugeben"
+          },
+          {
+            "key": "abgiessen",
+            "label": "Spaghetti abgießen"
+          },
+          {
+            "key": "vermengen",
+            "label": "Spaghetti mit der Soße vermengen"
+          },
+          {
+            "key": "servieren",
+            "label": "mit Parmesan servieren"
+          }
+        ],
+        "hasFlow": false,
+        "makes": []
+      }
+    },
+    {
+      "recipe": "kekse",
+      "toYield": 5,
+      "expected": {
+        "id": "rcp_kekse",
+        "revision": 1,
+        "title": "Kekse",
+        "yield": {
+          "amount": {
+            "value": 5,
+            "unit": "piece"
+          }
+        },
+        "totalMinutes": 70,
+        "sections": [
+          {
+            "key": "teig",
+            "name": "Teig"
+          }
+        ],
+        "equipment": [],
+        "ingredients": [
+          {
+            "key": "mehl-a",
+            "item": "Mehl",
+            "amount": {
+              "value": 105,
+              "unit": "g"
+            },
+            "section": "teig"
+          },
+          {
+            "key": "mehl-b",
+            "item": "Mehl",
+            "amount": {
+              "value": 0.20833333333333334,
+              "unit": "kg"
+            }
+          },
+          {
+            "key": "milch-a",
+            "item": "Milch",
+            "amount": {
+              "value": 0.25,
+              "unit": "cup"
+            }
+          },
+          {
+            "key": "milch-b",
+            "item": "Milch",
+            "amount": {
+              "value": 20,
+              "unit": "ml"
+            }
+          },
+          {
+            "key": "zimt",
+            "item": "Zimt",
+            "amount": {
+              "value": 0.20833333333333334,
+              "unit": {
+                "custom": "Messerspitze"
+              }
+            }
+          },
+          {
+            "key": "knoblauch",
+            "item": "Knoblauch",
+            "amount": {
+              "value": 0.20833333333333334,
+              "max": 0.4166666666666667,
+              "unit": "clove"
+            }
+          },
+          {
+            "key": "ei",
+            "item": "Ei",
+            "amount": {
+              "value": 0.625
+            },
+            "note": "Größe M"
+          },
+          {
+            "key": "butter",
+            "item": "Butter",
+            "amount": {
+              "value": 0.06875,
+              "unit": "lb",
+              "second": {
+                "value": 30,
+                "unit": "g"
+              }
+            }
+          },
+          {
+            "key": "wasser",
+            "item": "Wasser",
+            "amount": {
+              "value": 0.625,
+              "unit": "fl_oz"
+            }
+          }
+        ],
+        "steps": [
+          {
+            "key": "kneten",
+            "label": "Teig kneten",
+            "sentence": "Alles zu einem glatten Teig kneten.",
+            "duration": {
+              "minutes": 10,
+              "kind": "active"
+            }
+          },
+          {
+            "key": "ruhen",
+            "label": "ruhen lassen",
+            "duration": {
+              "minutes": 30,
+              "maxMinutes": 60,
+              "kind": "passive"
+            }
+          },
+          {
+            "key": "backen",
+            "label": "backen",
+            "temperature": {
+              "celsius": 180,
+              "maxCelsius": 190,
+              "mode": "fan"
+            }
+          }
+        ],
+        "hasFlow": false,
+        "makes": []
+      }
+    },
+    {
+      "recipe": "kekse",
+      "toYield": 100,
+      "expected": {
+        "id": "rcp_kekse",
+        "revision": 1,
+        "title": "Kekse",
+        "yield": {
+          "amount": {
+            "value": 100,
+            "unit": "piece"
+          }
+        },
+        "totalMinutes": 70,
+        "sections": [
+          {
+            "key": "teig",
+            "name": "Teig"
+          }
+        ],
+        "equipment": [],
+        "ingredients": [
+          {
+            "key": "mehl-a",
+            "item": "Mehl",
+            "amount": {
+              "value": 2085,
+              "unit": "g"
+            },
+            "section": "teig"
+          },
+          {
+            "key": "mehl-b",
+            "item": "Mehl",
+            "amount": {
+              "value": 4.166666666666667,
+              "unit": "kg"
+            }
+          },
+          {
+            "key": "milch-a",
+            "item": "Milch",
+            "amount": {
+              "value": 4.25,
+              "unit": "cup"
+            }
+          },
+          {
+            "key": "milch-b",
+            "item": "Milch",
+            "amount": {
+              "value": 415,
+              "unit": "ml"
+            }
+          },
+          {
+            "key": "zimt",
+            "item": "Zimt",
+            "amount": {
+              "value": 4.166666666666667,
+              "unit": {
+                "custom": "Messerspitze"
+              }
+            }
+          },
+          {
+            "key": "knoblauch",
+            "item": "Knoblauch",
+            "amount": {
+              "value": 4.166666666666667,
+              "max": 8.333333333333334,
+              "unit": "clove"
+            }
+          },
+          {
+            "key": "ei",
+            "item": "Ei",
+            "amount": {
+              "value": 12.5
+            },
+            "note": "Größe M"
+          },
+          {
+            "key": "butter",
+            "item": "Butter",
+            "amount": {
+              "value": 1.3750000000000002,
+              "unit": "lb",
+              "second": {
+                "value": 625,
+                "unit": "g"
+              }
+            }
+          },
+          {
+            "key": "wasser",
+            "item": "Wasser",
+            "amount": {
+              "value": 12.5,
+              "unit": "fl_oz"
+            }
+          }
+        ],
+        "steps": [
+          {
+            "key": "kneten",
+            "label": "Teig kneten",
+            "sentence": "Alles zu einem glatten Teig kneten.",
+            "duration": {
+              "minutes": 10,
+              "kind": "active"
+            }
+          },
+          {
+            "key": "ruhen",
+            "label": "ruhen lassen",
+            "duration": {
+              "minutes": 30,
+              "maxMinutes": 60,
+              "kind": "passive"
+            }
+          },
+          {
+            "key": "backen",
+            "label": "backen",
+            "temperature": {
+              "celsius": 180,
+              "maxCelsius": 190,
+              "mode": "fan"
+            }
+          }
+        ],
+        "hasFlow": false,
+        "makes": []
+      }
+    }
+  ],
+  "measurableAmount": [
+    {
+      "amount": {
+        "value": 152,
+        "unit": "g"
+      },
+      "expected": {
+        "value": 150,
+        "unit": "g"
+      }
+    },
+    {
+      "amount": {
+        "value": 13.4,
+        "unit": "ml"
+      },
+      "expected": {
+        "value": 13,
+        "unit": "ml"
+      }
+    },
+    {
+      "amount": {
+        "value": 0.3,
+        "unit": "tbsp"
+      },
+      "expected": {
+        "value": 0.25,
+        "unit": "tbsp"
+      }
+    },
+    {
+      "amount": {
+        "value": 1.1,
+        "unit": "cup"
+      },
+      "expected": {
+        "value": 1,
+        "unit": "cup"
+      }
+    },
+    {
+      "amount": {
+        "value": 1.3,
+        "unit": "piece"
+      },
+      "expected": {
+        "value": 1.5,
+        "unit": "piece"
+      }
+    },
+    {
+      "amount": {
+        "value": 1.37,
+        "unit": "kg"
+      },
+      "expected": {
+        "value": 1.37,
+        "unit": "kg"
+      }
+    },
+    {
+      "amount": {
+        "value": 0.4,
+        "unit": "g"
+      },
+      "expected": {
+        "value": 1,
+        "unit": "g"
+      }
+    },
+    {
+      "amount": {
+        "value": 0.3,
+        "unit": "ml"
+      },
+      "expected": {
+        "value": 1,
+        "unit": "ml"
+      }
+    },
+    {
+      "amount": {
+        "value": 0.05,
+        "unit": "tsp"
+      },
+      "expected": {
+        "value": 0.125,
+        "unit": "tsp"
+      }
+    },
+    {
+      "amount": {
+        "value": 0.1,
+        "unit": "oz"
+      },
+      "expected": {
+        "value": 0.25,
+        "unit": "oz"
+      }
+    },
+    {
+      "amount": {
+        "value": 0.2,
+        "unit": "packet"
+      },
+      "expected": {
+        "value": 0.5,
+        "unit": "packet"
+      }
+    },
+    {
+      "amount": {
+        "value": 0,
+        "unit": "g"
+      },
+      "expected": {
+        "value": 0,
+        "unit": "g"
+      }
+    },
+    {
+      "amount": {
+        "value": 19.6,
+        "unit": "g"
+      },
+      "expected": {
+        "value": 20,
+        "unit": "g"
+      }
+    },
+    {
+      "amount": {
+        "value": 20,
+        "unit": "ml"
+      },
+      "expected": {
+        "value": 20,
+        "unit": "ml"
+      }
+    },
+    {
+      "amount": {
+        "value": 2.5,
+        "unit": "clove"
+      },
+      "expected": {
+        "value": 2.5,
+        "unit": "clove"
+      }
+    },
+    {
+      "amount": {
+        "value": 3
+      },
+      "expected": {
+        "value": 3
+      }
+    },
+    {
+      "amount": {
+        "value": 1,
+        "max": 2,
+        "unit": "clove"
+      },
+      "expected": {
+        "value": 1,
+        "max": 2,
+        "unit": "clove"
+      }
+    },
+    {
+      "amount": {
+        "value": 62.5,
+        "max": 67,
+        "unit": "g"
+      },
+      "expected": {
+        "value": 65,
+        "max": 65,
+        "unit": "g"
+      }
+    },
+    {
+      "amount": {
+        "value": 0.33,
+        "unit": "lb",
+        "second": {
+          "value": 150,
+          "unit": "g"
+        }
+      },
+      "expected": {
+        "value": 0.33,
+        "unit": "lb",
+        "second": {
+          "value": 150,
+          "unit": "g"
+        }
+      }
+    },
+    {
+      "amount": {
+        "value": 1,
+        "unit": {
+          "custom": "Messerspitze"
+        }
+      },
+      "expected": {
+        "value": 1,
+        "unit": {
+          "custom": "Messerspitze"
+        }
+      }
+    },
+    {
+      "amount": {
+        "value": 0.25,
+        "unit": "tsp",
+        "second": {
+          "value": 2,
+          "unit": "g"
+        }
+      },
+      "expected": {
+        "value": 0.25,
+        "unit": "tsp",
+        "second": {
+          "value": 2,
+          "unit": "g"
+        }
+      }
+    },
+    {
+      "amount": {
+        "value": 800,
+        "unit": "g",
+        "second": {
+          "value": 2,
+          "unit": "tub"
+        }
+      },
+      "expected": {
+        "value": 800,
+        "unit": "g",
+        "second": {
+          "value": 2,
+          "unit": "tub"
+        }
+      }
+    }
+  ],
+  "amountInMeasurementSystem": [
+    {
+      "amount": {
+        "value": 152,
+        "unit": "g"
+      },
+      "system": "as_written",
+      "expected": {
+        "value": 152,
+        "unit": "g"
+      }
+    },
+    {
+      "amount": {
+        "value": 152,
+        "unit": "g"
+      },
+      "system": "metric",
+      "expected": {
+        "value": 152,
+        "unit": "g"
+      }
+    },
+    {
+      "amount": {
+        "value": 152,
+        "unit": "g"
+      },
+      "system": "us",
+      "expected": {
+        "value": 5.25,
+        "unit": "oz"
+      }
+    },
+    {
+      "amount": {
+        "value": 13.4,
+        "unit": "ml"
+      },
+      "system": "as_written",
+      "expected": {
+        "value": 13.4,
+        "unit": "ml"
+      }
+    },
+    {
+      "amount": {
+        "value": 13.4,
+        "unit": "ml"
+      },
+      "system": "metric",
+      "expected": {
+        "value": 13.4,
+        "unit": "ml"
+      }
+    },
+    {
+      "amount": {
+        "value": 13.4,
+        "unit": "ml"
+      },
+      "system": "us",
+      "expected": {
+        "value": 2.625,
+        "unit": "tsp"
+      }
+    },
+    {
+      "amount": {
+        "value": 0.3,
+        "unit": "tbsp"
+      },
+      "system": "as_written",
+      "expected": {
+        "value": 0.3,
+        "unit": "tbsp"
+      }
+    },
+    {
+      "amount": {
+        "value": 0.3,
+        "unit": "tbsp"
+      },
+      "system": "metric",
+      "expected": {
+        "value": 0.3,
+        "unit": "tbsp"
+      }
+    },
+    {
+      "amount": {
+        "value": 0.3,
+        "unit": "tbsp"
+      },
+      "system": "us",
+      "expected": {
+        "value": 0.3,
+        "unit": "tbsp"
+      }
+    },
+    {
+      "amount": {
+        "value": 1.1,
+        "unit": "cup"
+      },
+      "system": "as_written",
+      "expected": {
+        "value": 1.1,
+        "unit": "cup"
+      }
+    },
+    {
+      "amount": {
+        "value": 1.1,
+        "unit": "cup"
+      },
+      "system": "metric",
+      "expected": {
+        "value": 265,
+        "unit": "ml"
+      }
+    },
+    {
+      "amount": {
+        "value": 1.1,
+        "unit": "cup"
+      },
+      "system": "us",
+      "expected": {
+        "value": 1.1,
+        "unit": "cup"
+      }
+    },
+    {
+      "amount": {
+        "value": 1.3,
+        "unit": "piece"
+      },
+      "system": "as_written",
+      "expected": {
+        "value": 1.3,
+        "unit": "piece"
+      }
+    },
+    {
+      "amount": {
+        "value": 1.3,
+        "unit": "piece"
+      },
+      "system": "metric",
+      "expected": {
+        "value": 1.3,
+        "unit": "piece"
+      }
+    },
+    {
+      "amount": {
+        "value": 1.3,
+        "unit": "piece"
+      },
+      "system": "us",
+      "expected": {
+        "value": 1.3,
+        "unit": "piece"
+      }
+    },
+    {
+      "amount": {
+        "value": 1.37,
+        "unit": "kg"
+      },
+      "system": "as_written",
+      "expected": {
+        "value": 1.37,
+        "unit": "kg"
+      }
+    },
+    {
+      "amount": {
+        "value": 1.37,
+        "unit": "kg"
+      },
+      "system": "metric",
+      "expected": {
+        "value": 1.37,
+        "unit": "kg"
+      }
+    },
+    {
+      "amount": {
+        "value": 1.37,
+        "unit": "kg"
+      },
+      "system": "us",
+      "expected": {
+        "value": 48.25,
+        "unit": "oz"
+      }
+    },
+    {
+      "amount": {
+        "value": 0.4,
+        "unit": "g"
+      },
+      "system": "as_written",
+      "expected": {
+        "value": 0.4,
+        "unit": "g"
+      }
+    },
+    {
+      "amount": {
+        "value": 0.4,
+        "unit": "g"
+      },
+      "system": "metric",
+      "expected": {
+        "value": 0.4,
+        "unit": "g"
+      }
+    },
+    {
+      "amount": {
+        "value": 0.4,
+        "unit": "g"
+      },
+      "system": "us",
+      "expected": {
+        "value": 0.25,
+        "unit": "oz"
+      }
+    },
+    {
+      "amount": {
+        "value": 0.3,
+        "unit": "ml"
+      },
+      "system": "as_written",
+      "expected": {
+        "value": 0.3,
+        "unit": "ml"
+      }
+    },
+    {
+      "amount": {
+        "value": 0.3,
+        "unit": "ml"
+      },
+      "system": "metric",
+      "expected": {
+        "value": 0.3,
+        "unit": "ml"
+      }
+    },
+    {
+      "amount": {
+        "value": 0.3,
+        "unit": "ml"
+      },
+      "system": "us",
+      "expected": {
+        "value": 0.125,
+        "unit": "tsp"
+      }
+    },
+    {
+      "amount": {
+        "value": 0.05,
+        "unit": "tsp"
+      },
+      "system": "as_written",
+      "expected": {
+        "value": 0.05,
+        "unit": "tsp"
+      }
+    },
+    {
+      "amount": {
+        "value": 0.05,
+        "unit": "tsp"
+      },
+      "system": "metric",
+      "expected": {
+        "value": 0.05,
+        "unit": "tsp"
+      }
+    },
+    {
+      "amount": {
+        "value": 0.05,
+        "unit": "tsp"
+      },
+      "system": "us",
+      "expected": {
+        "value": 0.05,
+        "unit": "tsp"
+      }
+    },
+    {
+      "amount": {
+        "value": 0.1,
+        "unit": "oz"
+      },
+      "system": "as_written",
+      "expected": {
+        "value": 0.1,
+        "unit": "oz"
+      }
+    },
+    {
+      "amount": {
+        "value": 0.1,
+        "unit": "oz"
+      },
+      "system": "metric",
+      "expected": {
+        "value": 3,
+        "unit": "g"
+      }
+    },
+    {
+      "amount": {
+        "value": 0.1,
+        "unit": "oz"
+      },
+      "system": "us",
+      "expected": {
+        "value": 0.1,
+        "unit": "oz"
+      }
+    },
+    {
+      "amount": {
+        "value": 0.2,
+        "unit": "packet"
+      },
+      "system": "as_written",
+      "expected": {
+        "value": 0.2,
+        "unit": "packet"
+      }
+    },
+    {
+      "amount": {
+        "value": 0.2,
+        "unit": "packet"
+      },
+      "system": "metric",
+      "expected": {
+        "value": 0.2,
+        "unit": "packet"
+      }
+    },
+    {
+      "amount": {
+        "value": 0.2,
+        "unit": "packet"
+      },
+      "system": "us",
+      "expected": {
+        "value": 0.2,
+        "unit": "packet"
+      }
+    },
+    {
+      "amount": {
+        "value": 0,
+        "unit": "g"
+      },
+      "system": "as_written",
+      "expected": {
+        "value": 0,
+        "unit": "g"
+      }
+    },
+    {
+      "amount": {
+        "value": 0,
+        "unit": "g"
+      },
+      "system": "metric",
+      "expected": {
+        "value": 0,
+        "unit": "g"
+      }
+    },
+    {
+      "amount": {
+        "value": 0,
+        "unit": "g"
+      },
+      "system": "us",
+      "expected": {
+        "value": 0,
+        "unit": "oz"
+      }
+    },
+    {
+      "amount": {
+        "value": 19.6,
+        "unit": "g"
+      },
+      "system": "as_written",
+      "expected": {
+        "value": 19.6,
+        "unit": "g"
+      }
+    },
+    {
+      "amount": {
+        "value": 19.6,
+        "unit": "g"
+      },
+      "system": "metric",
+      "expected": {
+        "value": 19.6,
+        "unit": "g"
+      }
+    },
+    {
+      "amount": {
+        "value": 19.6,
+        "unit": "g"
+      },
+      "system": "us",
+      "expected": {
+        "value": 0.75,
+        "unit": "oz"
+      }
+    },
+    {
+      "amount": {
+        "value": 20,
+        "unit": "ml"
+      },
+      "system": "as_written",
+      "expected": {
+        "value": 20,
+        "unit": "ml"
+      }
+    },
+    {
+      "amount": {
+        "value": 20,
+        "unit": "ml"
+      },
+      "system": "metric",
+      "expected": {
+        "value": 20,
+        "unit": "ml"
+      }
+    },
+    {
+      "amount": {
+        "value": 20,
+        "unit": "ml"
+      },
+      "system": "us",
+      "expected": {
+        "value": 1.375,
+        "unit": "tbsp"
+      }
+    },
+    {
+      "amount": {
+        "value": 2.5,
+        "unit": "clove"
+      },
+      "system": "as_written",
+      "expected": {
+        "value": 2.5,
+        "unit": "clove"
+      }
+    },
+    {
+      "amount": {
+        "value": 2.5,
+        "unit": "clove"
+      },
+      "system": "metric",
+      "expected": {
+        "value": 2.5,
+        "unit": "clove"
+      }
+    },
+    {
+      "amount": {
+        "value": 2.5,
+        "unit": "clove"
+      },
+      "system": "us",
+      "expected": {
+        "value": 2.5,
+        "unit": "clove"
+      }
+    },
+    {
+      "amount": {
+        "value": 3
+      },
+      "system": "as_written",
+      "expected": {
+        "value": 3
+      }
+    },
+    {
+      "amount": {
+        "value": 3
+      },
+      "system": "metric",
+      "expected": {
+        "value": 3
+      }
+    },
+    {
+      "amount": {
+        "value": 3
+      },
+      "system": "us",
+      "expected": {
+        "value": 3
+      }
+    },
+    {
+      "amount": {
+        "value": 1,
+        "max": 2,
+        "unit": "clove"
+      },
+      "system": "as_written",
+      "expected": {
+        "value": 1,
+        "max": 2,
+        "unit": "clove"
+      }
+    },
+    {
+      "amount": {
+        "value": 1,
+        "max": 2,
+        "unit": "clove"
+      },
+      "system": "metric",
+      "expected": {
+        "value": 1,
+        "max": 2,
+        "unit": "clove"
+      }
+    },
+    {
+      "amount": {
+        "value": 1,
+        "max": 2,
+        "unit": "clove"
+      },
+      "system": "us",
+      "expected": {
+        "value": 1,
+        "max": 2,
+        "unit": "clove"
+      }
+    },
+    {
+      "amount": {
+        "value": 62.5,
+        "max": 67,
+        "unit": "g"
+      },
+      "system": "as_written",
+      "expected": {
+        "value": 62.5,
+        "max": 67,
+        "unit": "g"
+      }
+    },
+    {
+      "amount": {
+        "value": 62.5,
+        "max": 67,
+        "unit": "g"
+      },
+      "system": "metric",
+      "expected": {
+        "value": 62.5,
+        "max": 67,
+        "unit": "g"
+      }
+    },
+    {
+      "amount": {
+        "value": 62.5,
+        "max": 67,
+        "unit": "g"
+      },
+      "system": "us",
+      "expected": {
+        "value": 2.25,
+        "max": 2.25,
+        "unit": "oz"
+      }
+    },
+    {
+      "amount": {
+        "value": 0.33,
+        "unit": "lb",
+        "second": {
+          "value": 150,
+          "unit": "g"
+        }
+      },
+      "system": "as_written",
+      "expected": {
+        "value": 0.33,
+        "unit": "lb",
+        "second": {
+          "value": 150,
+          "unit": "g"
+        }
+      }
+    },
+    {
+      "amount": {
+        "value": 0.33,
+        "unit": "lb",
+        "second": {
+          "value": 150,
+          "unit": "g"
+        }
+      },
+      "system": "metric",
+      "expected": {
+        "value": 150,
+        "unit": "g",
+        "second": {
+          "value": 150,
+          "unit": "g"
+        }
+      }
+    },
+    {
+      "amount": {
+        "value": 0.33,
+        "unit": "lb",
+        "second": {
+          "value": 150,
+          "unit": "g"
+        }
+      },
+      "system": "us",
+      "expected": {
+        "value": 0.33,
+        "unit": "lb",
+        "second": {
+          "value": 5.25,
+          "unit": "oz"
+        }
+      }
+    },
+    {
+      "amount": {
+        "value": 1,
+        "unit": {
+          "custom": "Messerspitze"
+        }
+      },
+      "system": "as_written",
+      "expected": {
+        "value": 1,
+        "unit": {
+          "custom": "Messerspitze"
+        }
+      }
+    },
+    {
+      "amount": {
+        "value": 1,
+        "unit": {
+          "custom": "Messerspitze"
+        }
+      },
+      "system": "metric",
+      "expected": {
+        "value": 1,
+        "unit": {
+          "custom": "Messerspitze"
+        }
+      }
+    },
+    {
+      "amount": {
+        "value": 1,
+        "unit": {
+          "custom": "Messerspitze"
+        }
+      },
+      "system": "us",
+      "expected": {
+        "value": 1,
+        "unit": {
+          "custom": "Messerspitze"
+        }
+      }
+    },
+    {
+      "amount": {
+        "value": 0.25,
+        "unit": "tsp",
+        "second": {
+          "value": 2,
+          "unit": "g"
+        }
+      },
+      "system": "as_written",
+      "expected": {
+        "value": 0.25,
+        "unit": "tsp",
+        "second": {
+          "value": 2,
+          "unit": "g"
+        }
+      }
+    },
+    {
+      "amount": {
+        "value": 0.25,
+        "unit": "tsp",
+        "second": {
+          "value": 2,
+          "unit": "g"
+        }
+      },
+      "system": "metric",
+      "expected": {
+        "value": 0.25,
+        "unit": "tsp",
+        "second": {
+          "value": 2,
+          "unit": "g"
+        }
+      }
+    },
+    {
+      "amount": {
+        "value": 0.25,
+        "unit": "tsp",
+        "second": {
+          "value": 2,
+          "unit": "g"
+        }
+      },
+      "system": "us",
+      "expected": {
+        "value": 0.25,
+        "unit": "tsp",
+        "second": {
+          "value": 0.25,
+          "unit": "oz"
+        }
+      }
+    },
+    {
+      "amount": {
+        "value": 800,
+        "unit": "g",
+        "second": {
+          "value": 2,
+          "unit": "tub"
+        }
+      },
+      "system": "as_written",
+      "expected": {
+        "value": 800,
+        "unit": "g",
+        "second": {
+          "value": 2,
+          "unit": "tub"
+        }
+      }
+    },
+    {
+      "amount": {
+        "value": 800,
+        "unit": "g",
+        "second": {
+          "value": 2,
+          "unit": "tub"
+        }
+      },
+      "system": "metric",
+      "expected": {
+        "value": 800,
+        "unit": "g",
+        "second": {
+          "value": 2,
+          "unit": "tub"
+        }
+      }
+    },
+    {
+      "amount": {
+        "value": 800,
+        "unit": "g",
+        "second": {
+          "value": 2,
+          "unit": "tub"
+        }
+      },
+      "system": "us",
+      "expected": {
+        "value": 28.25,
+        "unit": "oz",
+        "second": {
+          "value": 2,
+          "unit": "tub"
+        }
+      }
+    },
+    {
+      "amount": {
+        "value": 180,
+        "unit": "g"
+      },
+      "system": "as_written",
+      "expected": {
+        "value": 180,
+        "unit": "g"
+      }
+    },
+    {
+      "amount": {
+        "value": 180,
+        "unit": "g"
+      },
+      "system": "metric",
+      "expected": {
+        "value": 180,
+        "unit": "g"
+      }
+    },
+    {
+      "amount": {
+        "value": 180,
+        "unit": "g"
+      },
+      "system": "us",
+      "expected": {
+        "value": 6.25,
+        "unit": "oz"
+      }
+    },
+    {
+      "amount": {
+        "value": 1,
+        "unit": "cup"
+      },
+      "system": "as_written",
+      "expected": {
+        "value": 1,
+        "unit": "cup"
+      }
+    },
+    {
+      "amount": {
+        "value": 1,
+        "unit": "cup"
+      },
+      "system": "metric",
+      "expected": {
+        "value": 240,
+        "unit": "ml"
+      }
+    },
+    {
+      "amount": {
+        "value": 1,
+        "unit": "cup"
+      },
+      "system": "us",
+      "expected": {
+        "value": 1,
+        "unit": "cup"
+      }
+    },
+    {
+      "amount": {
+        "value": 2,
+        "unit": "packet",
+        "second": {
+          "value": 74,
+          "unit": "g"
+        }
+      },
+      "system": "as_written",
+      "expected": {
+        "value": 2,
+        "unit": "packet",
+        "second": {
+          "value": 74,
+          "unit": "g"
+        }
+      }
+    },
+    {
+      "amount": {
+        "value": 2,
+        "unit": "packet",
+        "second": {
+          "value": 74,
+          "unit": "g"
+        }
+      },
+      "system": "metric",
+      "expected": {
+        "value": 2,
+        "unit": "packet",
+        "second": {
+          "value": 74,
+          "unit": "g"
+        }
+      }
+    },
+    {
+      "amount": {
+        "value": 2,
+        "unit": "packet",
+        "second": {
+          "value": 74,
+          "unit": "g"
+        }
+      },
+      "system": "us",
+      "expected": {
+        "value": 2,
+        "unit": "packet",
+        "second": {
+          "value": 2.5,
+          "unit": "oz"
+        }
+      }
+    },
+    {
+      "amount": {
+        "value": 4,
+        "unit": "l"
+      },
+      "system": "as_written",
+      "expected": {
+        "value": 4,
+        "unit": "l"
+      }
+    },
+    {
+      "amount": {
+        "value": 4,
+        "unit": "l"
+      },
+      "system": "metric",
+      "expected": {
+        "value": 4,
+        "unit": "l"
+      }
+    },
+    {
+      "amount": {
+        "value": 4,
+        "unit": "l"
+      },
+      "system": "us",
+      "expected": {
+        "value": 16.75,
+        "unit": "cup"
+      }
+    },
+    {
+      "amount": {
+        "value": 250,
+        "unit": "ml"
+      },
+      "system": "as_written",
+      "expected": {
+        "value": 250,
+        "unit": "ml"
+      }
+    },
+    {
+      "amount": {
+        "value": 250,
+        "unit": "ml"
+      },
+      "system": "metric",
+      "expected": {
+        "value": 250,
+        "unit": "ml"
+      }
+    },
+    {
+      "amount": {
+        "value": 250,
+        "unit": "ml"
+      },
+      "system": "us",
+      "expected": {
+        "value": 1,
+        "unit": "cup"
+      }
+    },
+    {
+      "amount": {
+        "value": 5,
+        "unit": "ml"
+      },
+      "system": "as_written",
+      "expected": {
+        "value": 5,
+        "unit": "ml"
+      }
+    },
+    {
+      "amount": {
+        "value": 5,
+        "unit": "ml"
+      },
+      "system": "metric",
+      "expected": {
+        "value": 5,
+        "unit": "ml"
+      }
+    },
+    {
+      "amount": {
+        "value": 5,
+        "unit": "ml"
+      },
+      "system": "us",
+      "expected": {
+        "value": 1,
+        "unit": "tsp"
+      }
+    },
+    {
+      "amount": {
+        "value": 30,
+        "unit": "ml"
+      },
+      "system": "as_written",
+      "expected": {
+        "value": 30,
+        "unit": "ml"
+      }
+    },
+    {
+      "amount": {
+        "value": 30,
+        "unit": "ml"
+      },
+      "system": "metric",
+      "expected": {
+        "value": 30,
+        "unit": "ml"
+      }
+    },
+    {
+      "amount": {
+        "value": 30,
+        "unit": "ml"
+      },
+      "system": "us",
+      "expected": {
+        "value": 2,
+        "unit": "tbsp"
+      }
+    },
+    {
+      "amount": {
+        "value": 100,
+        "unit": "ml"
+      },
+      "system": "as_written",
+      "expected": {
+        "value": 100,
+        "unit": "ml"
+      }
+    },
+    {
+      "amount": {
+        "value": 100,
+        "unit": "ml"
+      },
+      "system": "metric",
+      "expected": {
+        "value": 100,
+        "unit": "ml"
+      }
+    },
+    {
+      "amount": {
+        "value": 100,
+        "unit": "ml"
+      },
+      "system": "us",
+      "expected": {
+        "value": 0.5,
+        "unit": "cup"
+      }
+    },
+    {
+      "amount": {
+        "value": 3,
+        "unit": "cl"
+      },
+      "system": "as_written",
+      "expected": {
+        "value": 3,
+        "unit": "cl"
+      }
+    },
+    {
+      "amount": {
+        "value": 3,
+        "unit": "cl"
+      },
+      "system": "metric",
+      "expected": {
+        "value": 3,
+        "unit": "cl"
+      }
+    },
+    {
+      "amount": {
+        "value": 3,
+        "unit": "cl"
+      },
+      "system": "us",
+      "expected": {
+        "value": 2,
+        "unit": "tbsp"
+      }
+    },
+    {
+      "amount": {
+        "value": 1,
+        "unit": "tbsp"
+      },
+      "system": "as_written",
+      "expected": {
+        "value": 1,
+        "unit": "tbsp"
+      }
+    },
+    {
+      "amount": {
+        "value": 1,
+        "unit": "tbsp"
+      },
+      "system": "metric",
+      "expected": {
+        "value": 1,
+        "unit": "tbsp"
+      }
+    },
+    {
+      "amount": {
+        "value": 1,
+        "unit": "tbsp"
+      },
+      "system": "us",
+      "expected": {
+        "value": 1,
+        "unit": "tbsp"
+      }
+    },
+    {
+      "amount": {
+        "value": 2,
+        "unit": "oz"
+      },
+      "system": "as_written",
+      "expected": {
+        "value": 2,
+        "unit": "oz"
+      }
+    },
+    {
+      "amount": {
+        "value": 2,
+        "unit": "oz"
+      },
+      "system": "metric",
+      "expected": {
+        "value": 55,
+        "unit": "g"
+      }
+    },
+    {
+      "amount": {
+        "value": 2,
+        "unit": "oz"
+      },
+      "system": "us",
+      "expected": {
+        "value": 2,
+        "unit": "oz"
+      }
+    },
+    {
+      "amount": {
+        "value": 1,
+        "unit": "lb"
+      },
+      "system": "as_written",
+      "expected": {
+        "value": 1,
+        "unit": "lb"
+      }
+    },
+    {
+      "amount": {
+        "value": 1,
+        "unit": "lb"
+      },
+      "system": "metric",
+      "expected": {
+        "value": 455,
+        "unit": "g"
+      }
+    },
+    {
+      "amount": {
+        "value": 1,
+        "unit": "lb"
+      },
+      "system": "us",
+      "expected": {
+        "value": 1,
+        "unit": "lb"
+      }
+    },
+    {
+      "amount": {
+        "value": 6,
+        "unit": "fl_oz"
+      },
+      "system": "as_written",
+      "expected": {
+        "value": 6,
+        "unit": "fl_oz"
+      }
+    },
+    {
+      "amount": {
+        "value": 6,
+        "unit": "fl_oz"
+      },
+      "system": "metric",
+      "expected": {
+        "value": 180,
+        "unit": "ml"
+      }
+    },
+    {
+      "amount": {
+        "value": 6,
+        "unit": "fl_oz"
+      },
+      "system": "us",
+      "expected": {
+        "value": 6,
+        "unit": "fl_oz"
+      }
+    },
+    {
+      "amount": {
+        "value": 1,
+        "max": 1.5,
+        "unit": "kg"
+      },
+      "system": "as_written",
+      "expected": {
+        "value": 1,
+        "max": 1.5,
+        "unit": "kg"
+      }
+    },
+    {
+      "amount": {
+        "value": 1,
+        "max": 1.5,
+        "unit": "kg"
+      },
+      "system": "metric",
+      "expected": {
+        "value": 1,
+        "max": 1.5,
+        "unit": "kg"
+      }
+    },
+    {
+      "amount": {
+        "value": 1,
+        "max": 1.5,
+        "unit": "kg"
+      },
+      "system": "us",
+      "expected": {
+        "value": 35.25,
+        "max": 53,
+        "unit": "oz"
+      }
+    },
+    {
+      "amount": {
+        "value": 500,
+        "unit": "g",
+        "second": {
+          "value": 1,
+          "unit": "cup"
+        }
+      },
+      "system": "as_written",
+      "expected": {
+        "value": 500,
+        "unit": "g",
+        "second": {
+          "value": 1,
+          "unit": "cup"
+        }
+      }
+    },
+    {
+      "amount": {
+        "value": 500,
+        "unit": "g",
+        "second": {
+          "value": 1,
+          "unit": "cup"
+        }
+      },
+      "system": "metric",
+      "expected": {
+        "value": 500,
+        "unit": "g",
+        "second": {
+          "value": 240,
+          "unit": "ml"
+        }
+      }
+    },
+    {
+      "amount": {
+        "value": 500,
+        "unit": "g",
+        "second": {
+          "value": 1,
+          "unit": "cup"
+        }
+      },
+      "system": "us",
+      "expected": {
+        "value": 17.75,
+        "unit": "oz",
+        "second": {
+          "value": 1,
+          "unit": "cup"
+        }
+      }
+    }
+  ],
+  "temperatureInMeasurementSystem": [
+    {
+      "temperature": {
+        "celsius": 170,
+        "mode": "top_bottom"
+      },
+      "system": "as_written",
+      "expected": {
+        "degrees": 170,
+        "scale": "celsius"
+      }
+    },
+    {
+      "temperature": {
+        "celsius": 170,
+        "mode": "top_bottom"
+      },
+      "system": "metric",
+      "expected": {
+        "degrees": 170,
+        "scale": "celsius"
+      }
+    },
+    {
+      "temperature": {
+        "celsius": 170,
+        "mode": "top_bottom"
+      },
+      "system": "us",
+      "expected": {
+        "degrees": 340,
+        "scale": "fahrenheit"
+      }
+    },
+    {
+      "temperature": {
+        "celsius": 180,
+        "maxCelsius": 190,
+        "mode": "fan"
+      },
+      "system": "as_written",
+      "expected": {
+        "degrees": 180,
+        "scale": "celsius",
+        "maxDegrees": 190
+      }
+    },
+    {
+      "temperature": {
+        "celsius": 180,
+        "maxCelsius": 190,
+        "mode": "fan"
+      },
+      "system": "metric",
+      "expected": {
+        "degrees": 180,
+        "scale": "celsius",
+        "maxDegrees": 190
+      }
+    },
+    {
+      "temperature": {
+        "celsius": 180,
+        "maxCelsius": 190,
+        "mode": "fan"
+      },
+      "system": "us",
+      "expected": {
+        "degrees": 355,
+        "scale": "fahrenheit",
+        "maxDegrees": 375
+      }
+    },
+    {
+      "temperature": {
+        "celsius": 200
+      },
+      "system": "as_written",
+      "expected": {
+        "degrees": 200,
+        "scale": "celsius"
+      }
+    },
+    {
+      "temperature": {
+        "celsius": 200
+      },
+      "system": "metric",
+      "expected": {
+        "degrees": 200,
+        "scale": "celsius"
+      }
+    },
+    {
+      "temperature": {
+        "celsius": 200
+      },
+      "system": "us",
+      "expected": {
+        "degrees": 390,
+        "scale": "fahrenheit"
+      }
+    },
+    {
+      "temperature": {
+        "celsius": 160
+      },
+      "system": "as_written",
+      "expected": {
+        "degrees": 160,
+        "scale": "celsius"
+      }
+    },
+    {
+      "temperature": {
+        "celsius": 160
+      },
+      "system": "metric",
+      "expected": {
+        "degrees": 160,
+        "scale": "celsius"
+      }
+    },
+    {
+      "temperature": {
+        "celsius": 160
+      },
+      "system": "us",
+      "expected": {
+        "degrees": 320,
+        "scale": "fahrenheit"
+      }
+    },
+    {
+      "temperature": {
+        "celsius": 220,
+        "mode": "grill"
+      },
+      "system": "as_written",
+      "expected": {
+        "degrees": 220,
+        "scale": "celsius"
+      }
+    },
+    {
+      "temperature": {
+        "celsius": 220,
+        "mode": "grill"
+      },
+      "system": "metric",
+      "expected": {
+        "degrees": 220,
+        "scale": "celsius"
+      }
+    },
+    {
+      "temperature": {
+        "celsius": 220,
+        "mode": "grill"
+      },
+      "system": "us",
+      "expected": {
+        "degrees": 430,
+        "scale": "fahrenheit"
+      }
+    },
+    {
+      "temperature": {
+        "celsius": 0
+      },
+      "system": "as_written",
+      "expected": {
+        "degrees": 0,
+        "scale": "celsius"
+      }
+    },
+    {
+      "temperature": {
+        "celsius": 0
+      },
+      "system": "metric",
+      "expected": {
+        "degrees": 0,
+        "scale": "celsius"
+      }
+    },
+    {
+      "temperature": {
+        "celsius": 0
+      },
+      "system": "us",
+      "expected": {
+        "degrees": 30,
+        "scale": "fahrenheit"
+      }
+    },
+    {
+      "temperature": {
+        "celsius": 97
+      },
+      "system": "as_written",
+      "expected": {
+        "degrees": 97,
+        "scale": "celsius"
+      }
+    },
+    {
+      "temperature": {
+        "celsius": 97
+      },
+      "system": "metric",
+      "expected": {
+        "degrees": 97,
+        "scale": "celsius"
+      }
+    },
+    {
+      "temperature": {
+        "celsius": 97
+      },
+      "system": "us",
+      "expected": {
+        "degrees": 205,
+        "scale": "fahrenheit"
+      }
+    }
+  ],
+  "unitLabel": [
+    {
+      "unit": "g",
+      "language": "de",
+      "expected": "g"
+    },
+    {
+      "unit": "g",
+      "language": "en",
+      "expected": "g"
+    },
+    {
+      "unit": "kg",
+      "language": "de",
+      "expected": "kg"
+    },
+    {
+      "unit": "kg",
+      "language": "en",
+      "expected": "kg"
+    },
+    {
+      "unit": "oz",
+      "language": "de",
+      "expected": "oz"
+    },
+    {
+      "unit": "oz",
+      "language": "en",
+      "expected": "oz"
+    },
+    {
+      "unit": "lb",
+      "language": "de",
+      "expected": "lb"
+    },
+    {
+      "unit": "lb",
+      "language": "en",
+      "expected": "lb"
+    },
+    {
+      "unit": "ml",
+      "language": "de",
+      "expected": "ml"
+    },
+    {
+      "unit": "ml",
+      "language": "en",
+      "expected": "ml"
+    },
+    {
+      "unit": "cl",
+      "language": "de",
+      "expected": "cl"
+    },
+    {
+      "unit": "cl",
+      "language": "en",
+      "expected": "cl"
+    },
+    {
+      "unit": "l",
+      "language": "de",
+      "expected": "l"
+    },
+    {
+      "unit": "l",
+      "language": "en",
+      "expected": "l"
+    },
+    {
+      "unit": "tsp",
+      "language": "de",
+      "expected": "TL"
+    },
+    {
+      "unit": "tsp",
+      "language": "en",
+      "expected": "tsp"
+    },
+    {
+      "unit": "tbsp",
+      "language": "de",
+      "expected": "EL"
+    },
+    {
+      "unit": "tbsp",
+      "language": "en",
+      "expected": "tbsp"
+    },
+    {
+      "unit": "cup",
+      "language": "de",
+      "expected": "Tasse"
+    },
+    {
+      "unit": "cup",
+      "language": "en",
+      "expected": "cup"
+    },
+    {
+      "unit": "fl_oz",
+      "language": "de",
+      "expected": "fl oz"
+    },
+    {
+      "unit": "fl_oz",
+      "language": "en",
+      "expected": "fl oz"
+    },
+    {
+      "unit": "piece",
+      "language": "de",
+      "expected": "Stück"
+    },
+    {
+      "unit": "piece",
+      "language": "en",
+      "expected": "piece"
+    },
+    {
+      "unit": "serving",
+      "language": "de",
+      "expected": "Portion"
+    },
+    {
+      "unit": "serving",
+      "language": "en",
+      "expected": "serving"
+    },
+    {
+      "unit": "pinch",
+      "language": "de",
+      "expected": "Prise"
+    },
+    {
+      "unit": "pinch",
+      "language": "en",
+      "expected": "pinch"
+    },
+    {
+      "unit": "packet",
+      "language": "de",
+      "expected": "Pck."
+    },
+    {
+      "unit": "packet",
+      "language": "en",
+      "expected": "packet"
+    },
+    {
+      "unit": "can",
+      "language": "de",
+      "expected": "Dose"
+    },
+    {
+      "unit": "can",
+      "language": "en",
+      "expected": "can"
+    },
+    {
+      "unit": "tub",
+      "language": "de",
+      "expected": "Becher"
+    },
+    {
+      "unit": "tub",
+      "language": "en",
+      "expected": "tub"
+    },
+    {
+      "unit": "bottle",
+      "language": "de",
+      "expected": "Fl."
+    },
+    {
+      "unit": "bottle",
+      "language": "en",
+      "expected": "bottle"
+    },
+    {
+      "unit": "bunch",
+      "language": "de",
+      "expected": "Bund"
+    },
+    {
+      "unit": "bunch",
+      "language": "en",
+      "expected": "bunch"
+    },
+    {
+      "unit": "clove",
+      "language": "de",
+      "expected": "Zehe"
+    },
+    {
+      "unit": "clove",
+      "language": "en",
+      "expected": "clove"
+    },
+    {
+      "unit": "slice",
+      "language": "de",
+      "expected": "Scheibe"
+    },
+    {
+      "unit": "slice",
+      "language": "en",
+      "expected": "slice"
+    },
+    {
+      "unit": "sheet",
+      "language": "de",
+      "expected": "Blatt"
+    },
+    {
+      "unit": "sheet",
+      "language": "en",
+      "expected": "sheet"
+    },
+    {
+      "unit": "sprig",
+      "language": "de",
+      "expected": "Zweig"
+    },
+    {
+      "unit": "sprig",
+      "language": "en",
+      "expected": "sprig"
+    },
+    {
+      "unit": "drop",
+      "language": "de",
+      "expected": "Tropfen"
+    },
+    {
+      "unit": "drop",
+      "language": "en",
+      "expected": "drop"
+    },
+    {
+      "unit": "handful",
+      "language": "de",
+      "expected": "Handvoll"
+    },
+    {
+      "unit": "handful",
+      "language": "en",
+      "expected": "handful"
+    },
+    {
+      "unit": {
+        "custom": "Messerspitze"
+      },
+      "language": "de",
+      "expected": "Messerspitze"
+    },
+    {
+      "unit": {
+        "custom": "Messerspitze"
+      },
+      "language": "en",
+      "expected": "Messerspitze"
+    }
+  ],
+  "heatingModeLabel": [
+    {
+      "mode": "top_bottom",
+      "language": "de",
+      "expected": "Ober-/Unterhitze"
+    },
+    {
+      "mode": "top_bottom",
+      "language": "en",
+      "expected": "conventional"
+    },
+    {
+      "mode": "fan",
+      "language": "de",
+      "expected": "Umluft"
+    },
+    {
+      "mode": "fan",
+      "language": "en",
+      "expected": "fan"
+    },
+    {
+      "mode": "top",
+      "language": "de",
+      "expected": "Oberhitze"
+    },
+    {
+      "mode": "top",
+      "language": "en",
+      "expected": "top heat"
+    },
+    {
+      "mode": "bottom",
+      "language": "de",
+      "expected": "Unterhitze"
+    },
+    {
+      "mode": "bottom",
+      "language": "en",
+      "expected": "bottom heat"
+    },
+    {
+      "mode": "grill",
+      "language": "de",
+      "expected": "Grill"
+    },
+    {
+      "mode": "grill",
+      "language": "en",
+      "expected": "grill"
+    }
+  ],
+  "itemTotals": [
+    {
+      "recipe": "zupfkuchen",
+      "expected": [
+        {
+          "item": "Mehl",
+          "totals": [
+            {
+              "value": 300,
+              "unit": "g"
+            }
+          ],
+          "bySection": [
+            {
+              "sectionKey": "teig",
+              "amount": {
+                "value": 300,
+                "unit": "g"
+              }
+            }
+          ]
+        },
+        {
+          "item": "Zucker",
+          "totals": [
+            {
+              "value": 380,
+              "unit": "g"
+            }
+          ],
+          "bySection": [
+            {
+              "sectionKey": "teig",
+              "amount": {
+                "value": 180,
+                "unit": "g"
+              }
+            },
+            {
+              "sectionKey": "fuellung",
+              "amount": {
+                "value": 200,
+                "unit": "g"
+              }
+            }
+          ]
+        },
+        {
+          "item": "Vanillezucker",
+          "totals": [
+            {
+              "value": 1,
+              "unit": "packet"
+            }
+          ],
+          "bySection": [
+            {
+              "sectionKey": "teig",
+              "amount": {
+                "value": 1,
+                "unit": "packet"
+              }
+            }
+          ]
+        },
+        {
+          "item": "Backpulver",
+          "totals": [
+            {
+              "value": 1,
+              "unit": "packet"
+            }
+          ],
+          "bySection": [
+            {
+              "sectionKey": "teig",
+              "amount": {
+                "value": 1,
+                "unit": "packet"
+              }
+            }
+          ]
+        },
+        {
+          "item": "Kakao",
+          "totals": [
+            {
+              "value": 50,
+              "unit": "g"
+            }
+          ],
+          "bySection": [
+            {
+              "sectionKey": "teig",
+              "amount": {
+                "value": 50,
+                "unit": "g"
+              }
+            }
+          ]
+        },
+        {
+          "item": "Salz",
+          "totals": [
+            {
+              "value": 0.25,
+              "unit": "tsp"
+            }
+          ],
+          "bySection": [
+            {
+              "sectionKey": "teig",
+              "amount": {
+                "value": 0.25,
+                "unit": "tsp",
+                "second": {
+                  "value": 2,
+                  "unit": "g"
+                }
+              }
+            }
+          ]
+        },
+        {
+          "item": "vegane Butter",
+          "totals": [
+            {
+              "value": 300,
+              "unit": "g"
+            }
+          ],
+          "bySection": [
+            {
+              "sectionKey": "teig",
+              "amount": {
+                "value": 200,
+                "unit": "g"
+              }
+            },
+            {
+              "sectionKey": "fuellung",
+              "amount": {
+                "value": 100,
+                "unit": "g"
+              }
+            }
+          ]
+        },
+        {
+          "item": "Vanille-Skyr",
+          "totals": [
+            {
+              "value": 800,
+              "unit": "g"
+            }
+          ],
+          "bySection": [
+            {
+              "sectionKey": "fuellung",
+              "amount": {
+                "value": 800,
+                "unit": "g",
+                "second": {
+                  "value": 2,
+                  "unit": "tub"
+                }
+              }
+            }
+          ]
+        },
+        {
+          "item": "Zitronensaft",
+          "totals": [
+            {
+              "value": 30,
+              "unit": "g"
+            }
+          ],
+          "bySection": [
+            {
+              "sectionKey": "fuellung",
+              "amount": {
+                "value": 30,
+                "unit": "g"
+              }
+            }
+          ]
+        },
+        {
+          "item": "Zitronenaroma",
+          "totals": [
+            {
+              "value": 0.5,
+              "unit": "bottle"
+            }
+          ],
+          "bySection": [
+            {
+              "sectionKey": "fuellung",
+              "amount": {
+                "value": 0.5,
+                "unit": "bottle"
+              }
+            }
+          ]
+        },
+        {
+          "item": "Zitronenschale",
+          "totals": [
+            {
+              "value": 1,
+              "unit": "packet"
+            }
+          ],
+          "bySection": [
+            {
+              "sectionKey": "fuellung",
+              "amount": {
+                "value": 1,
+                "unit": "packet"
+              }
+            }
+          ]
+        },
+        {
+          "item": "Puddingpulver",
+          "totals": [
+            {
+              "value": 2,
+              "unit": "packet"
+            }
+          ],
+          "bySection": [
+            {
+              "sectionKey": "fuellung",
+              "amount": {
+                "value": 2,
+                "unit": "packet",
+                "second": {
+                  "value": 74,
+                  "unit": "g"
+                }
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "recipe": "pasta",
+      "expected": [
+        {
+          "item": "Wasser",
+          "totals": [
+            {
+              "value": 4,
+              "unit": "l"
+            }
+          ],
+          "bySection": [
+            {
+              "amount": {
+                "value": 4,
+                "unit": "l"
+              }
+            }
+          ]
+        },
+        {
+          "item": "Salz",
+          "totals": [
+            {
+              "value": 1,
+              "unit": "tbsp"
+            }
+          ],
+          "bySection": [
+            {
+              "amount": {
+                "value": 1,
+                "unit": "tbsp"
+              }
+            }
+          ]
+        },
+        {
+          "item": "Spaghetti",
+          "totals": [
+            {
+              "value": 500,
+              "unit": "g"
+            }
+          ],
+          "bySection": [
+            {
+              "amount": {
+                "value": 500,
+                "unit": "g"
+              }
+            }
+          ]
+        },
+        {
+          "item": "Olivenöl",
+          "totals": [
+            {
+              "value": 3,
+              "unit": "tbsp"
+            }
+          ],
+          "bySection": [
+            {
+              "amount": {
+                "value": 3,
+                "unit": "tbsp"
+              }
+            }
+          ]
+        },
+        {
+          "item": "Knoblauch",
+          "totals": [
+            {
+              "value": 2,
+              "unit": "clove"
+            }
+          ],
+          "bySection": [
+            {
+              "amount": {
+                "value": 2,
+                "unit": "clove"
+              }
+            }
+          ]
+        },
+        {
+          "item": "gehackte Tomaten",
+          "totals": [
+            {
+              "value": 1,
+              "unit": "can"
+            }
+          ],
+          "bySection": [
+            {
+              "amount": {
+                "value": 1,
+                "unit": "can"
+              }
+            }
+          ]
+        },
+        {
+          "item": "Parmesan",
+          "totals": [],
+          "bySection": [
+            {}
+          ]
+        }
+      ]
+    },
+    {
+      "recipe": "pastaWithUses",
+      "expected": [
+        {
+          "item": "Wasser",
+          "totals": [
+            {
+              "value": 4,
+              "unit": "l"
+            }
+          ],
+          "bySection": [
+            {
+              "amount": {
+                "value": 4,
+                "unit": "l"
+              }
+            }
+          ]
+        },
+        {
+          "item": "Salz",
+          "totals": [
+            {
+              "value": 1,
+              "unit": "tbsp"
+            }
+          ],
+          "bySection": [
+            {
+              "amount": {
+                "value": 1,
+                "unit": "tbsp"
+              }
+            }
+          ]
+        },
+        {
+          "item": "Spaghetti",
+          "totals": [
+            {
+              "value": 500,
+              "unit": "g"
+            }
+          ],
+          "bySection": [
+            {
+              "amount": {
+                "value": 500,
+                "unit": "g"
+              }
+            }
+          ]
+        },
+        {
+          "item": "Olivenöl",
+          "totals": [
+            {
+              "value": 3,
+              "unit": "tbsp"
+            }
+          ],
+          "bySection": [
+            {
+              "amount": {
+                "value": 3,
+                "unit": "tbsp"
+              }
+            }
+          ]
+        },
+        {
+          "item": "Knoblauch",
+          "totals": [
+            {
+              "value": 2,
+              "unit": "clove"
+            }
+          ],
+          "bySection": [
+            {
+              "amount": {
+                "value": 2,
+                "unit": "clove"
+              }
+            }
+          ]
+        },
+        {
+          "item": "gehackte Tomaten",
+          "totals": [
+            {
+              "value": 1,
+              "unit": "can"
+            }
+          ],
+          "bySection": [
+            {
+              "amount": {
+                "value": 1,
+                "unit": "can"
+              }
+            }
+          ]
+        },
+        {
+          "item": "Parmesan",
+          "totals": [],
+          "bySection": [
+            {}
+          ]
+        }
+      ]
+    },
+    {
+      "recipe": "kekse",
+      "expected": [
+        {
+          "item": "Mehl",
+          "totals": [
+            {
+              "value": 1.5,
+              "unit": "kg"
+            }
+          ],
+          "bySection": [
+            {
+              "sectionKey": "teig",
+              "amount": {
+                "value": 500,
+                "unit": "g"
+              }
+            },
+            {
+              "amount": {
+                "value": 1,
+                "unit": "kg"
+              }
+            }
+          ]
+        },
+        {
+          "item": "Milch",
+          "totals": [
+            {
+              "value": 1.4166666666666667,
+              "unit": "cup"
+            }
+          ],
+          "bySection": [
+            {
+              "amount": {
+                "value": 1,
+                "unit": "cup"
+              }
+            },
+            {
+              "amount": {
+                "value": 100,
+                "unit": "ml"
+              }
+            }
+          ]
+        },
+        {
+          "item": "Zimt",
+          "totals": [
+            {
+              "value": 1,
+              "unit": {
+                "custom": "Messerspitze"
+              }
+            }
+          ],
+          "bySection": [
+            {
+              "amount": {
+                "value": 1,
+                "unit": {
+                  "custom": "Messerspitze"
+                }
+              }
+            }
+          ]
+        },
+        {
+          "item": "Knoblauch",
+          "totals": [
+            {
+              "value": 1,
+              "max": 2,
+              "unit": "clove"
+            }
+          ],
+          "bySection": [
+            {
+              "amount": {
+                "value": 1,
+                "max": 2,
+                "unit": "clove"
+              }
+            }
+          ]
+        },
+        {
+          "item": "Ei",
+          "totals": [
+            {
+              "value": 3
+            }
+          ],
+          "bySection": [
+            {
+              "amount": {
+                "value": 3
+              }
+            }
+          ]
+        },
+        {
+          "item": "Butter",
+          "totals": [
+            {
+              "value": 0.33,
+              "unit": "lb"
+            }
+          ],
+          "bySection": [
+            {
+              "amount": {
+                "value": 0.33,
+                "unit": "lb",
+                "second": {
+                  "value": 150,
+                  "unit": "g"
+                }
+              }
+            }
+          ]
+        },
+        {
+          "item": "Wasser",
+          "totals": [
+            {
+              "value": 3,
+              "unit": "fl_oz"
+            }
+          ],
+          "bySection": [
+            {
+              "amount": {
+                "value": 3,
+                "unit": "fl_oz"
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "stepSentence": [
+    {
+      "recipe": "zupfkuchen",
+      "step": "einfetten",
+      "expected": "Springform einfetten, optional mit Backpapier auslegen."
+    },
+    {
+      "recipe": "zupfkuchen",
+      "step": "mischen",
+      "expected": "mischen (Mehl, Zucker, Vanillezucker, Backpulver, Kakao, Salz)"
+    },
+    {
+      "recipe": "zupfkuchen",
+      "step": "verkneten",
+      "expected": "verkneten (vegane Butter, mischen)"
+    },
+    {
+      "recipe": "zupfkuchen",
+      "step": "boden",
+      "expected": "als Boden in die Form drücken, Rand ca. 2,5 cm (Boden)"
+    },
+    {
+      "recipe": "zupfkuchen",
+      "step": "vorheizen",
+      "expected": "Ofen vorheizen"
+    },
+    {
+      "recipe": "zupfkuchen",
+      "step": "verruehren",
+      "expected": "mit dem Mixer gut verrühren (Vanille-Skyr, Zucker, Zitronensaft, Zitronenaroma, Zitronenschale, vegane Butter)"
+    },
+    {
+      "recipe": "zupfkuchen",
+      "step": "untermixen",
+      "expected": "Puddingpulver untermixen, bis die Masse glatt ist (Puddingpulver, Masse)"
+    },
+    {
+      "recipe": "zupfkuchen",
+      "step": "giessen",
+      "expected": "Füllung auf den Boden gießen, restlichen Teig als Zupfen darauf verteilen (als Boden in die Form drücken, Rand ca. 2,5 cm, Füllung, Zupfteig)"
+    },
+    {
+      "recipe": "zupfkuchen",
+      "step": "backen",
+      "expected": "backen (Füllung auf den Boden gießen, restlichen Teig als Zupfen darauf verteilen)"
+    },
+    {
+      "recipe": "zupfkuchen",
+      "step": "auskuehlen",
+      "expected": "im geöffneten Ofen vollständig auskühlen (backen)"
+    },
+    {
+      "recipe": "pasta",
+      "step": "aufkochen",
+      "expected": "Wasser aufkochen und salzen"
+    },
+    {
+      "recipe": "pasta",
+      "step": "kochen",
+      "expected": "Spaghetti al dente kochen"
+    },
+    {
+      "recipe": "pasta",
+      "step": "sosse",
+      "expected": "Inzwischen Knoblauch in Öl anschwitzen, Tomaten dazugeben"
+    },
+    {
+      "recipe": "pasta",
+      "step": "abgiessen",
+      "expected": "Spaghetti abgießen"
+    },
+    {
+      "recipe": "pasta",
+      "step": "vermengen",
+      "expected": "Spaghetti mit der Soße vermengen"
+    },
+    {
+      "recipe": "pasta",
+      "step": "servieren",
+      "expected": "mit Parmesan servieren"
+    },
+    {
+      "recipe": "pastaWithUses",
+      "step": "aufkochen",
+      "expected": "Wasser aufkochen und salzen (Wasser, Salz)"
+    },
+    {
+      "recipe": "pastaWithUses",
+      "step": "kochen",
+      "expected": "Spaghetti al dente kochen (Spaghetti, Wasser aufkochen und salzen)"
+    },
+    {
+      "recipe": "pastaWithUses",
+      "step": "sosse",
+      "expected": "Inzwischen Knoblauch in Öl anschwitzen, Tomaten dazugeben (Olivenöl, Knoblauch, gehackte Tomaten, Spaghetti al dente kochen)"
+    },
+    {
+      "recipe": "pastaWithUses",
+      "step": "abgiessen",
+      "expected": "Spaghetti abgießen (Inzwischen Knoblauch in Öl anschwitzen, Tomaten dazugeben)"
+    },
+    {
+      "recipe": "pastaWithUses",
+      "step": "vermengen",
+      "expected": "Spaghetti mit der Soße vermengen (Spaghetti abgießen)"
+    },
+    {
+      "recipe": "pastaWithUses",
+      "step": "servieren",
+      "expected": "mit Parmesan servieren (Parmesan, Spaghetti mit der Soße vermengen)"
+    },
+    {
+      "recipe": "kekse",
+      "step": "kneten",
+      "expected": "Alles zu einem glatten Teig kneten."
+    },
+    {
+      "recipe": "kekse",
+      "step": "ruhen",
+      "expected": "ruhen lassen"
+    },
+    {
+      "recipe": "kekse",
+      "step": "backen",
+      "expected": "backen"
+    }
+  ],
+  "recipeMatchesFilter": [
+    {
+      "recipe": "zupfkuchen",
+      "tags": [
+        "Kuchen",
+        "Backen"
+      ],
+      "filter": {},
+      "expected": true
+    },
+    {
+      "recipe": "zupfkuchen",
+      "tags": [
+        "Kuchen",
+        "Backen"
+      ],
+      "filter": {
+        "tags": {
+          "all": [
+            "kuchen"
+          ]
+        }
+      },
+      "expected": true
+    },
+    {
+      "recipe": "zupfkuchen",
+      "tags": [
+        "Kuchen"
+      ],
+      "filter": {
+        "tags": {
+          "all": [
+            "Kuchen",
+            "Backen"
+          ]
+        }
+      },
+      "expected": false
+    },
+    {
+      "recipe": "zupfkuchen",
+      "tags": [
+        "Kuchen"
+      ],
+      "filter": {
+        "tags": {
+          "any": [
+            "Brot",
+            "KUCHEN"
+          ]
+        }
+      },
+      "expected": true
+    },
+    {
+      "recipe": "zupfkuchen",
+      "tags": [
+        "Kuchen"
+      ],
+      "filter": {
+        "tags": {
+          "any": [
+            "Brot"
+          ]
+        }
+      },
+      "expected": false
+    },
+    {
+      "recipe": "zupfkuchen",
+      "tags": [
+        "Kuchen"
+      ],
+      "filter": {
+        "tags": {
+          "none": [
+            "kuchen"
+          ]
+        }
+      },
+      "expected": false
+    },
+    {
+      "recipe": "zupfkuchen",
+      "tags": [
+        "Kuchen"
+      ],
+      "filter": {
+        "tags": {
+          "none": [
+            "Brot"
+          ]
+        }
+      },
+      "expected": true
+    },
+    {
+      "recipe": "zupfkuchen",
+      "tags": [],
+      "filter": {
+        "tags": {
+          "any": []
+        }
+      },
+      "expected": false
+    },
+    {
+      "recipe": "zupfkuchen",
+      "tags": [],
+      "filter": {
+        "items": [
+          "zucker",
+          "MEHL"
+        ]
+      },
+      "expected": true
+    },
+    {
+      "recipe": "zupfkuchen",
+      "tags": [],
+      "filter": {
+        "items": [
+          "Zucker",
+          "Eier"
+        ]
+      },
+      "expected": false
+    },
+    {
+      "recipe": "zupfkuchen",
+      "tags": [],
+      "filter": {
+        "maxTotalMinutes": 65
+      },
+      "expected": true
+    },
+    {
+      "recipe": "zupfkuchen",
+      "tags": [],
+      "filter": {
+        "maxTotalMinutes": 64
+      },
+      "expected": false
+    },
+    {
+      "recipe": "pasta",
+      "tags": [],
+      "filter": {
+        "maxTotalMinutes": 600
+      },
+      "expected": false
+    },
+    {
+      "recipe": "kekse",
+      "tags": [],
+      "filter": {
+        "maxTotalMinutes": 70
+      },
+      "expected": true
+    },
+    {
+      "recipe": "kekse",
+      "tags": [],
+      "filter": {
+        "maxTotalMinutes": 69
+      },
+      "expected": false
+    },
+    {
+      "recipe": "zupfkuchen",
+      "tags": [],
+      "filter": {
+        "hasFlow": true
+      },
+      "expected": true
+    },
+    {
+      "recipe": "zupfkuchen",
+      "tags": [],
+      "filter": {
+        "hasFlow": false
+      },
+      "expected": false
+    },
+    {
+      "recipe": "pasta",
+      "tags": [],
+      "filter": {
+        "hasFlow": false
+      },
+      "expected": true
+    },
+    {
+      "recipe": "pasta",
+      "tags": [],
+      "filter": {
+        "hasFlow": true
+      },
+      "expected": false
+    },
+    {
+      "recipe": "pastaWithUses",
+      "tags": [],
+      "filter": {
+        "hasFlow": true
+      },
+      "expected": true
+    },
+    {
+      "recipe": "zupfkuchen",
+      "tags": [],
+      "filter": {
+        "text": "rühr"
+      },
+      "expected": true
+    },
+    {
+      "recipe": "zupfkuchen",
+      "tags": [],
+      "filter": {
+        "text": "ZUCKER"
+      },
+      "expected": true
+    },
+    {
+      "recipe": "zupfkuchen",
+      "tags": [],
+      "filter": {
+        "text": "Puderzucker"
+      },
+      "expected": false
+    },
+    {
+      "recipe": "zupfkuchen",
+      "tags": [],
+      "filter": {
+        "text": "verruhren"
+      },
+      "expected": true
+    },
+    {
+      "recipe": "zupfkuchen",
+      "tags": [],
+      "filter": {
+        "text": "auspressen"
+      },
+      "expected": true
+    },
+    {
+      "recipe": "pasta",
+      "tags": [],
+      "filter": {
+        "text": "nach geschmack"
+      },
+      "expected": true
+    },
+    {
+      "recipe": "kekse",
+      "tags": [],
+      "filter": {
+        "text": "grose"
+      },
+      "expected": false
+    },
+    {
+      "recipe": "kekse",
+      "tags": [],
+      "filter": {
+        "text": "größe"
+      },
+      "expected": true
+    },
+    {
+      "recipe": "kekse",
+      "tags": [
+        "Plätzchen"
+      ],
+      "filter": {
+        "tags": {
+          "all": [
+            "plätzchen"
+          ]
+        },
+        "items": [
+          "Mehl"
+        ],
+        "maxTotalMinutes": 100,
+        "hasFlow": false,
+        "text": "kneten"
+      },
+      "expected": true
+    },
+    {
+      "recipe": "kekse",
+      "tags": [
+        "Plätzchen"
+      ],
+      "filter": {
+        "tags": {
+          "all": [
+            "plätzchen"
+          ]
+        },
+        "items": [
+          "Mehl"
+        ],
+        "maxTotalMinutes": 100,
+        "hasFlow": true
+      },
+      "expected": false
+    }
+  ]
+}
