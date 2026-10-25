@@ -43,9 +43,9 @@ public enum AmountUnit: Codable, Sendable, Hashable {
 public struct SecondAmount: Codable, Sendable, Hashable {
     public var value: Double
     public var max: Double?
-    public var unit: Unit?
+    public var unit: AmountUnit?
 
-    public init(value: Double, max: Double? = nil, unit: Unit? = nil) {
+    public init(value: Double, max: Double? = nil, unit: AmountUnit? = nil) {
         self.value = value
         self.max = max
         self.unit = unit
@@ -56,10 +56,10 @@ public struct SecondAmount: Codable, Sendable, Hashable {
 public struct Amount: Codable, Sendable, Hashable {
     public var value: Double
     public var max: Double?
-    public var unit: Unit?
+    public var unit: AmountUnit?
     public var second: SecondAmount?
 
-    public init(value: Double, max: Double? = nil, unit: Unit? = nil, second: SecondAmount? = nil) {
+    public init(value: Double, max: Double? = nil, unit: AmountUnit? = nil, second: SecondAmount? = nil) {
         self.value = value
         self.max = max
         self.unit = unit

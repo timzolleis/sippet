@@ -10,7 +10,7 @@ public struct Yield: Codable, Sendable, Hashable {
     }
 }
 
-public struct Section: Codable, Sendable, Hashable {
+public struct RecipeSection: Codable, Sendable, Hashable {
     public var key: String
     public var name: String
 
@@ -54,7 +54,7 @@ public enum DurationKind: String, Codable, Sendable, Hashable {
     case active, passive
 }
 
-public struct Duration: Codable, Sendable, Hashable {
+public struct StepDuration: Codable, Sendable, Hashable {
     public var minutes: Double
     public var maxMinutes: Double?
     public var kind: DurationKind
