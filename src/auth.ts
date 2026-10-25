@@ -143,3 +143,71 @@ export const createAuth = (env: AuthEnv, database: BetterAuthOptions["database"]
   })
 
 export type Auth = ReturnType<typeof createAuth>
+
+// ── the app's client (specs/device-api.md#sign-in-srcauthts) ──────────────
+
+export const deviceClientId = "sippet-app"
+
+// The row DCR would write for the same metadata (oauth-provider persistOAuthClientRegistration),
+// plus requirePKCE and skipConsent spelled out. Arrays and dates go through the adapter, as Better Auth writes them.
+const deviceClient = (now: Date) => ({
+  clientId: deviceClientId,
+  name: "Sippet app",
+  redirectUris: ["de.bastelboxx.sippet:/oauth"],
+  tokenEndpointAuthMethod: "none",
+  applicationType: "native",
+  grantTypes: ["authorization_code", "refresh_token"],
+  responseTypes: ["code"],
+  scopes: ["offline_access"],
+  clientCredentialsScopes: [],
+  clientDiscoveryId: null,
+  requirePKCE: true,
+  skipConsent: false,
+  createdAt: now,
+  updatedAt: now,
+})
+
+// Insert-if-missing. A concurrent insert from another isolate loses on the unique key; the re-read then finds the row.
+const insertIfMissing = async ({ exists, create }: { exists: () => Promise<boolean>; create: () => Promise<void> }) => {
+  if (await exists()) return
+
+  try {
+    await create()
+  } catch (error) {
+    if (!(await exists())) throw error
+  }
+}
+
+const seedDeviceClient = async (env: AuthEnv): Promise<void> => {
+  // $context runs the plugins' init, which seeds the oauthResource row the link points at
+  const { adapter } = await createAuth(env).$context
+  const resourceId = `${env.PUBLIC_URL}/mcp`
+  const now = new Date()
+  const byClient = { field: "clientId", value: deviceClientId }
+
+  await insertIfMissing({
+    exists: async () => (await adapter.count({ model: "oauthClient", where: [byClient] })) > 0,
+    create: async () => {
+      await adapter.create({ model: "oauthClient", data: deviceClient(now) })
+    },
+  })
+
+  await insertIfMissing({
+    exists: async () => (await adapter.count({ model: "oauthClientResource", where: [byClient, { field: "resourceId", value: resourceId }] })) > 0,
+    create: async () => {
+      await adapter.create({ model: "oauthClientResource", data: { clientId: deviceClientId, resourceId, createdAt: now } })
+    },
+  })
+}
+
+let deviceClientReady: Promise<void> | undefined
+
+// Once per isolate, before the first /api/auth/* request. A failure is retried by the next request.
+export const ensureDeviceClient = (env: AuthEnv): Promise<void> => {
+  const seeding = (deviceClientReady ??= seedDeviceClient(env))
+  seeding.catch(() => {
+    if (deviceClientReady === seeding) deviceClientReady = undefined
+  })
+
+  return seeding
+}
