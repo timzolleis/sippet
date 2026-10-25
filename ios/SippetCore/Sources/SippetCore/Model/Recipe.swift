@@ -10,7 +10,7 @@ public struct Yield: Codable, Sendable, Hashable {
     }
 }
 
-public struct Section: Codable, Sendable, Hashable {
+public struct RecipeSection: Codable, Sendable, Hashable {
     public var key: String
     public var name: String
 
@@ -54,7 +54,7 @@ public enum DurationKind: String, Codable, Sendable, Hashable {
     case active, passive
 }
 
-public struct Duration: Codable, Sendable, Hashable {
+public struct StepDuration: Codable, Sendable, Hashable {
     public var minutes: Double
     public var maxMinutes: Double?
     public var kind: DurationKind
@@ -129,7 +129,7 @@ public struct Step: Codable, Sendable, Hashable {
     public var sentence: String?
     public var section: String?
     public var equipment: [String]?
-    public var duration: Duration?
+    public var duration: StepDuration?
     public var temperature: Temperature?
     public var uses: [String]?
     public var result: StepResult?
@@ -139,7 +139,7 @@ public struct Step: Codable, Sendable, Hashable {
 
     public init(
         key: String, label: String, sentence: String? = nil, section: String? = nil, equipment: [String]? = nil,
-        duration: Duration? = nil, temperature: Temperature? = nil, uses: [String]? = nil, result: StepResult? = nil,
+        duration: StepDuration? = nil, temperature: Temperature? = nil, uses: [String]? = nil, result: StepResult? = nil,
         takes: [String]? = nil, waitsFor: [String]? = nil, flow: StepFlow? = nil
     ) {
         self.key = key
@@ -167,7 +167,7 @@ public struct DeviceRecipe: Codable, Identifiable, Sendable, Hashable {
     public var trashedAt: Date?
     public var purgeAt: Date?
     public var totalMinutes: Double?
-    public var sections: [Section]
+    public var sections: [RecipeSection]
     public var equipment: [Equipment]
     public var ingredients: [Ingredient]
     public var steps: [Step]
@@ -176,7 +176,7 @@ public struct DeviceRecipe: Codable, Identifiable, Sendable, Hashable {
 
     public init(
         id: String, revision: Int, title: String, yield: Yield, source: URL? = nil, trashedAt: Date? = nil,
-        purgeAt: Date? = nil, totalMinutes: Double? = nil, sections: [Section] = [], equipment: [Equipment] = [],
+        purgeAt: Date? = nil, totalMinutes: Double? = nil, sections: [RecipeSection] = [], equipment: [Equipment] = [],
         ingredients: [Ingredient] = [], steps: [Step] = [], hasFlow: Bool = false, makes: [String] = []
     ) {
         self.id = id

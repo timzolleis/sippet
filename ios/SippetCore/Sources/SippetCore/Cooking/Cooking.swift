@@ -59,7 +59,7 @@ public func amountInMeasurementSystem(_ amount: Amount, system: MeasurementSyste
 
 public func temperatureInMeasurementSystem(_ t: Temperature, system: MeasurementSystem) -> ShownTemperature { fatalError("milestone 2") }
 
-public func unitLabel(_ unit: Unit, language: Language) -> String { fatalError("milestone 2") }
+public func unitLabel(_ unit: AmountUnit, language: Language) -> String { fatalError("milestone 2") }
 
 public func heatingModeLabel(_ mode: HeatingMode, language: Language) -> String { fatalError("milestone 2") }
 

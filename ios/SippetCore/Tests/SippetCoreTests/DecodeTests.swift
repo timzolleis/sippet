@@ -48,7 +48,7 @@ private let recipeJSON = """
     #expect(r.ingredients[2].amount?.unit == .custom("Messerspitze"))
     #expect(r.ingredients[3].amount == Amount(value: 1, max: 2))
     let step = r.steps[0]
-    #expect(step.duration == Duration(minutes: 60, maxMinutes: 65, kind: .passive))
+    #expect(step.duration == StepDuration(minutes: 60, maxMinutes: 65, kind: .passive))
     #expect(step.temperature == Temperature(celsius: 170, mode: .topBottom))
     #expect(step.result?.split?.count == 2 && step.result?.split?[1].rest == true)
     #expect(step.flow == StepFlow(takes: ["teig"], waitsFor: ["ofen"], makes: true))
@@ -72,11 +72,11 @@ private let recipeJSON = """
 @Test func unitRoundTrips() throws {
     #expect(UnitCode.allCases.count == 25)
     for code in UnitCode.allCases {
-        let data = try JSONEncoder().encode(Unit.code(code))
-        #expect(try JSONDecoder().decode(Unit.self, from: data) == .code(code))
+        let data = try JSONEncoder().encode(AmountUnit.code(code))
+        #expect(try JSONDecoder().decode(AmountUnit.self, from: data) == .code(code))
     }
-    #expect(try decode(Unit.self, "\"fl_oz\"") == .code(.flOz))
-    let custom = try JSONEncoder().encode(Unit.custom("Prise"))
+    #expect(try decode(AmountUnit.self, "\"fl_oz\"") == .code(.flOz))
+    let custom = try JSONEncoder().encode(AmountUnit.custom("Prise"))
     #expect(String(decoding: custom, as: UTF8.self) == "{\"custom\":\"Prise\"}")
 }
 
