@@ -11,6 +11,7 @@
     "deploy": "vite build && alchemy deploy --stage prod --yes",
     "invite": "node --env-file-if-exists=.env scripts/invite.ts",
     "device-token": "node scripts/device-token.ts",
+    "dev-cook": "node scripts/dev-cook.ts",
     "verify:device-sign-in": "node scripts/verify-device-sign-in.ts",
     "golden": "node scripts/golden.ts",
     "auth:generate": "auth generate --config scripts/auth-schema.ts --output migrations/auth/0001_better_auth.sql -y",
