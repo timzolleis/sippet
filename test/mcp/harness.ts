@@ -5,6 +5,7 @@ import { join } from "node:path"
 import { drizzle } from "drizzle-orm/durable-sqlite"
 import { derive } from "../../src/store/derive.ts"
 import { Library } from "../../src/store/library.ts"
+import { deviceWebHandler } from "../../src/device/server.ts"
 import { mcpWebHandler } from "../../src/mcp/server.ts"
 import * as schema from "../../src/store/schema.ts"
 import type { Json } from "../../src/store/schema.ts"
@@ -89,6 +90,7 @@ export const makeCook = ({ now = () => Date.now() }: { now?: () => number } = {}
   const db = drizzle(storage, { schema })
   const library = new Library({ db, storage, derive, now })
   const server = mcpWebHandler({ library })
+  const deviceServer = deviceWebHandler({ library })
   let id = 0
 
   const post = (body: string, { connection, session, protocol }: { connection: string; session?: string | undefined; protocol: string }) =>
@@ -124,5 +126,26 @@ export const makeCook = ({ now = () => Date.now() }: { now?: () => number } = {}
     return { call, request, initialized, session }
   }
 
-  return { library, database, getAlarm, connect, count: (table: string) => Number(database.prepare(`SELECT count(*) AS n FROM ${table}`).get()?.n) }
+  // A request to the device API as the Worker forwards it: the connection header is the token's client id.
+  const device = async (
+    path: string,
+    { method = "GET", body, connection = "sippet-app", deviceId = "6f1d1c7e-0c5a-4c55-9d52-3a1b0f6a9a01", deviceName = "iPad", headers = {} }: {
+      method?: string
+      body?: Json
+      connection?: string
+      deviceId?: string | null
+      deviceName?: string
+      headers?: Record<string, string>
+    } = {},
+  ): Promise<{ status: number; body: any }> => {
+    const request = new Headers({ "sippet-connection": connection, "x-device-name": encodeURIComponent(deviceName), "content-type": "application/json", ...headers })
+
+    if (deviceId !== null) request.set("x-device-id", deviceId)
+    const response = await deviceServer.handler(new Request(`http://localhost${path}`, { method, headers: request, body: body === undefined ? null : JSON.stringify(body) }))
+    const text = await response.text()
+
+    return { status: response.status, body: text === "" ? undefined : JSON.parse(text) }
+  }
+
+  return { library, device, database, getAlarm, connect, count: (table: string) => Number(database.prepare(`SELECT count(*) AS n FROM ${table}`).get()?.n) }
 }
