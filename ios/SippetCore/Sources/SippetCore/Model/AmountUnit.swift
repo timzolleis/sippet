@@ -12,7 +12,7 @@ public enum UnitCode: String, Codable, CaseIterable, Sendable, Hashable {
 }
 
 /// On the wire: `"g"` or `{"custom": "Messerspitze"}`.
-public enum Unit: Codable, Sendable, Hashable {
+public enum AmountUnit: Codable, Sendable, Hashable {
     case code(UnitCode)
     case custom(String)
 
