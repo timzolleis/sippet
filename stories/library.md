@@ -48,7 +48,7 @@ Each tag and collection edit names any number of recipes.
 4. **Already tagged stays.** Recipes that already have the tag stay as they are.
 5. **Untagging keeps the tag.** Recipes without the tag stay as they are. The tag stays, even with no recipes left.
 6. **Rename to a free name.** The new name must not belong to another tag (rule 3); when it's taken, the cook probably wants to merge (rule 7), which is its own decision. A change in case only is a rename ("kuchen" → "Kuchen").
-7. **Merging.** Every recipe with the merged tag gets the kept tag; the merged tag is deleted.
+7. **Merging.** Every recipe with the merged tag gets the kept tag; the merged tag is deleted. Smart collections that filtered on the merged tag filter on the kept tag.
 8. **Deleting a tag.** The tag is removed from every recipe, trashed ones included ([revising-recipes.md](revising-recipes.md), rule 8). The recipes stay.
 
 ### Collections

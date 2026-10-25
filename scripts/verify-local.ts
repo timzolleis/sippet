@@ -145,6 +145,16 @@ const insertInvitation = ({ name, email, expiresInMs }: { name: string; email: s
 
 // ── run ────────────────────────────────────────────────────────────────────
 
+const initialize = { jsonrpc: "2.0", id: 1, method: "initialize", params: { protocolVersion: "2025-06-18", capabilities: {}, clientInfo: { name: "verify-local", version: "0" } } }
+
+// A real MCP client has no Origin header; the MCP server refuses any Origin it wasn't given (allowedOrigins), so this doesn't use the cookie jar.
+const mcpInitialize = (token: string) =>
+  fetch(`${origin}/mcp`, {
+    method: "POST",
+    headers: { authorization: `Bearer ${token}`, accept: "application/json, text/event-stream", "content-type": "application/json" },
+    body: JSON.stringify(initialize),
+  })
+
 // Every response body is parsed with a schema; `Open` keeps unlisted fields so they can still be shown.
 const Open = <const Fields extends Schema.Struct.Fields>(fields: Fields) =>
   Schema.StructWithRest(Schema.Struct(fields), [Schema.Record(Schema.String, Schema.Json)])
@@ -353,7 +363,8 @@ check("sub = the cook", claims.sub === cookId)
 
 step("/mcp with the token")
 
-const mcp = await request(`/mcp`, { method: "POST", headers: { authorization: `Bearer ${first.token.access_token ?? ""}`, "sippet-cook": "forged" }, json: { jsonrpc: "2.0", id: 1, method: "ping" } })
+// /api/dev/headers goes through the same token check as /mcp and echoes what the DO received (localhost only)
+const mcp = await request(`/api/dev/headers`, { method: "POST", headers: { authorization: `Bearer ${first.token.access_token ?? ""}`, "sippet-cook": "forged" }, json: {} })
 const forwarded = await json(JsonObject, mcp)
 
 show("DO saw", forwarded)
@@ -396,7 +407,7 @@ const disconnected = await request(`/api/connections/${webClient.client_id}/disc
 
 check(`disconnect → 204 (${disconnected.status})`, disconnected.status === 204)
 
-const refused = await request(`/mcp`, { method: "POST", headers: { authorization: `Bearer ${first.token.access_token ?? ""}` }, json: { jsonrpc: "2.0", id: 2, method: "ping" } })
+const refused = await mcpInitialize(first.token.access_token ?? "")
 
 check(`old access token refused (${refused.status})`, refused.status === 401)
 
@@ -408,7 +419,7 @@ const refresh = await request(`/api/auth/oauth2/token`, {
 
 check(`refresh token revoked (${refresh.status})`, refresh.status >= 400)
 
-const stillThere = await request(`/mcp`, { method: "POST", headers: { authorization: `Bearer ${second.token.access_token ?? ""}` }, json: { jsonrpc: "2.0", id: 3, method: "ping" } })
+const stillThere = await mcpInitialize(second.token.access_token ?? "")
 
 check(`the other connection still works (${stillThere.status})`, stillThere.status === 200)
 
@@ -421,11 +432,11 @@ step("reconnect after disconnect")
 await new Promise((resolve) => setTimeout(resolve, 1100)) // a token minted in the disconnect second counts as older (iat has second resolution)
 
 const third = await connect(webClient, "https://claude.ai/api/mcp/auth_callback")
-const reconnected = await request(`/mcp`, { method: "POST", headers: { authorization: `Bearer ${third.token.access_token ?? ""}` }, json: { jsonrpc: "2.0", id: 4, method: "ping" } })
+const reconnected = await mcpInitialize(third.token.access_token ?? "")
 
 check(`new token works (${reconnected.status})`, reconnected.status === 200)
 
-const oldStill = await request(`/mcp`, { method: "POST", headers: { authorization: `Bearer ${first.token.access_token ?? ""}` }, json: { jsonrpc: "2.0", id: 5, method: "ping" } })
+const oldStill = await mcpInitialize(first.token.access_token ?? "")
 
 check(`old token still refused (${oldStill.status})`, oldStill.status === 401)
 
