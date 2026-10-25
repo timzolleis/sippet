@@ -31,6 +31,15 @@ enum Format {
         amountText(amountInMeasurementSystem(amount, system: system), language: language)
     }
 
+    /// The amount for its own column, and the rest of the line: "250 g" | "Mehl, gesiebt (Type 405)".
+    static func ingredientParts(_ ingredient: Ingredient, system: MeasurementSystem) -> (amount: String?, text: String) {
+        var text = ingredient.item
+        if let prep = ingredient.prep, !prep.isEmpty { text += ", " + prep }
+        if let note = ingredient.note, !note.isEmpty { text += " (" + note + ")" }
+        if ingredient.optional == true { text += " – " + String(localized: "optional") }
+        return (ingredient.amount.map { amount($0, system: system) }, text)
+    }
+
     static func ingredientLine(_ ingredient: Ingredient, system: MeasurementSystem) -> String {
         var parts: [String] = []
         if let a = ingredient.amount { parts.append(amount(a, system: system)) }
@@ -49,6 +58,15 @@ extension MeasurementSystem {
         case .asWritten: "As written"
         case .metric: "Metric"
         case .us: "US"
+        }
+    }
+
+    /// For places that need a String (chips).
+    var titleText: String {
+        switch self {
+        case .asWritten: String(localized: "As written")
+        case .metric: String(localized: "Metric")
+        case .us: String(localized: "US")
         }
     }
 }

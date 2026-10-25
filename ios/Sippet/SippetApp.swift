@@ -29,6 +29,10 @@ private struct Root: View {
                 SignInScreen(model: model)
             case .signedIn:
                 LibraryScreen(model: model)
+                    #if DEBUG
+                    .modifier(DebugOpen(model: model))
+                    .modifier(DebugOpenTable(store: model.store))
+                    #endif
             }
         }
         .onChange(of: model.sync?.isSignedOut) { model.checkSignedOut() }
