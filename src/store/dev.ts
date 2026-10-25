@@ -91,6 +91,9 @@ export const runDevOp = async ({ op, args, library, db, storage, connection, set
     case "sql":
       if (!/^\s*select\s/i.test(args.statement)) return { error: "select only" }
       return storage.sql.exec(args.statement, ...(args.params ?? [])).toArray()
+    case "ageRetries":
+      storage.sql.exec(`UPDATE retry SET expires_at = 0`)
+      return { aged: true }
     case "alarm":
       return { alarm: await storage.getAlarm() }
     default:

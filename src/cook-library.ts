@@ -104,6 +104,7 @@ export class CookLibrary extends DurableObject {
   private async dev(request: Request, connection: string): Promise<Response> {
     if (!isLocal(this.env as { PUBLIC_URL?: string })) return new Response("not found", { status: 404 })
     const op = new URL(request.url).pathname.slice("/api/dev/".length)
+    if (op === "headers") return Response.json(Object.fromEntries([...request.headers].filter(([name]) => name.startsWith("sippet-"))))
     const args = request.method === "POST" ? ((await request.json()) as Record<string, unknown>) : {}
     const value = await runDevOp({
       op,
