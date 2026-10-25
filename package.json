@@ -3,7 +3,7 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "test": "vitest run",
+    "test": "vitest run --passWithNoTests",
     "typecheck": "tsc --noEmit",
     "dev": "alchemy dev --stage dev_$(basename $(git rev-parse --show-toplevel))",
     "invite": "node scripts/invite.ts",
