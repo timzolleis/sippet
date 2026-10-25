@@ -82,6 +82,21 @@ describe("tags", () => {
     expect(tags[0]?.recipeIds).toHaveLength(11)
   })
 
+  it('merge "Nachtisch" into "Dessert": filters naming "Nachtisch" name "Dessert" (rule 7)', () => {
+    const library: Library = {
+      tags: [{ name: "Nachtisch", recipeIds: [] }, { name: "Dessert", recipeIds: [] }],
+      collections: [],
+      smartCollections: [
+        { name: "Süß", filter: { tags: { any: ["nachtisch", "Dessert"] } } },
+        { name: "Herzhaft", filter: { tags: { none: ["Nachtisch"] } } },
+      ],
+    }
+    expect(Result.getOrThrow(edited({ library, edits: [{ op: "merge_tags", tag: "Nachtisch", into: "dessert" }] })).smartCollections).toEqual([
+      { name: "Süß", filter: { tags: { any: ["Dessert"] } } },
+      { name: "Herzhaft", filter: { tags: { none: ["Dessert"] } } },
+    ])
+  })
+
   it('tag "Kuchen" deleted while a tagged recipe is in the trash: the tag leaves it too (rule 8, revising rule 8)', () => {
     const library: Library = { ...emptyLibrary, tags: [{ name: "Kuchen", recipeIds: [zupfkuchenId, trashedRecipe] }] }
     expect(edited({ library, edits: [{ op: "delete_tag", tag: "Kuchen" }] })).toEqual(Result.succeed(emptyLibrary))

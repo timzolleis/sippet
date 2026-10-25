@@ -59,7 +59,7 @@ const collectionNameTaken = ({ library, name, except }: { readonly library: Libr
 const tagFilterWith = (tagFilter: TagFilter, renameTag: (name: string) => string | undefined): TagFilter | undefined => {
   const next: Mutable<TagFilter> = {}
   for (const group of ["all", "any", "none"] as const) {
-    const names = (tagFilter[group] ?? []).flatMap((name) => renameTag(name) ?? [])
+    const names = unique((tagFilter[group] ?? []).flatMap((name) => renameTag(name) ?? []))
     if (names.length > 0) next[group] = names
   }
   return Object.keys(next).length === 0 ? undefined : next
@@ -115,7 +115,7 @@ const renameTag = ({ library, tag: name, to }: { readonly library: Library; read
   })
 }
 
-// 7. Every recipe with the merged tag gets the kept tag; the merged tag is deleted, so filters drop it (rule 15).
+// 7. Every recipe with the merged tag gets the kept tag; filters name the kept tag; the merged tag is deleted.
 const mergeTags = ({ library, tag: name, into }: { readonly library: Library; readonly tag: string; readonly into: string }): AppliedEdit => {
   const merged = findByName(library.tags, name)
   const kept = findByName(library.tags, into)
@@ -126,7 +126,7 @@ const mergeTags = ({ library, tag: name, into }: { readonly library: Library; re
   return applied({
     ...library,
     tags: withoutEntry(replaceEntry(library.tags, kept, { ...kept, recipeIds: appendRecipeIds(kept.recipeIds, merged.recipeIds) }), merged),
-    smartCollections: smartCollectionsWithTag({ smartCollections: library.smartCollections, tag: merged, to: undefined }),
+    smartCollections: smartCollectionsWithTag({ smartCollections: library.smartCollections, tag: merged, to: kept.name }),
   })
 }
 
