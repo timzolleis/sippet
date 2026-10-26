@@ -106,7 +106,7 @@ struct RecipeTableScreen: View {
         }
     }
 
-    /// Label or sentence, then temperature, duration, and "(ergibt 750 g)", each fact unbroken.
+    /// The label (recipe rule 8: the sentence is for reading and cooking), then temperature, duration, and "(ergibt 750 g)", each fact unbroken.
     private func stepText(_ step: Step, separator: String = " ") -> String {
         var facts: [String] = []
         if let t = step.temperature { facts.append(Format.temperature(t, system: units)) }
@@ -115,7 +115,7 @@ struct RecipeTableScreen: View {
             facts.append("(\(Format.language == .de ? "ergibt" : "makes") \(Format.amount(amount, system: units)))")
         }
         let unbroken = facts.map { $0.replacingOccurrences(of: " ", with: "\u{00A0}") }
-        return ([step.sentence ?? step.label] + unbroken).joined(separator: separator)
+        return ([step.label] + unbroken).joined(separator: separator)
     }
 
     /// "800 g (2 Becher) Vanille-Skyr", "½ Fl. Zitronenaroma (optional)"; the prep has its own column.

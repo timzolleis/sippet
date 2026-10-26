@@ -240,7 +240,7 @@ struct RecipeTable: Sendable, Equatable { columns: Int; rows: [TableRow]; cells:
 enum TableRow: Sendable, Equatable { case prepStep(stepKey), section(sectionKey), ingredient(ingredientKey) }
 struct TableCell: Sendable, Equatable { row: Int; rowSpan: Int; column: Int; columnSpan: Int; content: TableCellContent }
 enum TableCellContent: Sendable, Equatable {
-  case prepStep(stepKey)                          // full width: "Springform einfetten (optional mit Backpapier auslegen)"
+  case prepStep(stepKey)                          // full width: "Springform einfetten"
   case section(sectionKey, prepStepKeys: [String])   // "FÜLLUNG · jetzt Ofen auf 170 °C O/U vorheizen"
   case ingredient(ingredientKey)
   case prep(ingredientKey)                        // "auspressen", next to its ingredient (recipe rule 5)
@@ -270,7 +270,7 @@ recipeTable(recipe)
 │    an ingredient row gets an empty cell for each column between its last filled one and the step that uses it
 │    a portion from step A taken by step B is written in each column strictly between A and B, in the cell over its rows
 │    a step that takes a portion shows the portion's amount before its text: "500 g als Boden in die Form drücken"
-└─ step text: label or sentence as in stepSentence, without the ingredient list; temperature, duration, "(ergibt 750 g)" from the result
+└─ step text: the label (recipe rule 8; the sentence is for the recipe screen and cook mode); temperature, duration, "(ergibt 750 g)" from the result
 ```
 
 Cases (`swift test`, the Zupfkuchen from the golden file; expected is the picture)
