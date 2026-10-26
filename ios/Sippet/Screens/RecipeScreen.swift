@@ -13,6 +13,7 @@ struct RecipeScreen: View {
     @State private var cooking = false
     @State private var showShopping = false
     @State private var showTable = false
+    @State private var titleInBar = false
 
     init(recipe: DeviceRecipe) {
         self.recipe = recipe
@@ -26,13 +27,14 @@ struct RecipeScreen: View {
         let scaled = scaled
         GeometryReader { geo in
             if geo.size.width >= 560 {
-                wide(scaled, width: geo.size.width)
+                wide(scaled, size: geo.size)
             } else {
-                narrow(scaled)
+                narrow(scaled, size: geo.size)
             }
         }
         .fontDesign(.rounded)
-        .navigationTitle("")
+        // The bar shows the title once the page's own title has scrolled under it.
+        .navigationTitle(titleInBar ? recipe.title : "")
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
             ToolbarItemGroup(placement: .primaryAction) {
@@ -68,20 +70,33 @@ struct RecipeScreen: View {
 
     // MARK: layouts
 
-    private func narrow(_ scaled: DeviceRecipe) -> some View {
-        ScrollViewReader { proxy in
+    /// The art's height: the header's aspect, at most 40 % of the screen (landscape).
+    private func heroHeight(width: CGFloat, screen: CGSize) -> CGFloat {
+        min(width / ArtGeometry.heroAspect, screen.height * 0.4)
+    }
+
+    private func narrow(_ scaled: DeviceRecipe, size: CGSize) -> some View {
+        let hero = heroHeight(width: size.width, screen: size)
+        return ScrollViewReader { proxy in
             ScrollView {
-                VStack(alignment: .leading, spacing: 40) {
-                    header(wide: false)
-                    ingredients(scaled)
-                    steps(scaled).id("steps")
+                VStack(spacing: 0) {
+                    HeroArt(id: recipe.id, height: hero)
+                    VStack(alignment: .leading, spacing: 40) {
+                        header(wide: false)
+                        ingredients(scaled)
+                        steps(scaled).id("steps")
+                    }
+                    .padding(.horizontal, 24)
+                    .padding(.top, 28)
+                    .padding(.bottom, 56)
+                    .frame(maxWidth: 620, alignment: .leading)
+                    .frame(maxWidth: .infinity)
+                    .background(Color(.systemBackground), in: .rect(topLeadingRadius: Self.sheetRadius, topTrailingRadius: Self.sheetRadius))
+                    .padding(.top, -Self.sheetRadius)
                 }
-                .padding(.horizontal, 24)
-                .padding(.top, 4)
-                .padding(.bottom, 56)
-                .frame(maxWidth: 620, alignment: .leading)
-                .frame(maxWidth: .infinity)
             }
+            .ignoresSafeArea(.container, edges: .top)
+            .onScrollGeometryChange(for: Bool.self) { $0.contentOffset.y + $0.contentInsets.top > hero + 40 } action: { titleInBar = $1 }
             #if DEBUG
             .defaultScrollAnchor(DebugScroll.anchor)
             .task {
@@ -94,19 +109,28 @@ struct RecipeScreen: View {
         }
     }
 
-    private func wide(_ scaled: DeviceRecipe, width: CGFloat) -> some View {
-        HStack(alignment: .top, spacing: 0) {
+    private func wide(_ scaled: DeviceRecipe, size: CGSize) -> some View {
+        let column = min(max(size.width * 0.42, 250), 440)
+        let hero = heroHeight(width: column, screen: size)
+        return HStack(alignment: .top, spacing: 0) {
             ScrollView {
-                VStack(alignment: .leading, spacing: 36) {
-                    header(wide: true)
-                    ingredients(scaled)
+                VStack(spacing: 0) {
+                    HeroArt(id: recipe.id, height: hero)
+                    VStack(alignment: .leading, spacing: 36) {
+                        header(wide: true)
+                        ingredients(scaled)
+                    }
+                    .padding(.horizontal, 32)
+                    .padding(.top, 28)
+                    .padding(.bottom, 48)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .background(Color(.systemBackground), in: .rect(topLeadingRadius: Self.sheetRadius, topTrailingRadius: Self.sheetRadius))
+                    .padding(.top, -Self.sheetRadius)
                 }
-                .padding(.horizontal, 32)
-                .padding(.top, 4)
-                .padding(.bottom, 48)
-                .frame(maxWidth: .infinity, alignment: .leading)
             }
-            .frame(width: min(max(width * 0.42, 250), 440))
+            .ignoresSafeArea(.container, edges: .top)
+            .onScrollGeometryChange(for: Bool.self) { $0.contentOffset.y + $0.contentInsets.top > hero + 40 } action: { titleInBar = $1 }
+            .frame(width: column)
             Rectangle().fill(.separator).frame(width: 0.5).ignoresSafeArea(edges: .bottom)
             ScrollView {
                 steps(scaled)
@@ -120,6 +144,8 @@ struct RecipeScreen: View {
     }
 
     // MARK: header
+
+    private static let sheetRadius: CGFloat = 28
 
     /// In the narrow left column the title steps down a size, so long German words don't break.
     private func header(wide: Bool) -> some View {
@@ -231,6 +257,22 @@ struct RecipeScreen: View {
     }
 }
 
+/// The recipe's art, full bleed under the toolbar; pulled down, it stretches instead of showing a gap.
+private struct HeroArt: View {
+    let id: String
+    let height: CGFloat
+
+    var body: some View {
+        GeometryReader { geo in
+            let pull = max(0, geo.frame(in: .scrollView).minY)
+            RecipeArtView(id: id)
+                .frame(width: geo.size.width, height: height + pull)
+                .offset(y: -pull)
+        }
+        .frame(height: height)
+    }
+}
+
 /// "(1)  Springform einfetten, optional mit Backpapier auslegen." with what it uses and its facts underneath.
 /// The numbers sit on a thin line that runs down to the next step.
 private struct StepRow: View {
@@ -334,7 +376,8 @@ private struct StepperButtonStyle: ButtonStyle {
         configuration.label
             .fontWeight(.semibold)
             .foregroundStyle(isEnabled ? AnyShapeStyle(.tint) : AnyShapeStyle(.quaternary))
-            .frame(width: 44, height: 44)
+            .frame(minWidth: 44, minHeight: 44)
+            .padding(.horizontal, 4)
             .contentShape(.rect)
             .opacity(configuration.isPressed ? 0.4 : 1)
     }
