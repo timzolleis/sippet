@@ -4,9 +4,10 @@ import SwiftUI
 struct RecipeArtView: View {
     let id: String
     @Environment(\.colorScheme) private var scheme
+    @Environment(\.theme) private var theme
 
     var body: some View {
-        let art = recipeArt(id: id, dark: scheme == .dark)
+        let art = recipeArt(id: id, dark: scheme == .dark, theme: theme)
         MeshGradient(
             width: 3, height: 3, points: art.points,
             colors: art.colors.map { Color(.sRGB, red: Double($0.x), green: Double($0.y), blue: Double($0.z)) },

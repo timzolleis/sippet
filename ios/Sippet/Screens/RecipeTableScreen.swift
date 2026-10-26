@@ -6,6 +6,7 @@ struct RecipeTableScreen: View {
     let recipe: DeviceRecipe
     let units: MeasurementSystem
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.theme) private var theme
     /// nil until the table is measured; then it starts fitted to the width.
     @State private var zoom: CGFloat?
     @GestureState private var pinch: CGFloat = 1
@@ -57,9 +58,9 @@ struct RecipeTableScreen: View {
                         .layoutValue(key: CellPlacement.self, value: cell)
                 }
             }
-            .background(TableStyle.line)
+            .background(theme.accent.opacity(TableStyle.lineOpacity))
             .padding(TableStyle.lineWidth)
-            .background(TableStyle.line)
+            .background(theme.accent.opacity(TableStyle.lineOpacity))
         }
         .font(.subheadline)
         .padding(16)
@@ -146,8 +147,8 @@ struct RecipeTableScreen: View {
 
 nonisolated private enum TableStyle {
     static let lineWidth: CGFloat = 1
-    static let line = Color.accentColor.opacity(0.45)
-    static let sectionTint = Color.accentColor.opacity(0.09)
+    static let lineOpacity = 0.45
+    static let sectionTintOpacity = 0.09
 }
 
 private struct TableText {
@@ -173,6 +174,7 @@ private enum Kind {
 private struct TableCellView: View {
     let text: TableText
     let kind: Kind
+    @Environment(\.theme) private var theme
 
     var body: some View {
         Group {
@@ -203,7 +205,7 @@ private struct TableCellView: View {
                 Color.clear
             }
         }
-        .background(kind == .section ? TableStyle.sectionTint : .clear)
+        .background(kind == .section ? theme.accent.opacity(TableStyle.sectionTintOpacity) : .clear)
         .background(Color(.systemBackground))
     }
 }

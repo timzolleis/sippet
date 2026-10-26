@@ -3,6 +3,7 @@ import SwiftUI
 
 struct TrashScreen: View {
     let model: AppModel
+    @Environment(\.theme) private var theme
     @ScaledMetric(relativeTo: .headline) private var tile: CGFloat = 48
 
     var body: some View {
@@ -26,7 +27,7 @@ struct TrashScreen: View {
                 Button("Restore", systemImage: "arrow.uturn.backward") {
                     Task { await model.restore([recipe.id]) }
                 }
-                .tint(.accentColor)
+                .tint(theme.accent)
                 .disabled(model.isOffline)
             }
             .contextMenu {
