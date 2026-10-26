@@ -1,23 +1,38 @@
 import SippetCore
 import SwiftUI
 
-/// A cookbook page: title, quiet facts, Zutaten, Zubereitung, in one scroll.
-/// Wide (iPad, landscape): Zutaten left, Zubereitung right, each scrolling on its own.
+/// Steps: Zutaten and numbered Zubereitung. Table: the Ablauf (cooking 1), which holds both.
+enum RecipeMode: Hashable { case steps, table }
+
+/// A cookbook page: title, quiet facts, then the recipe as steps or as a table, in one scroll.
+/// Wide (iPad, landscape) steps: Zutaten left, Zubereitung right, each scrolling on its own. The table always takes
+/// the full width under the header.
 struct RecipeScreen: View {
     let recipe: DeviceRecipe
     @AppStorage(MeasurementSystem.defaultsKey) private var defaultUnits = MeasurementSystem.asWritten
     @State private var yield: Double
     @State private var unitsOverride: MeasurementSystem?
+    @State private var mode: RecipeMode
     @State private var checked: Set<String> = []
     @State private var shopped: Set<String> = []
-    @State private var cooking = false
+    @State private var selectedStep: String?
+    @State private var cookAt: CookStart?
     @State private var showShopping = false
-    @State private var showTable = false
     @State private var titleInBar = false
+    @State private var cardHeight: CGFloat = 0
+    @Namespace private var transitions
 
-    init(recipe: DeviceRecipe) {
+    init(recipe: DeviceRecipe, mode: RecipeMode = .steps, yield: Double? = nil) {
         self.recipe = recipe
-        _yield = State(initialValue: recipe.yield.amount.value)
+        _yield = State(initialValue: yield ?? recipe.yield.amount.value)
+        _mode = State(initialValue: mode)
+    }
+
+    /// Cook mode opens at a step and zooms out of the button that opened it.
+    struct CookStart: Identifiable {
+        let step: Int
+        let source: String
+        var id: String { "\(source)-\(step)" }
     }
 
     private var units: MeasurementSystem { unitsOverride ?? defaultUnits }
@@ -25,11 +40,13 @@ struct RecipeScreen: View {
 
     var body: some View {
         let scaled = scaled
+        let table = recipeTable(scaled)
+        let shownTable = mode == .table ? table : nil
         GeometryReader { geo in
-            if geo.size.width >= 560 {
-                wide(scaled, size: geo.size)
+            if geo.size.width >= 560, shownTable == nil {
+                wide(scaled, size: geo.size, hasTable: table != nil)
             } else {
-                narrow(scaled, size: geo.size)
+                narrow(scaled, table: shownTable, hasTable: table != nil, geo: geo)
             }
         }
         .fontDesign(.rounded)
@@ -37,33 +54,37 @@ struct RecipeScreen: View {
         .navigationTitle(titleInBar ? recipe.title : "")
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
-            ToolbarItemGroup(placement: .primaryAction) {
-                if recipeTable(scaled) != nil {
-                    Button("Table", systemImage: "tablecells") { showTable = true }
-                }
+            ToolbarItem(placement: .primaryAction) {
                 Button("Shopping", systemImage: "basket") { showShopping = true }
             }
+            .matchedTransitionSource(id: "shopping", in: transitions)
             ToolbarSpacer(.fixed, placement: .primaryAction)
             ToolbarItem(placement: .primaryAction) {
-                Button("Cook") { cooking = true }
+                Button("Cook") { cookAt = CookStart(step: 0, source: "cook") }
                     .fontWeight(.semibold)
                     .buttonStyle(.glassProminent)
                     .disabled(recipe.steps.isEmpty)
             }
+            .matchedTransitionSource(id: "cook", in: transitions)
         }
-        .fullScreenCover(isPresented: $cooking) {
-            CookModeScreen(recipe: scaled, units: units, checked: $checked)
-        }
-        .fullScreenCover(isPresented: $showTable) {
-            // RecipeTableScreen brings its own NavigationStack and close button.
-            RecipeTableScreen(recipe: scaled, units: units)
+        .fullScreenCover(item: $cookAt) { start in
+            CookModeScreen(recipe: scaled, units: units, checked: $checked, startAt: start.step)
+                .navigationTransition(.zoom(sourceID: start.source, in: transitions))
         }
         .sheet(isPresented: $showShopping) {
             ShoppingSheet(recipe: scaled, units: units, checked: $shopped)
+                .navigationTransition(.zoom(sourceID: "shopping", in: transitions))
         }
+        .onChange(of: mode) { if mode == .steps { selectedStep = nil } }
         #if DEBUG
         .task {
+            let defaults = UserDefaults.standard
             if ProcessInfo.processInfo.arguments.contains("-SippetShopping") { showShopping = true }
+            if let ticks = defaults.string(forKey: "SippetTick") { checked = Set(ticks.split(separator: ",").map(String.init)) }
+            if let step = defaults.string(forKey: "SippetSelectStep") {
+                try? await Task.sleep(for: .seconds(0.5))
+                selectedStep = step
+            }
         }
         #endif
     }
@@ -75,28 +96,70 @@ struct RecipeScreen: View {
         min(width / ArtGeometry.heroAspect, screen.height * 0.4)
     }
 
-    private func narrow(_ scaled: DeviceRecipe, size: CGSize) -> some View {
+    /// One scroll: art, header, then Zutaten and Zubereitung, or the table across the full width.
+    private func narrow(_ scaled: DeviceRecipe, table: RecipeTable?, hasTable: Bool, geo: GeometryProxy) -> some View {
+        let size = geo.size
         let hero = heroHeight(width: size.width, screen: size)
+        // The scroll view runs under the bar, so its coordinates start at the screen's top.
+        let barBottom = geo.safeAreaInsets.top
+        let selected = table == nil ? nil : selectedStep.flatMap { key in scaled.steps.firstIndex { $0.key == key } }
         return ScrollViewReader { proxy in
             ScrollView {
                 VStack(spacing: 0) {
                     HeroArt(id: recipe.id, height: hero)
-                    VStack(alignment: .leading, spacing: 40) {
-                        header(wide: false)
-                        ingredients(scaled)
-                        steps(scaled).id("steps")
+                    VStack(alignment: .leading, spacing: 0) {
+                        VStack(alignment: .leading, spacing: 40) {
+                            header(wide: false, hasTable: hasTable)
+                            if table == nil {
+                                ingredients(scaled)
+                                steps(scaled).id("steps")
+                            }
+                        }
+                        .padding(.horizontal, 24)
+                        .padding(.top, 28)
+                        .padding(.bottom, table == nil ? 56 : 28)
+                        .frame(maxWidth: 620, alignment: .leading)
+                        if let table {
+                            RecipeTableScreen(
+                                recipe: scaled, table: table, units: units, checked: $checked, selected: $selectedStep,
+                                visibleTop: barBottom, visibleBottom: barBottom + size.height - (selected == nil ? 0 : cardHeight))
+                                // Past AX1 a 2D table breaks words inside its cells; Steps reads at every size.
+                                .dynamicTypeSize(...DynamicTypeSize.accessibility1)
+                                .id("steps")
+                                .padding(.bottom, 56)
+                                .transition(.opacity)
+                        }
                     }
-                    .padding(.horizontal, 24)
-                    .padding(.top, 28)
-                    .padding(.bottom, 56)
-                    .frame(maxWidth: 620, alignment: .leading)
-                    .frame(maxWidth: .infinity)
+                    .frame(maxWidth: .infinity, alignment: .leading)
                     .background(Color(.systemBackground), in: .rect(topLeadingRadius: Self.sheetRadius, topTrailingRadius: Self.sheetRadius))
                     .padding(.top, -Self.sheetRadius)
                 }
             }
             .ignoresSafeArea(.container, edges: .top)
             .onScrollGeometryChange(for: Bool.self) { $0.contentOffset.y + $0.contentInsets.top > hero + 40 } action: { titleInBar = $1 }
+            .safeAreaInset(edge: .bottom, spacing: 0) {
+                if let index = selected {
+                    StepCard(
+                        step: scaled.steps[index], number: index + 1, count: scaled.steps.count, recipe: scaled, units: units,
+                        maxHeight: size.height * 0.45, namespace: transitions,
+                        move: { delta in
+                            let next = min(max(index + delta, 0), scaled.steps.count - 1)
+                            withAnimation(.easeOut(duration: 0.2)) { selectedStep = scaled.steps[next].key }
+                        },
+                        close: { withAnimation(.easeOut(duration: 0.2)) { selectedStep = nil } },
+                        cook: { cookAt = CookStart(step: index, source: "cook-step") })
+                        .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { cardHeight = $0 }
+                        .transition(.move(edge: .bottom).combined(with: .opacity))
+                }
+            }
+            // Landscape and iPad come here from two columns: bring the table up under the bar.
+            // Turning the phone with the table open does the same.
+            .onAppear {
+                if table != nil, size.width >= 560 { proxy.scrollTo("mode", anchor: .top) }
+            }
+            .onChange(of: size.width >= 560) { _, wide in
+                if table != nil, wide { withAnimation(.smooth) { proxy.scrollTo("mode", anchor: .top) } }
+            }
             #if DEBUG
             .defaultScrollAnchor(DebugScroll.anchor)
             .task {
@@ -109,7 +172,7 @@ struct RecipeScreen: View {
         }
     }
 
-    private func wide(_ scaled: DeviceRecipe, size: CGSize) -> some View {
+    private func wide(_ scaled: DeviceRecipe, size: CGSize, hasTable: Bool) -> some View {
         let column = min(max(size.width * 0.42, 250), 440)
         let hero = heroHeight(width: column, screen: size)
         return HStack(alignment: .top, spacing: 0) {
@@ -117,7 +180,7 @@ struct RecipeScreen: View {
                 VStack(spacing: 0) {
                     HeroArt(id: recipe.id, height: hero)
                     VStack(alignment: .leading, spacing: 36) {
-                        header(wide: true)
+                        header(wide: true, hasTable: hasTable)
                         ingredients(scaled)
                     }
                     .padding(.horizontal, 32)
@@ -148,7 +211,7 @@ struct RecipeScreen: View {
     private static let sheetRadius: CGFloat = 28
 
     /// In the narrow left column the title steps down a size, so long German words don't break.
-    private func header(wide: Bool) -> some View {
+    private func header(wide: Bool, hasTable: Bool) -> some View {
         VStack(alignment: .leading, spacing: 16) {
             Text(recipe.title)
                 .font(.rounded(wide ? .title : .largeTitle, weight: .bold))
@@ -161,6 +224,16 @@ struct RecipeScreen: View {
                 unitsMenu
             }
             .padding(.top, 2)
+            if hasTable {
+                Picker("View", selection: $mode.animation(.smooth)) {
+                    Text("Steps").tag(RecipeMode.steps)
+                    Text("Table").tag(RecipeMode.table)
+                }
+                .pickerStyle(.segmented)
+                .frame(maxWidth: 360)
+                .padding(.top, 6)
+                .id("mode")
+            }
         }
     }
 
@@ -265,11 +338,80 @@ private struct HeroArt: View {
     var body: some View {
         GeometryReader { geo in
             let pull = max(0, geo.frame(in: .scrollView).minY)
+            // Scaled, not re-laid out: the art is an image rendered once for this size.
             RecipeArtView(id: id)
-                .frame(width: geo.size.width, height: height + pull)
-                .offset(y: -pull)
+                .frame(width: geo.size.width, height: height)
+                .scaleEffect(1 + pull / height, anchor: .bottom)
         }
         .frame(height: height)
+    }
+}
+
+/// The step selected in the table, over the page's bottom: its sentence (recipe rule 8), what it uses, its facts;
+/// the steps before and after; cook mode from here.
+private struct StepCard: View {
+    let step: Step
+    let number: Int
+    let count: Int
+    let recipe: DeviceRecipe
+    let units: MeasurementSystem
+    let maxHeight: CGFloat
+    let namespace: Namespace.ID
+    let move: (Int) -> Void
+    let close: () -> Void
+    let cook: () -> Void
+    @State private var rowHeight: CGFloat = 0
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            HStack(alignment: .top, spacing: 8) {
+                // As tall as the step, at most `maxHeight`; a longer one scrolls (accessibility sizes).
+                ScrollView {
+                    row.onGeometryChange(for: CGFloat.self) { $0.size.height } action: { rowHeight = $0 }
+                }
+                .scrollBounceBehavior(.basedOnSize)
+                .frame(height: rowHeight > 0 ? min(rowHeight, maxHeight) : nil)
+                Button("Close", systemImage: "xmark", action: close)
+                    .labelStyle(.iconOnly)
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundStyle(.secondary)
+                    .frame(width: 44, height: 44)
+                    .contentShape(.rect)
+                    .padding(.top, -10)
+                    .padding(.trailing, -10)
+            }
+            HStack(spacing: 10) {
+                Group {
+                    Button("Previous step", systemImage: "chevron.left") { move(-1) }
+                        .disabled(number == 1)
+                    Button("Next step", systemImage: "chevron.right") { move(1) }
+                        .disabled(number == count)
+                }
+                .labelStyle(.iconOnly)
+                .font(.body.weight(.semibold))
+                .frame(minWidth: 28, minHeight: 32)
+                .buttonStyle(.glass)
+                Spacer(minLength: 0)
+                Button(action: cook) {
+                    Label("Cook from here", systemImage: "play.fill")
+                        .font(.body.weight(.semibold))
+                        .frame(minHeight: 32)
+                }
+                .buttonStyle(.glassProminent)
+                .matchedTransitionSource(id: "cook-step", in: namespace)
+            }
+        }
+        .padding(20)
+        .frame(maxWidth: 560)
+        .glassEffect(.regular, in: .rect(cornerRadius: 30))
+        .padding(.horizontal, 12)
+        .padding(.bottom, 4)
+        .frame(maxWidth: .infinity)
+        .id(step.key)
+    }
+
+    private var row: some View {
+        StepRow(number: number, isLast: true, step: step, recipe: recipe, units: units)
     }
 }
 
