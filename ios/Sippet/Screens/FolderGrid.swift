@@ -5,32 +5,34 @@ struct Folder: Identifiable {
     let item: SidebarItem
     let name: String
     let recipeIds: [String]
-    let isSmart: Bool
+    /// A smart collection's symbol; nil for a collection.
+    let smartSymbol: String?
     var id: SidebarItem { item }
 }
 
 /// Folder tiles in a grid: the folder with its first recipes' art peeking out and its count, the name below.
+/// A tile pushes its list, zooming out of the folder; a collection's tile has Rename… and Delete.
 struct FolderGrid: View {
     let folders: [Folder]
-    let open: (SidebarItem) -> Void
     @ScaledMetric(relativeTo: .subheadline) private var minimum: CGFloat = 96
     @Environment(\.dynamicTypeSize) private var typeSize
+    @Environment(\.open) private var open
 
     var body: some View {
-        // At accessibility sizes: one column, the folder beside its name, so long names wrap between words.
+        // At accessibility sizes: one column, a small folder above its name, so the name has the full width and
+        // long German compounds ("Sonntagsessen") don't break inside the word.
         let large = typeSize.isAccessibilitySize
         let columns = large
             ? [GridItem(.flexible(), alignment: .leading)]
             : [GridItem(.adaptive(minimum: min(minimum, 150)), spacing: 14, alignment: .top)]
-        let tile = large
-            ? AnyLayout(HStackLayout(alignment: .center, spacing: 14))
-            : AnyLayout(VStackLayout(alignment: .leading, spacing: 8))
+        let tile = AnyLayout(VStackLayout(alignment: .leading, spacing: 8))
         LazyVGrid(columns: columns, spacing: 18) {
             ForEach(folders) { folder in
-                Button { open(folder.item) } label: {
+                Button { open(.list(folder.item)) } label: {
                     tile {
                         FolderGlyph(folder: folder)
-                            .frame(maxWidth: large ? 110 : nil)
+                            .frame(maxWidth: large ? 96 : nil)
+                            .modifier(ZoomSource(id: LibraryRoute.folderZoom(folder.item)))
                         Text(folder.name)
                             .font(.rounded(.subheadline))
                             .foregroundStyle(.primary)
@@ -43,8 +45,31 @@ struct FolderGrid: View {
                 }
                 .buttonStyle(PressableStyle())
                 .accessibilityLabel(Text(verbatim: folder.name))
-                .accessibilityValue(Text("\(folder.recipeIds.count) recipes"))
+                .accessibilityValue(folder.smartSymbol == nil
+                    ? Text("\(folder.recipeIds.count) recipes")
+                    : Text("Smart collection, \(folder.recipeIds.count) recipes"))
+                .modifier(FolderMenu(folder: folder))
             }
+        }
+    }
+}
+
+/// Rename… and Delete on a collection's tile; a smart collection has none (ios.md: no smart-collection editing).
+private struct FolderMenu: ViewModifier {
+    let folder: Folder
+
+    func body(content: Content) -> some View {
+        if case .collection(let name) = folder.item {
+            content.organizeMenu(.collection, name) {
+                VStack(alignment: .leading, spacing: 8) {
+                    FolderGlyph(folder: folder).frame(width: 180)
+                    Text(folder.name).font(.rounded(.subheadline)).lineLimit(2)
+                }
+                .frame(width: 180)
+                .padding(14)
+            }
+        } else {
+            content
         }
     }
 }
@@ -73,6 +98,7 @@ private struct FolderGlyph: View {
                     .frame(width: w, height: h * 0.58)
                     .offset(y: h * 0.42)
             }
+            .animation(.snappy, value: cards)
         }
         .aspectRatio(1.3, contentMode: .fit)
         .accessibilityHidden(true)
@@ -92,16 +118,19 @@ private struct FolderGlyph: View {
                 Text(folder.recipeIds.count, format: .number)
                     .font(.rounded(.title3, weight: .bold))
                     .monospacedDigit()
+                    .contentTransition(.numericText())
+                    .animation(.snappy, value: folder.recipeIds.count)
                     .dynamicTypeSize(...DynamicTypeSize.xxxLarge) // drawn on the folder, which doesn't grow
                     .foregroundStyle(.primary)
                     .padding(.horizontal, 10)
                     .padding(.bottom, 6)
             }
             .overlay(alignment: .bottomTrailing) {
-                if folder.isSmart {
-                    Image(systemName: "gearshape.2.fill")
-                        .font(.footnote)
-                        .foregroundStyle(.secondary)
+                if let symbol = folder.smartSymbol {
+                    Image(systemName: symbol)
+                        .font(.footnote.weight(.semibold))
+                        .dynamicTypeSize(...DynamicTypeSize.xxxLarge)
+                        .foregroundStyle(.tint)
                         .padding(10)
                 }
             }
