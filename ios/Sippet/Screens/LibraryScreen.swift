@@ -1,38 +1,35 @@
 import SippetCore
 import SwiftUI
 
-enum SidebarItem: Hashable {
-    case all, collection(String), smart(String), tag(String), trash
-}
-
-private struct Renaming: Identifiable {
-    enum Kind { case tag, collection }
-    let kind: Kind
-    let name: String
-    var id: String { "\(kind)-\(name)" }
-}
-
+/// Sidebar | a stack rooted at the sidebar's choice. Recipes and folders push onto the stack with a zoom out of
+/// their tile. iPhone collapses the sidebar into the same stack.
 struct LibraryScreen: View {
     let model: AppModel
     @State private var selection: SidebarItem? = .all
-    @State private var recipeId: String?
+    @State private var path: [LibraryRoute] = []
     @State private var showSettings = false
-    @State private var renaming: Renaming?
+    @State private var renaming: OrganizeTarget?
     @State private var newName = ""
-    @State private var deleting: Renaming?
+    @State private var deleting: OrganizeTarget?
     @State private var columns: NavigationSplitViewVisibility = .automatic
     @State private var shownNotice: ChangeNotice?
+    @Namespace private var zoom
 
     private var store: LibraryStore { model.store }
 
     var body: some View {
         NavigationSplitView(columnVisibility: $columns) {
-            sidebar
-        } content: {
-            content
+            // Choosing in the sidebar starts the stack over; a rename keeps it.
+            LibrarySidebar(model: model, selection: Binding(get: { selection }, set: { selection = $0; path = [] }), showSettings: $showSettings)
         } detail: {
-            detail
+            NavigationStack(path: $path) {
+                root
+                    .navigationDestination(for: LibraryRoute.self, destination: destination)
+            }
         }
+        .environment(\.zoomNamespace, zoom)
+        .environment(\.organize, OrganizeActions(rename: startRename, delete: { deleting = $0 }))
+        .environment(\.open) { path.append($0) }
         .overlay(alignment: .top) { banners }
         .sheet(isPresented: $showSettings) { SettingsScreen(model: model) }
         .alert(renamePrompt, isPresented: Binding(get: { renaming != nil }, set: { if !$0 { renaming = nil } })) {
@@ -58,140 +55,110 @@ struct LibraryScreen: View {
             if !Task.isCancelled { shownNotice = nil }
         }
         #if DEBUG
-        .task { debugSelect() }
+        .task { await debugSelect() }
+        .task { await DemoChurn.run(store: store) }
         #endif
     }
 
     #if DEBUG
-    /// `-SippetSelect sidebar|trash|collection:<name>|smart:<name>|tag:<name>`, `-SippetSettings`. Screenshots only.
-    private func debugSelect() {
+    /// `-SippetSelect sidebar|trash|collection:<name>|smart:<name>|tag:<name>`, `-SippetSettings`, `-SippetColumns` (iPad: sidebar shown),
+    /// `-SippetPush recipe:<title prefix>|folder:<name>` (after `-SippetPushDelay <s>`, default 0.6; `-SippetPop <s>`
+    /// pops again after that long). Screenshots and recordings only.
+    private func debugSelect() async {
         let args = ProcessInfo.processInfo.arguments
+        func value(_ flag: String) -> String? {
+            args.firstIndex(of: flag).flatMap { $0 + 1 < args.count ? args[$0 + 1] : nil }
+        }
         if args.contains("-SippetSettings") { showSettings = true }
-        guard let at = args.firstIndex(of: "-SippetSelect"), at + 1 < args.count else { return }
-        let value = args[at + 1]
-        let name = value.split(separator: ":", maxSplits: 1).dropFirst().first.map(String.init) ?? ""
-        switch value.split(separator: ":").first {
-        case "sidebar": selection = nil
-        case "trash": selection = .trash
-        case "collection": selection = .collection(name)
-        case "smart": selection = .smart(name)
-        case "tag": selection = .tag(name)
-        default: break
+        if args.contains("-SippetColumns") { columns = .all }
+        if let select = value("-SippetSelect") {
+            let name = select.split(separator: ":", maxSplits: 1).dropFirst().first.map(String.init) ?? ""
+            switch select.split(separator: ":").first {
+            case "sidebar": selection = nil
+            case "trash": selection = .trash
+            case "collection": selection = .collection(name)
+            case "smart": selection = .smart(name)
+            case "tag": selection = .tag(name)
+            default: break
+            }
+        }
+        guard let push = value("-SippetPush") else { return }
+        try? await Task.sleep(for: .seconds(Double(value("-SippetPushDelay") ?? "") ?? 0.6))
+        let name = push.split(separator: ":", maxSplits: 1).dropFirst().first.map(String.init) ?? ""
+        if push.hasPrefix("folder:") {
+            let item: SidebarItem = store.organization.smartCollections.contains { $0.name == name } ? .smart(name) : .collection(name)
+            path.append(.list(item))
+        } else if let recipe = store.library.first(where: { $0.title.lowercased().hasPrefix(name.lowercased()) }) {
+            path.append(.recipe(recipe.id, zoom: "\((selection ?? .all).key)/\(recipe.id)"))
+        }
+        if let pop = Double(value("-SippetPop") ?? "") {
+            try? await Task.sleep(for: .seconds(pop))
+            path.removeAll()
         }
     }
     #endif
 
-    // MARK: sidebar
+    // MARK: the stack
 
-    private var sidebar: some View {
-        let organization = store.organization
-        return List(selection: $selection) {
-            Label("All recipes", systemImage: "book").tag(SidebarItem.all)
-            if !organization.collections.isEmpty {
-                Section("Collections") {
-                    ForEach(organization.collections, id: \.name) { collection in
-                        Label(collection.name, systemImage: "folder").tag(SidebarItem.collection(collection.name))
-                            .contextMenu {
-                                Button("Rename…", systemImage: "pencil") { startRename(.collection, collection.name) }
-                                Button("Delete", systemImage: "trash", role: .destructive) { deleting = Renaming(kind: .collection, name: collection.name) }
-                            }
-                    }
-                }
-            }
-            if !organization.smartCollections.isEmpty {
-                Section("Smart collections") {
-                    ForEach(organization.smartCollections, id: \.name) { smart in
-                        Label(smart.name, systemImage: "gearshape.2").tag(SidebarItem.smart(smart.name))
-                    }
-                }
-            }
-            if !organization.tags.isEmpty {
-                Section("Tags") {
-                    ForEach(organization.tags, id: \.name) { tag in
-                        Label(tag.name, systemImage: "tag").tag(SidebarItem.tag(tag.name))
-                            .contextMenu {
-                                Button("Rename…", systemImage: "pencil") { startRename(.tag, tag.name) }
-                                Button("Delete", systemImage: "trash", role: .destructive) { deleting = Renaming(kind: .tag, name: tag.name) }
-                            }
-                    }
-                }
-            }
-            Section {
-                Label("Trash", systemImage: "trash").tag(SidebarItem.trash)
-                    .badge(store.trash.count)
-                Button("Settings", systemImage: "gearshape") { showSettings = true }
-                    .foregroundStyle(.primary)
-            }
+    @ViewBuilder private var root: some View {
+        switch selection ?? .all {
+        case .trash: TrashScreen(model: model)
+        case let item: RecipeList(model: model, item: item)
         }
-        .navigationTitle("Sippet")
     }
+
+    @ViewBuilder private func destination(_ route: LibraryRoute) -> some View {
+        switch route {
+        case .recipe(let id, let source):
+            recipePage(id).zoomed(from: source, in: zoom)
+        case .list(let item):
+            RecipeList(model: model, item: item).zoomed(from: LibraryRoute.folderZoom(item), in: zoom)
+        }
+    }
+
+    @ViewBuilder private func recipePage(_ id: String) -> some View {
+        if let recipe = store.recipes[id], recipe.trashedAt == nil {
+            RecipeScreen(recipe: recipe).id(recipe.id)
+        } else if store.recipes[id] != nil {
+            ContentUnavailableView("In the trash", systemImage: "trash", description: Text("Restore it from the trash to read it again."))
+        } else {
+            ContentUnavailableView("This recipe is gone.", systemImage: "fork.knife")
+        }
+    }
+
+    // MARK: rename and delete (library 6, 8, 12)
 
     private var renamePrompt: LocalizedStringKey {
         renaming?.kind == .collection ? "Rename collection" : "Rename tag"
     }
 
-    private func startRename(_ kind: Renaming.Kind, _ name: String) {
+    private func startRename(_ target: OrganizeTarget) {
         guard !model.isOffline else { model.alertMessage = String(localized: "Offline"); return }
-        newName = name
-        renaming = Renaming(kind: kind, name: name)
+        newName = target.name
+        renaming = target
     }
 
     private func rename() {
-        guard let item = renaming, !newName.isEmpty, newName != item.name else { return }
-        let edit: LibraryEdit = item.kind == .tag
-            ? .renameTag(tag: item.name, to: newName)
-            : .renameCollection(collection: item.name, to: newName)
+        let name = newName.trimmingCharacters(in: .whitespaces)
+        guard let target = renaming, !name.isEmpty, name != target.name else { return }
+        let edit: LibraryEdit = target.kind == .tag
+            ? .renameTag(tag: target.name, to: name)
+            : .renameCollection(collection: target.name, to: name)
+        let renamed = OrganizeTarget(kind: target.kind, name: name).item
         Task {
-            if await model.edit([edit]), selection == (item.kind == .tag ? .tag(item.name) : .collection(item.name)) {
-                selection = item.kind == .tag ? .tag(newName) : .collection(newName)
-            }
+            guard await model.edit([edit]) else { return }
+            if selection == target.item { selection = renamed }
+            path = path.map { $0 == .list(target.item) ? .list(renamed) : $0 }
         }
     }
 
-    private func delete(_ item: Renaming) {
+    private func delete(_ target: OrganizeTarget) {
         guard !model.isOffline else { model.alertMessage = String(localized: "Offline"); return }
-        let edit: LibraryEdit = item.kind == .tag ? .deleteTag(tag: item.name) : .deleteCollection(collection: item.name)
+        let edit: LibraryEdit = target.kind == .tag ? .deleteTag(tag: target.name) : .deleteCollection(collection: target.name)
         Task {
-            if await model.edit([edit]) { selection = .all }
-        }
-    }
-
-    // MARK: content and detail
-
-    @ViewBuilder private var content: some View {
-        switch selection ?? .all {
-        case .all:
-            RecipeList(
-                model: model, title: "All recipes", recipes: store.library, collection: nil, selection: $recipeId,
-                folders: folders, openFolder: { selection = $0 })
-        case .collection(let name):
-            RecipeList(model: model, title: LocalizedStringKey(name), recipes: store.recipes(inCollection: name), collection: name, selection: $recipeId)
-        case .smart(let name):
-            if let smart = store.organization.smartCollections.first(where: { $0.name == name }) {
-                RecipeList(model: model, title: LocalizedStringKey(name), recipes: store.recipes(matching: smart), collection: nil, selection: $recipeId)
-            }
-        case .tag(let name):
-            RecipeList(model: model, title: LocalizedStringKey(name), recipes: store.recipes(taggedWith: name), collection: nil, selection: $recipeId)
-        case .trash:
-            TrashScreen(model: model)
-        }
-    }
-
-    /// Collections, then smart collections, each with its first recipes and its count.
-    private var folders: [Folder] {
-        store.organization.collections.map { collection in
-            let recipes = store.recipes(inCollection: collection.name)
-            return Folder(item: .collection(collection.name), name: collection.name, recipeIds: recipes.map(\.id), isSmart: false)
-        } + store.organization.smartCollections.map { smart in
-            Folder(item: .smart(smart.name), name: smart.name, recipeIds: store.recipes(matching: smart).map(\.id), isSmart: true)
-        }
-    }
-
-    @ViewBuilder private var detail: some View {
-        if let recipeId, let recipe = store.recipes[recipeId], recipe.trashedAt == nil {
-            NavigationStack { RecipeScreen(recipe: recipe).id(recipe.id) }
-        } else {
-            ContentUnavailableView("No recipe selected", systemImage: "fork.knife")
+            guard await model.edit([edit]) else { return }
+            if selection == target.item { selection = .all }
+            if let at = path.firstIndex(of: .list(target.item)) { path.removeSubrange(at...) }
         }
     }
 
@@ -212,7 +179,9 @@ struct LibraryScreen: View {
         VStack(spacing: 8) {
             if let notice = shownNotice {
                 Button {
-                    recipeId = notice.recipeIds.count == 1 ? notice.recipeIds.first : recipeId
+                    if notice.recipeIds.count == 1, let id = notice.recipeIds.first {
+                        path.append(.recipe(id, zoom: nil))
+                    }
                     shownNotice = nil
                 } label: {
                     Label(noticeText(notice), systemImage: "sparkles")
@@ -238,186 +207,13 @@ struct LibraryScreen: View {
     }
 }
 
-// MARK: list
-
-struct RecipeList: View {
-    let model: AppModel
-    let title: LocalizedStringKey
-    let recipes: [DeviceRecipe]
-    let collection: String?
-    @Binding var selection: String?
-    /// All recipes: the collections as folder tiles above the recipes.
-    var folders: [Folder] = []
-    var openFolder: (SidebarItem) -> Void = { _ in }
-    @State private var search = ""
-    @State private var tagsFor: DeviceRecipe?
-    @State private var collectionsFor: DeviceRecipe?
-
-    private var canReorder: Bool { collection != nil && search.isEmpty && !model.isOffline }
-
-    /// The dragged order, kept on screen until a catch-up brings the server's order.
-    @State private var pendingOrder: [String]?
-
-    private var serverOrder: [String] {
-        model.store.organization.collections.first { $0.name == collection }?.recipeIds ?? []
-    }
-
-    private var shown: [DeviceRecipe] {
-        guard search.trimmingCharacters(in: .whitespaces).isEmpty else { return model.store.search(search, in: recipes) }
-        guard let pendingOrder else { return recipes }
-        let byId = Dictionary(uniqueKeysWithValues: recipes.map { ($0.id, $0) })
-        return pendingOrder.compactMap { byId[$0] } + recipes.filter { !pendingOrder.contains($0.id) }
-    }
-
-    var body: some View {
-        ScrollViewReader { proxy in
-            list
-            #if DEBUG
-            .task {
-                guard DebugScroll.anchor != nil, let last = shown.last else { return }
-                try? await Task.sleep(for: .milliseconds(600))
-                proxy.scrollTo(last.id, anchor: .bottom)
-            }
-            #endif
-        }
-    }
-
-    private var showsFolders: Bool { !folders.isEmpty && search.isEmpty }
-
-    private var list: some View {
-        List(selection: $selection) {
-            if showsFolders {
-                Section {
-                    FolderGrid(folders: folders, open: openFolder)
-                        .listRowInsets(EdgeInsets(top: 4, leading: 16, bottom: 12, trailing: 16))
-                        .listRowSeparator(.hidden)
-                } header: {
-                    Text("Collections")
-                }
-            }
-            Section {
-                recipeRows
-            } header: {
-                if showsFolders { Text("Recipes") }
-            }
-        }
-        .listStyle(.plain)
-        .overlay {
-            if shown.isEmpty {
-                if search.isEmpty {
-                    ContentUnavailableView("No recipes", systemImage: "book.closed")
-                } else {
-                    ContentUnavailableView.search(text: search)
-                }
-            }
-        }
-        .onChange(of: serverOrder) { pendingOrder = nil }
-        .onChange(of: collection) { pendingOrder = nil }
-        .navigationTitle(title)
-        .searchable(text: $search, prompt: "Search")
-        .toolbar {
-            if collection != nil, !model.isOffline { EditButton() }
-        }
-        .sheet(item: $tagsFor) { recipe in TagsSheet(model: model, recipe: recipe) }
-        .sheet(item: $collectionsFor) { recipe in CollectionSheet(model: model, recipe: recipe) }
-        #if DEBUG
-        .task {
-            // `-SippetSheet tags|collections` opens the sheet for the first recipe. Screenshots only.
-            let args = ProcessInfo.processInfo.arguments
-            guard let at = args.firstIndex(of: "-SippetSheet"), at + 1 < args.count, let first = shown.first else { return }
-            if args[at + 1] == "tags" { tagsFor = first } else { collectionsFor = first }
-        }
-        #endif
-    }
-
-    private var recipeRows: some View {
-        ForEach(shown) { recipe in
-            row(recipe)
-                .tag(recipe.id)
-                .swipeActions(edge: .trailing) {
-                    Button("To the trash", systemImage: "trash", role: .destructive) {
-                        Task { await model.trash([recipe.id]) }
-                    }
-                    .disabled(model.isOffline)
-                }
-                .contextMenu {
-                    Button("Tags…", systemImage: "tag") { tagsFor = recipe }
-                        .disabled(model.isOffline)
-                    Button("To collection…", systemImage: "folder.badge.plus") { collectionsFor = recipe }
-                        .disabled(model.isOffline)
-                }
-        }
-        .onMove(perform: canReorder ? { move(from: $0, to: $1) } : nil)
-    }
-
-    /// The recipe's art tile, the title, then time and tags with their symbols.
-    /// At accessibility sizes the tile sits above the text and time and tags stack, so words don't break.
-    private func row(_ recipe: DeviceRecipe) -> some View {
-        RecipeRow(recipe: recipe, tags: model.store.tags(of: recipe.id))
-    }
-}
-
-private struct RecipeRow: View {
-    let recipe: DeviceRecipe
-    let tags: [String]
-    @Environment(\.dynamicTypeSize) private var typeSize
-    @ScaledMetric(relativeTo: .headline) private var tile: CGFloat = 48
-
-    var body: some View {
-        let large = typeSize.isAccessibilitySize
-        let layout = large
-            ? AnyLayout(VStackLayout(alignment: .leading, spacing: 10))
-            : AnyLayout(HStackLayout(alignment: .center, spacing: 14))
-        layout {
-            RecipeArtTile(id: recipe.id, size: min(tile, 64))
-            VStack(alignment: .leading, spacing: 3) {
-                Text(recipe.title)
-                    .font(.rounded(.headline))
-                if recipe.totalMinutes != nil || !tags.isEmpty {
-                    let meta = large
-                        ? AnyLayout(VStackLayout(alignment: .leading, spacing: 2))
-                        : AnyLayout(HStackLayout(spacing: 12))
-                    meta {
-                        if let minutes = recipe.totalMinutes {
-                            Label(Format.minutes(minutes), systemImage: "clock")
-                                .fixedSize()
-                        }
-                        if !tags.isEmpty {
-                            Label(tags.joined(separator: ", "), systemImage: "tag")
-                                .lineLimit(large ? 3 : 1)
-                        }
-                    }
-                    .font(.subheadline)
-                    .foregroundStyle(.secondary)
-                    .labelStyle(SmallIconLabelStyle())
-                }
-            }
-        }
-        .padding(.vertical, 4)
-        .accessibilityElement(children: .combine)
-    }
-}
-
-private struct SmallIconLabelStyle: LabelStyle {
-    func makeBody(configuration: Configuration) -> some View {
-        HStack(alignment: .firstTextBaseline, spacing: 4) {
-            configuration.icon.imageScale(.small).foregroundStyle(.tertiary)
-            configuration.title
-        }
-    }
-}
-
-extension RecipeList {
-
-    /// reorder_collection with the full order (library rule 11).
-    private func move(from offsets: IndexSet, to destination: Int) {
-        guard let collection else { return }
-        var ids = shown.map(\.id)
-        ids.move(fromOffsets: offsets, toOffset: destination)
-        let rest = serverOrder.filter { !ids.contains($0) }
-        pendingOrder = ids
-        Task {
-            if await !model.edit([.reorderCollection(collection: collection, recipeIds: ids + rest)]) { pendingOrder = nil }
+private extension View {
+    /// The zoom out of the tile named `source`; a plain push without one.
+    @ViewBuilder func zoomed(from source: String?, in namespace: Namespace.ID) -> some View {
+        if let source {
+            navigationTransition(.zoom(sourceID: source, in: namespace))
+        } else {
+            self
         }
     }
 }

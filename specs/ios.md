@@ -189,15 +189,19 @@ Sign out (Settings): POST revocation_endpoint (refresh token, best effort), dele
 ```text
 SippetApp
 ├─ SignInScreen                    signed out
-└─ LibraryScreen                   NavigationSplitView: sidebar | list | RecipeScreen; iPhone collapses to a stack
-   ├─ sidebar     Alle Rezepte · Sammlungen · Intelligente Sammlungen · Tags · Papierkorb (count) · Einstellungen
-   ├─ list        title, total time, tags; .searchable over the current list (cooking 9)
-   │              swipe → in den Papierkorb; context menu → Tags…, Zu Sammlung…
+└─ LibraryScreen                   NavigationSplitView: sidebar | a NavigationStack rooted at the sidebar's choice; iPhone collapses
+   │                               to one stack. A recipe or folder tile pushes with a zoom out of its art (navigationTransition(.zoom))
+   ├─ sidebar     Alle Rezepte · Sammlungen (art mosaic) · Intelligente Sammlungen (filter symbol) · Tags (chips in the
+   │              recipe art's colours) · Papierkorb · Einstellungen; each with its count
+   ├─ list        art tile, title, total time, tags; .searchable over the current list (cooking 9), tags as search tokens
+   │              Alle Rezepte: collections and smart collections as folder tiles above the recipes
+   │              swipe → in den Papierkorb, Tags…; context menu → Tags…, Zu Sammlung…, aus der Sammlung entfernen (library 10)
    │              in a collection: EditButton reorders → reorder_collection with the full order (library 11)
+   │              catch-ups, trashing, restoring, and moves slide rows in and out
    ├─ TagsSheet          toggles per tag + new tag → one batch of tag/untag edits (library 1, 3–5)
    ├─ CollectionSheet    toggles per collection + new collection → add_to_collection / remove_from_collection / create_collection
    ├─ TrashScreen        "wird am 24. Nov. gelöscht"; swipe → wiederherstellen (revising 7, 8)
-   ├─ tag and collection rows: context menu → umbenennen, löschen (library 6, 8, 12); "name taken" shows the refusal's message
+   ├─ tag chips, collection rows and tiles: context menu → umbenennen, löschen (library 6, 8, 12); "name taken" shows the refusal's message
    └─ RecipeScreen                one scroll, no tab picker (see Look)
       ├─ header      the recipe's art on top; large title; a row of chips: yield stepper "12 Stück · Springform 26 cm"
       │              (cooking 6), total time, units menu: wie geschrieben | metrisch | US (cooking 8); source link;
@@ -228,7 +232,7 @@ SettingsScreen     units default, device name, "Konto verwalten" (opens <server>
 banner             SyncEngine.lastNotice, 4 s (sync 4); "Offline" pill while offline (sync 5)
 ```
 
-- Look: like Crouton. Calm, typographic, much white space, content over chrome. Large titles; amounts bold. No grouped-list boxes on the recipe and cook mode: plain backgrounds, hairline dividers, generous line height. One accent (paprika, account-ui.md) for the primary action, step numbers, and checks. SF Symbols, Dynamic Type up to accessibility sizes, dark mode. Library, sidebar, sheets, and settings stay standard SwiftUI.
+- Look: like Crouton. Calm, typographic, much white space, content over chrome. Large titles; amounts bold. No grouped-list boxes on the recipe and cook mode: plain backgrounds, hairline dividers, generous line height. One accent (paprika, account-ui.md) for the primary action, step numbers, and checks. SF Symbols, Dynamic Type up to accessibility sizes, dark mode. Library, sidebar, sheets, and settings stay standard SwiftUI lists, given colour by the recipe art: art tiles, collection mosaics, tag chips.
 - Cook mode is for a phone propped on the counter at arm's length: the step text is the largest thing on screen, targets are at least 60 pt, and nothing needs precise taps.
 - Scaling and units are view state per recipe screen. The units default comes from Settings.
 - Refusals (`DeviceAPIError.refused`) show each problem's `message` in an alert. The app has no "fix" UI; the cook changes the input.
