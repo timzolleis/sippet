@@ -17,7 +17,7 @@ struct CookModeScreen: View {
     @Binding var checked: Set<String>
     @Environment(\.dismiss) private var dismiss
     @State private var index: Int
-    @State private var timers: [String: Date] = [:]
+    @Environment(\.cookTimers) private var cookTimers
     @State private var showAll = false
 
     init(recipe: DeviceRecipe, units: MeasurementSystem, checked: Binding<Set<String>> = .constant([]), startAt: Int = 0) {
@@ -170,7 +170,7 @@ struct CookModeScreen: View {
                 RunningTimer(end: end, total: duration.minutes * 60) { cancelTimer(step) }
             } else {
                 Button {
-                    Task { await startTimer(step, duration) }
+                    startTimer(step)
                 } label: {
                     Label(Format.duration(duration), systemImage: "timer")
                         .font(.system(.title2, design: .rounded, weight: .semibold))
@@ -226,36 +226,27 @@ struct CookModeScreen: View {
         }
     }
 
+    /// stepKey → end of this recipe's running timers; the system holds them (CookTimers).
+    private var timers: [String: Date] { cookTimers.running(in: recipe.id) }
+
     /// Timers of the other pages; the current page shows its own.
     private var runningSteps: [(offset: Int, element: Step)] {
         Array(recipe.steps.enumerated()).filter { timers[$0.element.key] != nil && $0.offset != index }
     }
 
-    private func startTimer(_ step: Step, _ duration: StepDuration) async {
-        let seconds = duration.minutes * 60
-        withAnimation { timers[step.key] = Date.now.addingTimeInterval(seconds) }
-        let center = UNUserNotificationCenter.current()
-        _ = try? await center.requestAuthorization(options: [.alert, .sound])
-        let content = UNMutableNotificationContent()
-        content.title = recipe.title
-        content.body = stepText(step)
-        content.sound = .default
-        let request = UNNotificationRequest(
-            identifier: "timer-\(recipe.id)-\(step.key)", content: content,
-            trigger: UNTimeIntervalNotificationTrigger(timeInterval: max(1, seconds), repeats: false))
-        try? await center.add(request)
+    private func startTimer(_ step: Step) {
+        withAnimation { cookTimers.start(step, of: recipe) }
     }
 
     private func cancelTimer(_ step: Step) {
-        withAnimation { timers[step.key] = nil }
-        UNUserNotificationCenter.current().removePendingNotificationRequests(withIdentifiers: ["timer-\(recipe.id)-\(step.key)"])
+        withAnimation { cookTimers.cancel(step, of: recipe) }
     }
 
     #if DEBUG
     /// Launch argument -SippetTimer: the opened step's timer has been running for 12 min 34 s (screenshots).
     private func startDebugTimers() {
         let step = recipe.steps[index]
-        if let d = step.duration { timers[step.key] = Date.now.addingTimeInterval(d.minutes * 60 - 754) }
+        cookTimers.start(step, of: recipe, elapsed: 754)
     }
     #endif
 }

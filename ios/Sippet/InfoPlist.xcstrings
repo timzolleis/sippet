@@ -1,0 +1,22 @@
+{
+  "sourceLanguage": "en",
+  "strings": {
+    "NSAlarmKitUsageDescription": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sippet lässt deine Koch-Timer klingeln wie die Uhr-App, auch wenn Sippet geschlossen ist."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sippet rings your cooking timers like the Clock app, even when it is closed."
+          }
+        }
+      }
+    }
+  },
+  "version": "1.0"
+}
