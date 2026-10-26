@@ -60,19 +60,10 @@ struct CookModeScreen: View {
 
     // MARK: chrome
 
-    /// A thin bar, one segment per step, and close. Nothing else at the top.
+    /// "You are here": the steps as a thin strip in the recipe's lanes (a tap jumps), and close. Nothing else at the top.
     private var topBar: some View {
         HStack(spacing: 12) {
-            HStack(spacing: 3) {
-                ForEach(0..<recipe.steps.count, id: \.self) { i in
-                    Capsule()
-                        .fill(i <= index ? AnyShapeStyle(.tint) : AnyShapeStyle(Color(.systemFill)))
-                        .frame(height: 4)
-                }
-            }
-            .animation(.easeOut(duration: 0.2), value: index)
-            .accessibilityElement()
-            .accessibilityLabel(Text("Step \(index + 1) of \(recipe.steps.count)"))
+            CookFlowStrip(recipe: recipe, index: $index)
             Button("Close", systemImage: "xmark") { dismiss() }
                 .labelStyle(.iconOnly)
                 .font(.title3.weight(.medium))
