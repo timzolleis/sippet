@@ -43,6 +43,7 @@ struct CookModeScreen: View {
             .tabViewStyle(.page(indexDisplayMode: .never))
             bottomBar
         }
+        .fontDesign(.rounded)
         .background(Color(.systemBackground))
         .sheet(isPresented: $showAll) {
             AllIngredientsSheet(recipe: recipe, units: units, checked: $checked)
@@ -66,7 +67,7 @@ struct CookModeScreen: View {
                 ForEach(0..<recipe.steps.count, id: \.self) { i in
                     Capsule()
                         .fill(i <= index ? AnyShapeStyle(.tint) : AnyShapeStyle(Color(.systemFill)))
-                        .frame(height: 3)
+                        .frame(height: 4)
                 }
             }
             .animation(.easeOut(duration: 0.2), value: index)
@@ -83,17 +84,21 @@ struct CookModeScreen: View {
         .padding(.trailing, 6)
     }
 
-    /// A step a later step waits for, from the step after it until the step that waits (cooking 5): a quiet line, no box.
+    /// A step a later step waits for, from the step after it until the step that waits (cooking 5): a soft accent banner.
     private var reminder: some View {
         let steps = reminders(at: index)
-        return VStack(alignment: .leading, spacing: 6) {
+        return VStack(alignment: .leading, spacing: 8) {
             ForEach(steps, id: \.key) { step in
-                HStack(alignment: .firstTextBaseline, spacing: 8) {
-                    Image(systemName: "bell.fill").imageScale(.small).foregroundStyle(.tint)
-                    Text(stepText(step)).foregroundStyle(.secondary)
+                HStack(alignment: .firstTextBaseline, spacing: 10) {
+                    Image(systemName: "bell.badge.fill").foregroundStyle(.tint)
+                    Text(stepText(step)).foregroundStyle(.primary.opacity(0.8))
                 }
                 .font(.subheadline.weight(.medium))
                 .fixedSize(horizontal: false, vertical: true)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(.horizontal, 14)
+                .padding(.vertical, 10)
+                .background(.tint.opacity(0.1), in: .rect(cornerRadius: 14))
                 .transition(.opacity)
             }
         }
@@ -121,14 +126,14 @@ struct CookModeScreen: View {
                 Button {
                     showAll = true
                 } label: {
-                    Label("All ingredients", systemImage: "list.bullet")
-                        .font(.body.weight(.medium))
-                        .foregroundStyle(.secondary)
-                        .padding(.horizontal, 24)
-                        .frame(minHeight: 60)
-                        .contentShape(.rect)
+                    Label("All ingredients", systemImage: "checklist")
+                        .font(.body.weight(.semibold))
+                        .padding(.horizontal, 8)
+                        .frame(minHeight: 46) // + the glass padding: a 60 pt target
+                        .contentShape(.capsule)
                 }
-                .buttonStyle(.plain)
+                .buttonStyle(.glass)
+                .padding(.leading, 24)
                 Spacer()
                 if index == recipe.steps.count - 1 {
                     Button { dismiss() } label: {
@@ -143,6 +148,7 @@ struct CookModeScreen: View {
                     .transition(.opacity)
                 }
             }
+            .padding(.bottom, 4)
             .animation(.easeOut(duration: 0.2), value: index)
         }
     }
@@ -272,7 +278,7 @@ private struct CookPage<Timer: View>: View {
                 let side = geo.size.width > geo.size.height && geo.size.width >= 560 && hasIngredients
                 ScrollView {
                     VStack(alignment: .leading, spacing: 28) {
-                        Eyebrow(eyebrow)
+                        stepBadge
                         if side {
                             HStack(alignment: .top, spacing: 32) {
                                 // As wide as the ingredients need, at most half; then they wrap.
@@ -323,25 +329,44 @@ private struct CookPage<Timer: View>: View {
             // The timer below shows the duration.
             let facts = stepFacts(step, in: recipe, units: units, duration: false)
             if !facts.isEmpty {
-                FactRow(facts: facts, spacing: 20).font(.title3)
+                FactRow(facts: facts, spacing: 10).font(.title3)
             }
             if let made = madeLine {
-                Text(made).font(.title3).foregroundStyle(.secondary)
+                Label(made, systemImage: "arrow.turn.down.right")
+                    .font(.title3)
+                    .foregroundStyle(.secondary)
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
     }
 
-    private var eyebrow: Text {
+    /// "Step 6 of 10" in an accent capsule, the section after it.
+    private var stepBadge: some View {
         let section = step.section.flatMap { key in recipe.sections.first { $0.key == key }?.name }
-        return section.map { Text("Step \(number) of \(count) · \($0)") } ?? Text("Step \(number) of \(count)")
+        return Flow(spacing: 10, lineSpacing: 8) {
+            Text("Step \(number) of \(count)")
+                .foregroundStyle(.tint)
+                .padding(.horizontal, 12)
+                .padding(.vertical, 6)
+                .background(.tint.opacity(0.12), in: .capsule)
+            if let section {
+                Text(verbatim: section)
+                    .textCase(.uppercase)
+                    .tracking(0.9)
+                    .foregroundStyle(.secondary)
+                    .padding(.vertical, 6)
+            }
+        }
+        .font(.subheadline.weight(.semibold))
+        .monospacedDigit()
+        .accessibilityElement(children: .combine)
     }
 
     /// A sentence reads at title size; a bare label ("backen") is short enough to go larger.
     private var textFont: Font {
         stepText(step).count > 48
-            ? .system(.title, weight: .medium)
-            : .system(.largeTitle, weight: .semibold)
+            ? .rounded(.title, weight: .medium)
+            : .rounded(.largeTitle, weight: .semibold)
     }
 
     /// The ingredients this step uses, then what it takes from earlier steps. Plain steps (no flow) list nothing.
@@ -349,29 +374,26 @@ private struct CookPage<Timer: View>: View {
         let used = (step.uses ?? []).compactMap { key in recipe.ingredients.first { $0.key == key } }
         let taken = takenParts(step, in: recipe, units: units)
         if !used.isEmpty || !taken.isEmpty {
-            let rows = used.map { ($0.key, $0.amount.map { a in Format.amount(a, system: units) }, ingredientText($0), false) }
-                + taken.map { ($0.name, $0.amount, Text($0.name), true) }
+            let rows = used.map { ($0.key, $0.amount.map { a in Format.amount(a, system: units) }, ingredientText($0)) }
+                + taken.map { ($0.name, $0.amount, Text($0.name)) }
             if typeSize.isAccessibilitySize {
                 VStack(alignment: .leading, spacing: 12) {
-                    ForEach(rows, id: \.0) { _, amount, text, isTaken in
+                    ForEach(rows, id: \.0) { _, amount, text in
                         VStack(alignment: .leading, spacing: 0) {
                             if let amount { StackedAmount(amount: amount) }
                             text
                         }
-                        .overlay(alignment: .topLeading) { if isTaken { hangingPlus } }
                     }
                 }
                 .font(.title3)
             } else {
                 Grid(alignment: .leadingFirstTextBaseline, horizontalSpacing: 18, verticalSpacing: 8) {
-                    ForEach(rows, id: \.0) { _, amount, text, isTaken in
+                    ForEach(rows, id: \.0) { _, amount, text in
                         GridRow {
-                            // "+" hangs in the margin so the amounts stay in one column.
                             Group {
                                 if let amount { StackedAmount(amount: amount).monospacedDigit() } else { Color.clear.frame(width: 0, height: 0) }
                             }
                             .fixedSize()
-                            .overlay(alignment: .topLeading) { if isTaken { hangingPlus } }
                             text.fixedSize(horizontal: false, vertical: true)
                         }
                     }
@@ -379,14 +401,6 @@ private struct CookPage<Timer: View>: View {
                 .font(.title3)
             }
         }
-    }
-
-    /// "+" ends just left of the amount column, whatever its size.
-    private var hangingPlus: some View {
-        Text(verbatim: "+").fontWeight(.bold).foregroundStyle(.tint).accessibilityHidden(true)
-            .fixedSize()
-            .frame(width: 0, alignment: .trailing)
-            .offset(x: -5)
     }
 
     /// "Ergibt 750 g Teig: 500 g Boden, 250 g Zupfteig".
@@ -420,7 +434,7 @@ private struct RunningTimer: View {
                             .foregroundStyle(.tint)
                     }
                 }
-                .font(.system(.largeTitle, design: .rounded, weight: .semibold))
+                .font(.rounded(.largeTitle, weight: .semibold))
                 .monospacedDigit()
                 .padding(.leading, 24)
                 Spacer(minLength: 8)
@@ -436,8 +450,8 @@ private struct RunningTimer: View {
                 GeometryReader { geo in
                     let gone = total > 0 ? min(max(1 - left / total, 0), 1) : 1
                     ZStack(alignment: .leading) {
-                        Color(.secondarySystemFill)
-                        Color(.systemFill).frame(width: geo.size.width * gone)
+                        Rectangle().fill(.tint.opacity(0.1))
+                        Rectangle().fill(.tint.opacity(0.18)).frame(width: geo.size.width * gone)
                     }
                 }
                 .clipShape(.capsule)

@@ -31,6 +31,7 @@ struct RecipeScreen: View {
                 narrow(scaled)
             }
         }
+        .fontDesign(.rounded)
         .navigationTitle("")
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
@@ -127,45 +128,43 @@ struct RecipeScreen: View {
 
     /// In the narrow left column the title steps down a size, so long German words don't break.
     private func header(wide: Bool) -> some View {
-        VStack(alignment: .leading, spacing: 14) {
+        VStack(alignment: .leading, spacing: 16) {
             Text(recipe.title)
-                .font(.serif(wide ? .title : .largeTitle, weight: .bold))
+                .font(.rounded(wide ? .title : .largeTitle, weight: .bold))
                 .lineSpacing(-2)
                 .fixedSize(horizontal: false, vertical: true)
                 .accessibilityAddTraits(.isHeader)
             meta
-            Flow(spacing: 8, lineSpacing: 8) {
+            Flow(spacing: 10, lineSpacing: 10) {
                 yieldStepper
                 unitsMenu
             }
-            .padding(.top, 4)
+            .padding(.top, 2)
         }
     }
 
-    /// Total time, the vessel, the source: one quiet line.
+    /// Total time, the vessel, the source: each a symbol on a disc and its value.
     @ViewBuilder private var meta: some View {
         let minutes = recipe.totalMinutes.map(Format.minutes)
         let vessel = recipe.yield.vessel.map { key in recipe.equipment.first { $0.key == key }?.name ?? key }
         if minutes != nil || vessel != nil || recipe.source != nil {
-            Flow(spacing: 16, lineSpacing: 4) {
+            Flow(spacing: 18, lineSpacing: 10) {
                 if let minutes {
                     Label(minutes, systemImage: "clock")
                 }
                 if let vessel {
-                    Label(vessel, systemImage: "circle.dashed")
+                    Label(vessel, systemImage: "circle.circle")
                 }
                 if let source = recipe.source {
                     Link(destination: source) {
                         Label(source.host()?.replacingOccurrences(of: "www.", with: "") ?? String(localized: "Source"),
-                              systemImage: "arrow.up.right")
-                            .labelStyle(TrailingIconLabelStyle())
+                              systemImage: "safari")
                     }
-                    .foregroundStyle(.secondary)
                 }
             }
-            .font(.subheadline)
+            .font(.subheadline.weight(.medium))
             .foregroundStyle(.secondary)
-            .labelStyle(QuietIconLabelStyle())
+            .labelStyle(BadgeLabelStyle())
         }
     }
 
@@ -177,10 +176,10 @@ struct RecipeScreen: View {
                 .monospacedDigit()
             Button("More", systemImage: "plus") { yield = min(999, yield + 1) }
         }
-        .font(.subheadline.weight(.medium))
+        .font(.subheadline.weight(.semibold))
         .labelStyle(.iconOnly)
         .buttonStyle(StepperButtonStyle())
-        .modifier(HairlineCapsule())
+        .modifier(SoftCapsule())
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(yieldText)
         .accessibilityAdjustableAction { direction in
@@ -198,13 +197,14 @@ struct RecipeScreen: View {
                 ForEach(MeasurementSystem.allCases, id: \.self) { Text($0.title).tag($0) }
             }
         } label: {
-            HStack(spacing: 6) {
+            HStack(spacing: 7) {
+                Image(systemName: "scalemass").foregroundStyle(.tint)
                 Text(units.title)
                 Image(systemName: "chevron.up.chevron.down").imageScale(.small).foregroundStyle(.secondary)
             }
-            .font(.subheadline.weight(.medium))
+            .font(.subheadline.weight(.semibold))
             .padding(.horizontal, 16)
-            .modifier(HairlineCapsule())
+            .modifier(SoftCapsule())
         }
         .tint(.primary)
     }
@@ -217,52 +217,50 @@ struct RecipeScreen: View {
     // MARK: Zutaten
 
     private func ingredients(_ scaled: DeviceRecipe) -> some View {
-        VStack(alignment: .leading, spacing: 16) {
-            heading("Ingredients")
+        VStack(alignment: .leading, spacing: 18) {
+            SectionHeading(title: "Ingredients", systemName: "carrot.fill")
             IngredientList(groups: ingredientGroups(scaled, units: units), checked: $checked)
         }
-    }
-
-    private func heading(_ title: LocalizedStringKey) -> some View {
-        Text(title)
-            .font(.serif(.title2, weight: .bold))
-            .accessibilityAddTraits(.isHeader)
     }
 
     // MARK: Zubereitung
 
     private func steps(_ scaled: DeviceRecipe) -> some View {
-        VStack(alignment: .leading, spacing: 28) {
-            heading("Preparation")
-                .padding(.bottom, -6)
+        VStack(alignment: .leading, spacing: 0) {
+            SectionHeading(title: "Preparation", systemName: "frying.pan.fill")
+                .padding(.bottom, 22)
             ForEach(Array(scaled.steps.enumerated()), id: \.element.key) { index, step in
-                StepRow(number: index + 1, step: step, recipe: scaled, units: units)
+                StepRow(number: index + 1, isLast: index == scaled.steps.count - 1, step: step, recipe: scaled, units: units)
             }
         }
     }
 }
 
-/// "1  Springform einfetten, optional mit Backpapier auslegen." with what it uses and its facts underneath, quiet.
+/// "(1)  Springform einfetten, optional mit Backpapier auslegen." with what it uses and its facts underneath.
+/// The numbers sit on a thin line that runs down to the next step.
 private struct StepRow: View {
     let number: Int
+    let isLast: Bool
     let step: Step
     let recipe: DeviceRecipe
     let units: MeasurementSystem
-    @ScaledMetric(relativeTo: .title3) private var numberWidth: CGFloat = 24
+    @ScaledMetric(relativeTo: .body) private var badge: CGFloat = 28
     @Environment(\.dynamicTypeSize) private var typeSize
 
     var body: some View {
-        let layout = typeSize.isAccessibilitySize
-            ? AnyLayout(VStackLayout(alignment: .leading, spacing: 4))
-            : AnyLayout(HStackLayout(alignment: .firstTextBaseline, spacing: 10))
+        let stacked = typeSize.isAccessibilitySize
+        let layout = stacked
+            ? AnyLayout(VStackLayout(alignment: .leading, spacing: 8))
+            : AnyLayout(HStackLayout(alignment: .firstTextBaseline, spacing: 14))
         layout {
             Text(number, format: .number)
-                .font(.serif(.title3, weight: .semibold))
+                .font(.subheadline.weight(.bold))
                 .monospacedDigit()
-                .foregroundStyle(.tint)
-                .frame(width: typeSize.isAccessibilitySize ? nil : numberWidth, alignment: .leading)
+                .foregroundStyle(Color(.systemBackground)) // like the Cook button's label: dark on the lighter accent in dark mode
+                .frame(width: badge, height: badge)
+                .background(.tint, in: .circle)
                 .accessibilityHidden(true)
-            VStack(alignment: .leading, spacing: 10) {
+            VStack(alignment: .leading, spacing: 12) {
                 Text(stepText(step))
                     .font(.body)
                     .lineSpacing(5)
@@ -279,8 +277,21 @@ private struct StepRow: View {
                     FactRow(facts: facts).font(.subheadline)
                 }
             }
+            .padding(.bottom, isLast ? 0 : 30)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
+        .background(alignment: .topLeading) {
+            // The badge is the row's top edge; the line runs from under it to the next badge.
+            if !stacked, !isLast {
+                Capsule()
+                    .fill(.tint.opacity(0.3))
+                    .frame(width: 2)
+                    .frame(maxHeight: .infinity)
+                    .padding(.top, badge + 6)
+                    .padding(.bottom, 6)
+                    .padding(.leading, badge / 2 - 1)
+            }
+        }
         .accessibilityElement(children: .combine)
     }
 
@@ -311,14 +322,13 @@ private struct StepRow: View {
 /// Lines break between ingredients, never inside "1 Pck. Vanillezucker".
 private func nbsp(_ s: String) -> String { s.replacingOccurrences(of: " ", with: "\u{00A0}") }
 
-/// The header's two controls: a hairline capsule, not a filled box.
-private struct HairlineCapsule: ViewModifier {
+/// The header's two controls: a soft filled capsule.
+private struct SoftCapsule: ViewModifier {
     func body(content: Content) -> some View {
         content
-            .frame(minHeight: 40)
-            .overlay(Capsule().strokeBorder(Color(.separator), lineWidth: 1))
+            .frame(minHeight: 44)
+            .background(.fill.tertiary, in: .capsule)
             .contentShape(.capsule)
-            .padding(.vertical, 2)
     }
 }
 
@@ -329,26 +339,24 @@ private struct StepperButtonStyle: ButtonStyle {
         configuration.label
             .fontWeight(.semibold)
             .foregroundStyle(isEnabled ? AnyShapeStyle(.tint) : AnyShapeStyle(.quaternary))
-            .frame(width: 44, height: 40)
+            .frame(width: 44, height: 44)
             .contentShape(.rect)
             .opacity(configuration.isPressed ? 0.4 : 1)
     }
 }
 
-private struct QuietIconLabelStyle: LabelStyle {
-    func makeBody(configuration: Configuration) -> some View {
-        HStack(alignment: .firstTextBaseline, spacing: 5) {
-            configuration.icon.imageScale(.small).foregroundStyle(.tertiary)
-            configuration.title
-        }
-    }
-}
+/// The header's facts: the symbol on a small accent disc, then the value.
+private struct BadgeLabelStyle: LabelStyle {
+    @ScaledMetric(relativeTo: .subheadline) private var size: CGFloat = 26
 
-private struct TrailingIconLabelStyle: LabelStyle {
     func makeBody(configuration: Configuration) -> some View {
-        HStack(alignment: .firstTextBaseline, spacing: 3) {
+        HStack(spacing: 8) {
+            configuration.icon
+                .font(.system(size: size * 0.48, weight: .semibold))
+                .foregroundStyle(.tint)
+                .frame(width: size, height: size)
+                .background(.tint.opacity(0.13), in: .circle)
             configuration.title
-            configuration.icon.imageScale(.small)
         }
     }
 }

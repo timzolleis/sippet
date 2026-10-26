@@ -272,24 +272,60 @@ struct RecipeList: View {
         .sheet(item: $collectionsFor) { recipe in CollectionSheet(model: model, recipe: recipe) }
     }
 
-    private static func detail(_ recipe: DeviceRecipe, tags: [String]) -> String {
-        var parts: [String] = []
-        if let minutes = recipe.totalMinutes { parts.append(Format.minutes(minutes)) }
-        parts.append(contentsOf: tags)
-        return parts.joined(separator: " · ")
-    }
-
+    /// The recipe's initial on a soft accent tile, the title, then time and tags with their symbols.
     private func row(_ recipe: DeviceRecipe) -> some View {
         let tags = model.store.tags(of: recipe.id)
-        return VStack(alignment: .leading, spacing: 2) {
-            Text(recipe.title).font(.headline)
-            let detail = Self.detail(recipe, tags: tags)
-            if !detail.isEmpty {
-                Text(detail).font(.subheadline).foregroundStyle(.secondary)
+        return HStack(spacing: 14) {
+            RecipeTile(title: recipe.title)
+            VStack(alignment: .leading, spacing: 3) {
+                Text(recipe.title)
+                    .font(.rounded(.headline))
+                if recipe.totalMinutes != nil || !tags.isEmpty {
+                    HStack(spacing: 12) {
+                        if let minutes = recipe.totalMinutes {
+                            Label(Format.minutes(minutes), systemImage: "clock")
+                        }
+                        if !tags.isEmpty {
+                            Label(tags.joined(separator: ", "), systemImage: "tag")
+                                .lineLimit(1)
+                        }
+                    }
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+                    .labelStyle(SmallIconLabelStyle())
+                }
             }
         }
+        .padding(.vertical, 4)
         .accessibilityElement(children: .combine)
     }
+}
+
+/// "Z" on a rounded square in the accent's tint; the list has no photos.
+private struct RecipeTile: View {
+    let title: String
+    @ScaledMetric(relativeTo: .headline) private var size: CGFloat = 44
+
+    var body: some View {
+        Text(verbatim: title.first.map { String($0).uppercased() } ?? "·")
+            .font(.system(size: size * 0.45, weight: .bold, design: .rounded))
+            .foregroundStyle(.tint)
+            .frame(width: size, height: size)
+            .background(.tint.opacity(0.13), in: .rect(cornerRadius: size * 0.28))
+            .accessibilityHidden(true)
+    }
+}
+
+private struct SmallIconLabelStyle: LabelStyle {
+    func makeBody(configuration: Configuration) -> some View {
+        HStack(alignment: .firstTextBaseline, spacing: 4) {
+            configuration.icon.imageScale(.small).foregroundStyle(.tertiary)
+            configuration.title
+        }
+    }
+}
+
+extension RecipeList {
 
     /// reorder_collection with the full order (library rule 11).
     private func move(from offsets: IndexSet, to destination: Int) {

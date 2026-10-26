@@ -1,12 +1,42 @@
 import SippetCore
 import SwiftUI
 
-/// Shared by the recipe page and cook mode: plain backgrounds, type does the work, one accent.
+/// Shared by the recipe page and cook mode: plain backgrounds, SF Rounded, one accent.
 
 extension Font {
-    /// The recipe title and the two headings: New York, the rest is SF.
-    static func serif(_ style: Font.TextStyle, weight: Font.Weight = .semibold) -> Font {
-        .system(style, design: .serif, weight: weight)
+    /// Titles and headings; the screens set `.fontDesign(.rounded)` for the rest.
+    static func rounded(_ style: Font.TextStyle, weight: Font.Weight = .semibold) -> Font {
+        .system(style, design: .rounded, weight: weight)
+    }
+}
+
+/// An SF Symbol on a soft accent disc: headings, the header's facts.
+struct IconBadge: View {
+    let systemName: String
+    @ScaledMetric(relativeTo: .body) private var size: CGFloat = 30
+
+    var body: some View {
+        Image(systemName: systemName)
+            .font(.system(size: size * 0.46, weight: .semibold))
+            .foregroundStyle(.tint)
+            .frame(width: size, height: size)
+            .background(.tint.opacity(0.13), in: .circle)
+            .accessibilityHidden(true)
+    }
+}
+
+/// "Zutaten" with its symbol on a disc.
+struct SectionHeading: View {
+    let title: LocalizedStringKey
+    let systemName: String
+
+    var body: some View {
+        HStack(alignment: .center, spacing: 12) {
+            IconBadge(systemName: systemName)
+            Text(title)
+                .font(.rounded(.title2, weight: .bold))
+                .accessibilityAddTraits(.isHeader)
+        }
     }
 }
 
@@ -113,36 +143,46 @@ func stepFacts(_ step: Step, in recipe: DeviceRecipe, units: MeasurementSystem, 
     if duration, let d = step.duration { facts.append(Fact(text: Format.duration(d), icon: "clock")) }
     if let t = step.temperature { facts.append(Fact(text: Format.temperature(t, system: units), icon: "thermometer.medium")) }
     for key in step.equipment ?? [] {
-        if let name = recipe.equipment.first(where: { $0.key == key })?.name { facts.append(Fact(text: name, icon: "frying.pan")) }
+        if let name = recipe.equipment.first(where: { $0.key == key })?.name { facts.append(Fact(text: name, icon: equipmentIcon(name))) }
     }
     return facts
 }
 
+/// The oven gets its own symbol; any other tool is a pan.
+private func equipmentIcon(_ name: String) -> String {
+    let lower = name.lowercased()
+    return lower.contains("ofen") || lower.contains("oven") ? "oven" : "frying.pan"
+}
+
+/// Small chips: the symbol in the accent, quiet text, a soft fill.
 struct FactRow: View {
     let facts: [Fact]
-    var spacing: CGFloat = 16
+    var spacing: CGFloat = 8
 
     var body: some View {
-        Flow(spacing: spacing, lineSpacing: 6) {
+        Flow(spacing: spacing, lineSpacing: spacing) {
             ForEach(facts) { fact in
-                Label {
-                    Text(fact.text)
-                } icon: {
-                    Image(systemName: fact.icon).foregroundStyle(.tertiary)
-                }
-                .labelStyle(FactLabelStyle())
+                FactChip(fact: fact)
             }
         }
-        .foregroundStyle(.secondary)
     }
 }
 
-private struct FactLabelStyle: LabelStyle {
-    func makeBody(configuration: Configuration) -> some View {
-        HStack(alignment: .firstTextBaseline, spacing: 5) {
-            configuration.icon.imageScale(.small)
-            configuration.title
+struct FactChip: View {
+    let fact: Fact
+
+    var body: some View {
+        HStack(alignment: .firstTextBaseline, spacing: 6) {
+            Image(systemName: fact.icon).imageScale(.small).foregroundStyle(.tint)
+            Text(fact.text).foregroundStyle(.secondary)
         }
+        .fontWeight(.medium)
+        .fixedSize(horizontal: false, vertical: true)
+        .padding(.horizontal, 12)
+        .padding(.vertical, 6)
+        // A capsule on one line; at accessibility sizes a chip may wrap, and stays a soft rectangle.
+        .background(.fill.tertiary, in: .rect(cornerRadius: 16))
+        .accessibilityElement(children: .combine)
     }
 }
 
@@ -200,8 +240,8 @@ private struct AmountWidthKey: PreferenceKey {
     static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) { value = max(value, nextValue()) }
 }
 
-/// Sections of rows, the bold amount column aligned across all of them, no rules between rows.
-/// A tap strikes a row through (cooking 3). At accessibility sizes the amount sits on the item's line.
+/// Sections of rows, the bold amount column aligned across all of them, hairlines between rows.
+/// A tap fills the row's circle and strikes it through (cooking 3). At accessibility sizes the amount sits above the item.
 struct IngredientList: View {
     let groups: [IngredientGroup]
     @Binding var checked: Set<String>
@@ -210,20 +250,25 @@ struct IngredientList: View {
     @ScaledMetric(relativeTo: .body) private var maxAmountWidth: CGFloat = 92
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 22) {
+        VStack(alignment: .leading, spacing: 26) {
             ForEach(groups) { group in
-                VStack(alignment: .leading, spacing: 2) {
+                VStack(alignment: .leading, spacing: 0) {
                     if let title = group.title {
                         Eyebrow(verbatim: title)
-                            .padding(.bottom, 4)
+                            .padding(.bottom, 6)
                             .accessibilityAddTraits(.isHeader)
                     }
-                    ForEach(group.rows) { row in rowView(row) }
+                    ForEach(Array(group.rows.enumerated()), id: \.element.id) { i, row in
+                        if i > 0 { Divider().padding(.leading, checkWidth + 12) }
+                        rowView(row)
+                    }
                 }
             }
         }
         .onPreferenceChange(AmountWidthKey.self) { amountWidth = $0 }
     }
+
+    @ScaledMetric(relativeTo: .body) private var checkWidth: CGFloat = 22
 
     private func rowView(_ row: IngredientRowData) -> some View {
         let isChecked = checked.contains(row.id)
@@ -233,30 +278,37 @@ struct IngredientList: View {
                 if isChecked { checked.remove(row.id) } else { checked.insert(row.id) }
             }
         } label: {
-            Group {
-                if stacked {
-                    VStack(alignment: .leading, spacing: 2) {
-                        if let amount = row.amount { amountLabel(amount) }
-                        row.text
-                    }
-                } else {
-                    HStack(alignment: .firstTextBaseline, spacing: 14) {
-                        amountLabel(row.amount ?? "")
-                            .monospacedDigit()
-                            .background {
-                                amountLabel(row.amount ?? "").monospacedDigit().fixedSize().hidden()
-                                    .background(GeometryReader { Color.clear.preference(key: AmountWidthKey.self, value: $0.size.width) })
-                            }
-                            .frame(width: amountWidth > 0 ? min(amountWidth, maxAmountWidth) : nil, alignment: .leading)
-                        row.text
+            HStack(alignment: .firstTextBaseline, spacing: 12) {
+                Image(systemName: isChecked ? "checkmark.circle.fill" : "circle")
+                    .foregroundStyle(isChecked ? AnyShapeStyle(.tint) : AnyShapeStyle(.tertiary))
+                    .frame(width: checkWidth)
+                    .contentTransition(.symbolEffect(.replace))
+                    .accessibilityHidden(true)
+                Group {
+                    if stacked {
+                        VStack(alignment: .leading, spacing: 2) {
+                            if let amount = row.amount { amountLabel(amount) }
+                            row.text
+                        }
+                    } else {
+                        HStack(alignment: .firstTextBaseline, spacing: 14) {
+                            amountLabel(row.amount ?? "")
+                                .monospacedDigit()
+                                .background {
+                                    amountLabel(row.amount ?? "").monospacedDigit().fixedSize().hidden()
+                                        .background(GeometryReader { Color.clear.preference(key: AmountWidthKey.self, value: $0.size.width) })
+                                }
+                                .frame(width: amountWidth > 0 ? min(amountWidth, maxAmountWidth) : nil, alignment: .leading)
+                            row.text
+                        }
                     }
                 }
+                .lineSpacing(2)
+                .strikethrough(isChecked, color: .accentColor)
+                .opacity(isChecked ? 0.38 : 1)
             }
-            .lineSpacing(2)
-            .strikethrough(isChecked, color: .accentColor)
-            .opacity(isChecked ? 0.38 : 1)
-            .frame(maxWidth: .infinity, minHeight: 34, alignment: .leading)
-            .padding(.vertical, 2)
+            .frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
+            .padding(.vertical, 4)
             .contentShape(.rect)
         }
         .buttonStyle(.plain)
