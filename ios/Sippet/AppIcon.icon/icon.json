@@ -1,0 +1,32 @@
+{
+  "fill" : {
+    "automatic-gradient" : "srgb:0.66275,0.26275,0.05882,1.00000"
+  },
+  "groups" : [
+    {
+      "layers" : [
+        {
+          "image-name" : "soup.svg",
+          "name" : "soup",
+          "fill" : { "solid" : "srgb:1.00000,0.85098,0.65882,1.00000" }
+        }
+      ],
+      "shadow" : { "kind" : "neutral", "opacity" : 0.5 },
+      "translucency" : { "enabled" : true, "value" : 0.4 }
+    },
+    {
+      "layers" : [
+        {
+          "image-name" : "spoon.svg",
+          "name" : "spoon",
+          "fill" : { "solid" : "srgb:1.00000,1.00000,1.00000,1.00000" }
+        }
+      ],
+      "shadow" : { "kind" : "neutral", "opacity" : 0.5 },
+      "translucency" : { "enabled" : true, "value" : 0.5 }
+    }
+  ],
+  "supported-platforms" : {
+    "squares" : "shared"
+  }
+}
