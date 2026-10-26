@@ -17,18 +17,28 @@ struct FolderGrid: View {
     @Environment(\.dynamicTypeSize) private var typeSize
 
     var body: some View {
-        LazyVGrid(columns: [GridItem(.adaptive(minimum: min(minimum, 150)), spacing: 14, alignment: .top)], spacing: 18) {
+        // At accessibility sizes: one column, the folder beside its name, so long names wrap between words.
+        let large = typeSize.isAccessibilitySize
+        let columns = large
+            ? [GridItem(.flexible(), alignment: .leading)]
+            : [GridItem(.adaptive(minimum: min(minimum, 150)), spacing: 14, alignment: .top)]
+        let tile = large
+            ? AnyLayout(HStackLayout(alignment: .center, spacing: 14))
+            : AnyLayout(VStackLayout(alignment: .leading, spacing: 8))
+        LazyVGrid(columns: columns, spacing: 18) {
             ForEach(folders) { folder in
                 Button { open(folder.item) } label: {
-                    VStack(alignment: .leading, spacing: 8) {
+                    tile {
                         FolderGlyph(folder: folder)
+                            .frame(maxWidth: large ? 110 : nil)
                         Text(folder.name)
                             .font(.rounded(.subheadline))
                             .foregroundStyle(.primary)
-                            .lineLimit(typeSize.isAccessibilitySize ? 4 : 2)
+                            .lineLimit(large ? nil : 2)
                             .multilineTextAlignment(.leading)
                             .fixedSize(horizontal: false, vertical: true)
                     }
+                    .frame(maxWidth: .infinity, alignment: .leading)
                     .contentShape(.rect)
                 }
                 .buttonStyle(PressableStyle())
@@ -82,6 +92,7 @@ private struct FolderGlyph: View {
                 Text(folder.recipeIds.count, format: .number)
                     .font(.rounded(.title3, weight: .bold))
                     .monospacedDigit()
+                    .dynamicTypeSize(...DynamicTypeSize.xxxLarge) // drawn on the folder, which doesn't grow
                     .foregroundStyle(.primary)
                     .padding(.horizontal, 10)
                     .padding(.bottom, 6)
