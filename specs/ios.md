@@ -199,17 +199,21 @@ SippetApp
    ├─ TrashScreen        "wird am 24. Nov. gelöscht"; swipe → wiederherstellen (revising 7, 8)
    ├─ tag and collection rows: context menu → umbenennen, löschen (library 6, 8, 12); "name taken" shows the refusal's message
    └─ RecipeScreen                one scroll, no tab picker (see Look)
-      ├─ header      large title; a row of chips: yield stepper "12 Stück · Springform 26 cm" (cooking 6), total time,
-      │              units menu: wie geschrieben | metrisch | US (cooking 8); source link
+      ├─ header      the recipe's art on top; large title; a row of chips: yield stepper "12 Stück · Springform 26 cm"
+      │              (cooking 6), total time, units menu: wie geschrieben | metrisch | US (cooking 8); source link;
+      │              Schritte | Ablauf (only when recipeTable(recipe) isn't nil): Zutaten and Zubereitung, or the table
       ├─ Zutaten     by section, amount column bold and aligned, item and note after it (cooking 3);
       │              tap a row to check it off (struck through, dimmed); checks live as long as the screen
       ├─ Zubereitung numbered steps: the sentence, then the ingredients it uses with amounts in one quiet line,
       │              duration, temperature, equipment as small chips (cooking 2)
       │              iPad and landscape: Zutaten in a left column, Zubereitung right, each scrolling on its own
-      ├─ toolbar     Kochen (primary) · Ablauf (only when recipeTable(recipe) isn't nil) · Einkaufen
-      ├─ Einkaufen → sheet: itemTotals "380 g Zucker (180 g Teig, 200 g Füllung)", checkable like Zutaten (cooking 3)
-      ├─ Ablauf → RecipeTableScreen (full screen, see Table)
-      └─ Kochen → CookModeScreen (full screen)
+      ├─ Ablauf      RecipeTableScreen under the header, full width, in place of Zutaten and Zubereitung; iPad and
+      │              landscape too (no columns). Tap a step: a card at the bottom with its sentence, ‹ ›, "Ab hier
+      │              kochen" → CookModeScreen at that step (see Table)
+      ├─ toolbar     Kochen (primary) · Einkaufen
+      ├─ Einkaufen → sheet zooming out of its button: itemTotals "380 g Zucker (180 g Teig, 200 g Füllung)",
+      │              checkable like Zutaten (cooking 3)
+      └─ Kochen → CookModeScreen (full screen, zooming out of the button that opened it)
            chrome: a thin segmented progress bar (one segment per step) and a close button; nothing else at the top
            page: "Schritt 3 von 11" small; the step's ingredients with amounts large and bold, the results and portions it
              takes ("+ Masse"), then the sentence in large type (title, wraps freely); duration and temperature as chips (cooking 4)
@@ -283,7 +287,12 @@ Cases (`swift test`, the Zupfkuchen from the golden file; expected is the pictur
   pasta with plain steps     → nil (recipe rule 10)
   a step whose ingredients sit in two sections with another section between them and no step joining it → nil
 
-`RecipeTableScreen`: full screen, landscape-friendly; scrolls both ways and zooms with a pinch; title line "Veganer Russischer Zupfkuchen (26 cm Springform, 12 Stück)"; hairline grid in the accent's muted tint, section rows tinted, text centred in step cells and leading in ingredient cells, as in the picture. A custom SwiftUI `Layout` places cells by row, column, and spans (`Grid` has no row spans).
+`RecipeTableScreen`: a view inside `RecipeScreen` (Ablauf), not a screen of its own. The page scrolls it down; it scrolls sideways itself, at reading size (no fit-to-screen, no pinch). The page's header carries title, vessel, and yield; the table's corner repeats the yield ("Für 12 Stück").
+- Pinned: the ingredient column and the section names sideways; a header row with each column's step numbers under the bar while the table passes. A cell spanning many rows keeps its text in the part of it on screen.
+- Ingredient column at most half the screen; step columns share what's left when the table is narrower than the screen. Dynamic Type up to AX1, where columns grow; past it, words would break inside cells.
+- Tap an ingredient (or its prep): tick it, the same checks as Zutaten and cook mode (cooking 3). Tap a step (cell, header number, or the prep step in a section row): it is selected, its ingredients and the steps whose results it takes are tinted, the rest dims; the page shows its sentence (recipe rule 8).
+- VoiceOver reads by step: the section where it starts, "Schritt 3, verkneten, (ergibt 750 g)", then the ingredients that step brings in.
+- Hairlines in the accent's muted tint, drawn by each cell; section rows tinted; text centred in step cells and leading in ingredient cells, as in the picture. A custom SwiftUI `Layout` places cells by row, column, and spans (`Grid` has no row spans).
 
 ## Golden files (`scripts/golden.ts`, `test/golden/`)
 

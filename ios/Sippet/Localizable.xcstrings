@@ -250,6 +250,22 @@
         }
       }
     },
+    "Cook from here" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ab hier kochen"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Cook from here"
+          }
+        }
+      }
+    },
     "Cook" : {
       "localizations" : {
         "de" : {
@@ -358,6 +374,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Fewer"
+          }
+        }
+      }
+    },
+    "For %@" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Für %@"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "For %@"
           }
         }
       }
@@ -636,6 +668,38 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Preparation"
+          }
+        }
+      }
+    },
+    "Next step" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nächster Schritt"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Next step"
+          }
+        }
+      }
+    },
+    "Previous step" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Vorheriger Schritt"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Previous step"
           }
         }
       }
@@ -977,6 +1041,22 @@
         }
       }
     },
+    "Step %lld" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Schritt %lld"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Step %lld"
+          }
+        }
+      }
+    },
     "Step %lld of %lld" : {
       "localizations" : {
         "de" : {
@@ -1011,7 +1091,6 @@
       }
     },
     "Steps" : {
-      "extractionState" : "stale",
       "localizations" : {
         "de" : {
           "stringUnit" : {
