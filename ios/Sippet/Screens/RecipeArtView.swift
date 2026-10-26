@@ -1,41 +1,78 @@
 import SwiftUI
 
-/// Draws `recipeArt(id:dark:)`: the mesh, then fine grain. Fills its frame; decoration only.
+/// Draws `recipeArt(id:dark:)`: the mesh, finished by `RecipeArt.metal` (marbled flow, faint contour lines, film grain).
+/// Fills its frame; decoration only.
+///
+/// The finished art is rendered once per recipe, scheme, and size into an image and kept: a shader on every tile
+/// costs an offscreen pass per tile per frame, which drops frames while a list scrolls. An image costs nothing.
 struct RecipeArtView: View {
     let id: String
     @Environment(\.colorScheme) private var scheme
+    @Environment(\.displayScale) private var displayScale
 
     var body: some View {
-        let art = recipeArt(id: id, dark: scheme == .dark)
+        GeometryReader { geo in
+            if let image = ArtImages.image(id: id, dark: scheme == .dark, size: geo.size, scale: displayScale) {
+                Image(decorative: image, scale: displayScale)
+                    .resizable()
+            }
+        }
+        .accessibilityHidden(true)
+    }
+}
+
+/// The finished art as images, by recipe, scheme, and pixel size. Rendering one takes a few milliseconds, once.
+@MainActor private enum ArtImages {
+    static let cache: NSCache<NSString, CGImage> = {
+        let cache = NSCache<NSString, CGImage>()
+        cache.totalCostLimit = 64 << 20 // bytes
+        return cache
+    }()
+
+    static func image(id: String, dark: Bool, size: CGSize, scale: CGFloat) -> CGImage? {
+        let width = (size.width * scale).rounded(), height = (size.height * scale).rounded()
+        guard width >= 1, height >= 1 else { return nil }
+        let key = "\(id) \(dark) \(Int(width))×\(Int(height))" as NSString
+        if let image = cache.object(forKey: key) { return image }
+        let points = CGSize(width: width / scale, height: height / scale)
+        let renderer = ImageRenderer(content: FinishedArt(art: recipeArt(id: id, dark: dark), dark: dark, size: points, scale: scale))
+        renderer.scale = scale
+        renderer.isOpaque = true
+        guard let image = renderer.cgImage else { return nil }
+        cache.setObject(image, forKey: key, cost: Int(width * height) * 4)
+        return image
+    }
+}
+
+/// The mesh through the shader, at a fixed size.
+private struct FinishedArt: View {
+    let art: MeshArt
+    let dark: Bool
+    let size: CGSize
+    let scale: CGFloat
+
+    var body: some View {
+        let flow = size.height * ArtFinish.flow
         MeshGradient(
             width: 3, height: 3, points: art.points,
             colors: art.colors.map { Color(.sRGB, red: Double($0.x), green: Double($0.y), blue: Double($0.z)) },
             smoothsColors: true)
-            .overlay {
-                Image(decorative: Grain.tile, scale: 3)
-                    .resizable(resizingMode: .tile)
-                    .blendMode(.overlay)
-                    .opacity(scheme == .dark ? 0.22 : 0.3)
-            }
-            .accessibilityHidden(true)
+            .layerEffect(
+                ShaderLibrary.recipeArt(
+                    .float(art.seed), .float2(size), .float(scale), .float(ArtFinish.flow),
+                    .float(dark ? ArtFinish.linesDark : ArtFinish.lines), .float(dark ? ArtFinish.grainDark : ArtFinish.grain)),
+                maxSampleOffset: CGSize(width: flow, height: flow))
+            .frame(width: size.width, height: size.height)
     }
 }
 
-/// A fixed tile of grey noise, made once. Plain CoreGraphics: a Metal shader would need the Metal toolchain to build.
-private enum Grain {
-    static let tile: CGImage = {
-        let side = 192
-        var state: UInt64 = 0x5EED
-        let pixels: [UInt8] = (0..<side * side).map { _ in
-            state = state &* 6_364_136_223_846_793_005 &+ 1_442_695_040_888_963_407
-            return UInt8(truncatingIfNeeded: 128 + Int((state >> 33) % 96) - 48)
-        }
-        let provider = CGDataProvider(data: Data(pixels) as CFData)!
-        return CGImage(
-            width: side, height: side, bitsPerComponent: 8, bitsPerPixel: 8, bytesPerRow: side,
-            space: CGColorSpaceCreateDeviceGray(), bitmapInfo: CGBitmapInfo(rawValue: CGImageAlphaInfo.none.rawValue),
-            provider: provider, decode: nil, shouldInterpolate: false, intent: .defaultIntent)!
-    }()
+/// The shader's strengths. Flow: how far the mesh is pulled, in fractions of the art's height.
+private enum ArtFinish {
+    static let flow: CGFloat = 0.24
+    static let lines: Float = 0.22
+    static let linesDark: Float = 0.26
+    static let grain: Float = 0.085
+    static let grainDark: Float = 0.07
 }
 
 /// The header's aspect; a tile is a square from its middle, so a recipe looks the same in the list and on its page.

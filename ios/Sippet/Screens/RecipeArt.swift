@@ -8,6 +8,8 @@ nonisolated struct MeshArt: Equatable, Sendable {
     var points: [SIMD2<Float>]
     /// 9 gamma-encoded sRGB colours, one per point.
     var colors: [SIMD3<Float>]
+    /// Seeds the finish (`RecipeArt.metal`); a whole number below 2^20, exact as a Float.
+    var seed: Float
 }
 
 /// id → art. Dark: the same hues and layout at lower lightness.
@@ -15,7 +17,8 @@ nonisolated struct MeshArt: Equatable, Sendable {
 /// Four roles with fixed lightness and chroma give it depth: deep, mid, light, and a glow from a neighbouring family.
 /// A layout puts the roles on the grid (a diagonal sweep, a glow, a horizon, a corner light), mirrored by the seed.
 nonisolated func recipeArt(id: String, dark: Bool) -> MeshArt {
-    var random = SplitMix64(seed: fnv1a(id))
+    let hash = fnv1a(id)
+    var random = SplitMix64(seed: hash)
 
     let family = ArtPalette.families[Int(random.next() % UInt64(ArtPalette.families.count))]
     let base = family + random.float(in: -12...12)
@@ -40,7 +43,7 @@ nonisolated func recipeArt(id: String, dark: Bool) -> MeshArt {
         [1, 0.5 + random.float(in: -j...j)],
         [0, 1], [0.5 + random.float(in: -j...j), 1], [1, 1],
     ]
-    return MeshArt(points: points, colors: layout.roles.map { palette[$0] })
+    return MeshArt(points: points, colors: layout.roles.map { palette[$0] }, seed: Float(hash >> 44))
 }
 
 // MARK: palette

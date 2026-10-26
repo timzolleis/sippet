@@ -56,11 +56,15 @@ struct DebugOpen: ViewModifier {
 }
 
 /// `-SippetGallery`: 24 arts in a grid, to judge the generator. Screenshots only.
+/// `-SippetGalleryBench`: 300 tiles at list size, scrolled top to bottom in 4 s; prints the frame times.
 struct ArtGallery: View {
+    private let bench = ProcessInfo.processInfo.arguments.contains("-SippetGalleryBench")
+    @State private var position = ScrollPosition(edge: .top)
+
     var body: some View {
         ScrollView {
-            LazyVGrid(columns: [GridItem(.adaptive(minimum: 110), spacing: 8)], spacing: 8) {
-                ForEach(0..<24, id: \.self) { i in
+            LazyVGrid(columns: [GridItem(.adaptive(minimum: bench ? 64 : 110), spacing: 8)], spacing: 8) {
+                ForEach(0..<(bench ? 300 : 24), id: \.self) { i in
                     RecipeArtView(id: "rcp_demo_\(i * 7919)")
                         .aspectRatio(ArtGeometry.heroAspect, contentMode: .fit)
                         .clipShape(.rect(cornerRadius: 12))
@@ -68,7 +72,40 @@ struct ArtGallery: View {
             }
             .padding(12)
         }
+        .scrollPosition($position)
         .background(Color(.systemBackground))
+        .task {
+            guard bench else { return }
+            try? await Task.sleep(for: .seconds(1.5))
+            let meter = FrameMeter()
+            meter.start()
+            withAnimation(.linear(duration: 4)) { position.scrollTo(edge: .bottom) }
+            try? await Task.sleep(for: .seconds(4.2))
+            print(meter.stop())
+        }
+    }
+}
+
+/// Frame intervals from a display link: the median and the frames that took over 1.5 refresh intervals.
+@MainActor private final class FrameMeter: NSObject {
+    private var link: CADisplayLink?
+    private var times: [CFTimeInterval] = []
+
+    func start() {
+        link = CADisplayLink(target: self, selector: #selector(tick))
+        link?.add(to: .main, forMode: .common)
+    }
+
+    @objc private func tick(_ link: CADisplayLink) { times.append(link.timestamp) }
+
+    func stop() -> String {
+        link?.invalidate()
+        let deltas = zip(times.dropFirst(), times).map { ($0 - $1) * 1000 }.sorted()
+        guard !deltas.isEmpty else { return "SippetBench no frames" }
+        let median = deltas[deltas.count / 2]
+        let slow = deltas.filter { $0 > median * 1.5 }.count
+        return String(format: "SippetBench frames %d median %.2f ms p99 %.2f ms max %.2f ms slow %d",
+                      deltas.count, median, deltas[Int(Double(deltas.count - 1) * 0.99)], deltas.last!, slow)
     }
 }
 

@@ -338,9 +338,10 @@ private struct HeroArt: View {
     var body: some View {
         GeometryReader { geo in
             let pull = max(0, geo.frame(in: .scrollView).minY)
+            // Scaled, not re-laid out: the art is an image rendered once for this size.
             RecipeArtView(id: id)
-                .frame(width: geo.size.width, height: height + pull)
-                .offset(y: -pull)
+                .frame(width: geo.size.width, height: height)
+                .scaleEffect(1 + pull / height, anchor: .bottom)
         }
         .frame(height: height)
     }
