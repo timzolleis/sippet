@@ -10,13 +10,14 @@ state: draft
 The library lives on the device and is read offline. The app catches up from the change log and listens for changes. It reads recipes as steps, ingredients, shopping totals, and in cook mode, with scaling and units. It changes tags, collections, and the trash; recipe edits stay with Claude. API: [device-api.md](device-api.md).
 
 Host mapping:
-- Swift 6 with strict concurrency, SwiftUI with `@Observable`, iOS 26, iPhone and iPad, no third-party packages.
+- Swift 6 with strict concurrency, SwiftUI with `@Observable`, iOS 26.1, iPhone and iPad, no third-party packages.
 - The cooking math is a port of `src/domain/cooking` and `recipeMatchesFilter`. It is checked against golden files the TypeScript domain generates.
-- Free Apple account: Simulator, and personal-team builds on a phone (7 days). Nothing needs a paid entitlement.
+- Free Apple account: Simulator, and personal-team builds on a phone (7 days). Nothing needs a paid entitlement; AlarmKit needs only `NSAlarmKitUsageDescription`. The widget extension is a second App ID on the team, so Xcode must be signed in to create its profile.
+- Cook-mode timers are system alarms (AlarmKit) with a countdown Live Activity from a widget extension, `SippetWidgets`. They ring with the app closed, through silent mode and Focus.
 
 Out of scope:
 - Recipe edits, smart-collection editing, emptying the trash.
-- Mac, Watch, Live Activities, background sync, photo import.
+- Mac, Watch, a session-wide Live Activity ("Schritt 6 von 10"), background sync, photo import. (The timer countdown is a Live Activity, drawn by AlarmKit and `SippetWidgets`.)
 
 ## Use cases
 
@@ -44,8 +45,12 @@ ios/
 ├─ Sippet/                     the app target: SwiftUI only, no logic beyond view state
 │  ├─ SippetApp.swift
 │  ├─ Screens/                 one file per screen below
+│  ├─ CookTimers.swift          `CookTimers` protocol and `SystemCookTimers` (AlarmKit, notification fallback)
 │  ├─ Localizable.xcstrings     de, en; "du" in German
-│  └─ Info.plist               URL type de.bastelboxx.sippet; NSAppTransportSecurity.NSAllowsLocalNetworking
+│  ├─ InfoPlist.xcstrings       NSAlarmKitUsageDescription, de and en
+│  └─ Info.plist               URL type de.bastelboxx.sippet; NSAppTransportSecurity.NSAllowsLocalNetworking; NSAlarmKitUsageDescription
+├─ SippetWidgets/              widget extension de.bastelboxx.sippet.widgets: the timer countdown on the Lock Screen and in the Dynamic Island
+├─ Shared/                     compiled into the app and SippetWidgets: CookTimerMetadata, CookTimerID, the timer intents
 └─ SippetCore/                 Swift package (macOS 15 + iOS 26), no UIKit; `swift test` runs without Xcode
    ├─ Sources/SippetCore/
    │  ├─ Model/                Codable mirrors of device-api.md's views
@@ -56,9 +61,9 @@ ios/
    └─ Tests/SippetCoreTests/   golden tests read ../../../test/golden/*.json via #filePath
 ```
 
-- Bundle id `de.bastelboxx.sippet`. Signing: automatic, personal team.
+- Bundle id `de.bastelboxx.sippet`; the extension `de.bastelboxx.sippet.widgets`. Signing: automatic, personal team.
 - Server: Debug uses `http://localhost:1337` (`pnpm dev`), overridable with the scheme environment variable `SIPPET_URL`. Release uses `https://sippet.bastelboxx.de`.
-- The project is made by hand in Xcode (iOS App template, SwiftUI) and committed. With synchronized folders (Xcode 16+), adding a file needs no project change. `project.pbxproj` changes only for settings: the URL type, local networking, and the SippetCore package link.
+- The project is made by hand in Xcode (iOS App template, SwiftUI) and committed. With synchronized folders (Xcode 16+), adding a file needs no project change. `project.pbxproj` changes only for settings and targets: the URL type, local networking, the SippetCore package link, and the SippetWidgets target with its embed phase. `Shared/` is one synchronized folder that belongs to both targets.
 - Rejected: XcodeGen. It exists to avoid `project.pbxproj` merge conflicts, which synchronized folders already avoid.
 - Rejected: SwiftData. A personal library is a few MB, so one JSON file loads in milliseconds and has no migrations.
 
@@ -223,7 +228,12 @@ SippetApp
              takes ("+ Masse"), then the sentence in large type (title, wraps freely); duration and temperature as chips (cooking 4)
            navigation: swipe, or tap the right or left third of the page; the last page ends with "Fertig"
            timer: a large pill on a step with a duration; tapped, it counts down in place; running timers stay in a bar
-             at the bottom across pages, tap one to jump to its step; local notification at the end (cooking 5)
+             at the bottom across pages, tap one to jump to its step (cooking 5)
+             the timer is an AlarmKit timer (`CookTimers`), one per (recipe, step) with an id derived from both: it counts down on
+             the Lock Screen and in the Dynamic Island (the step, e.g. "Füllung · backen", of the recipe; time left; ✕), and rings at the end
+             like the Clock app with the app closed. The first start asks for alarm permission. If the cook declines (or the system
+             refuses), a local notification rings at the end instead and the countdown stays in the app. Stopping the ring, or ✕ on
+             the Lock Screen, ends the timer in the app too (it follows `AlarmManager.alarmUpdates`)
            reminders: a step a later step waits for (flow.waitsFor) shows as a quiet banner under the progress bar, from the
              step after it until the step that waits: at "mit dem Mixer gut verrühren": "Ofen auf 170 °C O/U vorheizen" (cooking 5)
            "Alle Zutaten": a button at the bottom opens the full checked list as a sheet
@@ -338,3 +348,4 @@ App (Xcode, by hand against `pnpm dev`, then prod): Verify 1–3 below, then the
 1. In the Simulator, `ASWebAuthenticationSession` → `/connect` on `http://localhost:1337` creates and uses a passkey (RP ID `localhost`). If it doesn't, use the dev refresh token (above) for daily work, and test passkeys on a phone against prod.
 2. On a phone with a personal-team build: sign in against `https://sippet.bastelboxx.de` with an iCloud Keychain passkey made on the Mac.
 3. `URLSessionWebSocketTask` with an `Authorization` header reaches `/api/device/live` through the Worker (device-api.md Verify 4).
+4. On a phone (the Simulator denies AlarmKit): a timer asks for alarm permission once; its countdown shows on the Lock Screen and in the Dynamic Island; it rings with the app killed and the phone silent; Stop on the island or alert ends it, and the app shows no timer afterwards. Denied: a notification rings instead.
