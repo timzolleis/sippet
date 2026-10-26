@@ -1,31 +1,33 @@
 import SippetCore
 import SwiftUI
 
-/// Steps: Zutaten and numbered Zubereitung. Table: the Ablauf (cooking 1), which holds both.
-enum RecipeMode: Hashable { case steps, table }
-
-/// A cookbook page: title, quiet facts, then the recipe as steps or as a table, in one scroll.
-/// Wide (iPad, landscape) steps: Zutaten left, Zubereitung right, each scrolling on its own. The table always takes
-/// the full width under the header.
+/// A cookbook page: title, quiet facts, Zutaten and Zubereitung in one scroll, with the flow woven in: ingredients by the
+/// step that takes them, steps on a rail that shows parallel parts and where they meet.
+/// Turned to landscape (or an iPad in landscape), a recipe whose table fits readably shows the table instead, the whole
+/// width at once (cooking 1); turning back returns to the page where it was. No switch: the orientation is the mode.
+/// Wide without a table: Zutaten left, Zubereitung right, each scrolling on its own.
 struct RecipeScreen: View {
     let recipe: DeviceRecipe
     @AppStorage(MeasurementSystem.defaultsKey) private var defaultUnits = MeasurementSystem.asWritten
+    @Environment(\.dynamicTypeSize) private var typeSize
     @State private var yield: Double
     @State private var unitsOverride: MeasurementSystem?
-    @State private var mode: RecipeMode
     @State private var checked: Set<String> = []
     @State private var shopped: Set<String> = []
-    @State private var selectedStep: String?
     @State private var cookAt: CookStart?
     @State private var showShopping = false
     @State private var titleInBar = false
-    @State private var cardHeight: CGFloat = 0
+    /// The table's tapped step, shown in a popover at its cell.
+    @State private var tableStep: String?
+    @State private var showsTable = false
+    /// The page's place, kept while the table is shown.
+    @State private var pagePosition = ScrollPosition()
+    @State private var pageOffset: CGFloat = 0
     @Namespace private var transitions
 
-    init(recipe: DeviceRecipe, mode: RecipeMode = .steps, yield: Double? = nil) {
+    init(recipe: DeviceRecipe, yield: Double? = nil) {
         self.recipe = recipe
         _yield = State(initialValue: yield ?? recipe.yield.amount.value)
-        _mode = State(initialValue: mode)
     }
 
     /// Cook mode opens at a step and zooms out of the button that opened it.
@@ -38,20 +40,25 @@ struct RecipeScreen: View {
     private var units: MeasurementSystem { unitsOverride ?? defaultUnits }
     private var scaled: DeviceRecipe { scaleRecipe(recipe, toYield: yield) }
 
+    /// The table's side margin.
+    private static let tableMargin: CGFloat = 20
+
     var body: some View {
         let scaled = scaled
-        let table = recipeTable(scaled)
-        let shownTable = mode == .table ? table : nil
         GeometryReader { geo in
-            if geo.size.width >= 560, shownTable == nil {
-                wide(scaled, size: geo.size, hasTable: table != nil)
+            let landscape = (geo.size.width > geo.size.height || DebugScroll.forceTable) && geo.size.width >= 560
+            if landscape, let table = recipeTable(scaled),
+               let fit = TableFit.make(recipe: scaled, table: table, units: units, width: geo.size.width - 2 * Self.tableMargin, typeSize: typeSize) {
+                overview(scaled, table: table, fit: fit)
+            } else if geo.size.width >= 560 {
+                wide(scaled, size: geo.size)
             } else {
-                narrow(scaled, table: shownTable, hasTable: table != nil, geo: geo)
+                narrow(scaled, geo: geo)
             }
         }
         .fontDesign(.rounded)
         // The bar shows the title once the page's own title has scrolled under it.
-        .navigationTitle(titleInBar ? recipe.title : "")
+        .navigationTitle(titleInBar && !showsTable ? recipe.title : "")
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
             ToolbarItem(placement: .primaryAction) {
@@ -75,15 +82,14 @@ struct RecipeScreen: View {
             ShoppingSheet(recipe: scaled, units: units, checked: $shopped)
                 .navigationTransition(.zoom(sourceID: "shopping", in: transitions))
         }
-        .onChange(of: mode) { if mode == .steps { selectedStep = nil } }
         #if DEBUG
         .task {
             let defaults = UserDefaults.standard
             if ProcessInfo.processInfo.arguments.contains("-SippetShopping") { showShopping = true }
             if let ticks = defaults.string(forKey: "SippetTick") { checked = Set(ticks.split(separator: ",").map(String.init)) }
             if let step = defaults.string(forKey: "SippetSelectStep") {
-                try? await Task.sleep(for: .seconds(0.5))
-                selectedStep = step
+                try? await Task.sleep(for: .seconds(1))
+                tableStep = step
             }
         }
         #endif
@@ -96,83 +102,52 @@ struct RecipeScreen: View {
         min(width / ArtGeometry.heroAspect, screen.height * 0.4)
     }
 
-    /// One scroll: art, header, then Zutaten and Zubereitung, or the table across the full width.
-    private func narrow(_ scaled: DeviceRecipe, table: RecipeTable?, hasTable: Bool, geo: GeometryProxy) -> some View {
+    /// One scroll: art, header, Zutaten, Zubereitung. Its place survives a turn to the table and back.
+    private func narrow(_ scaled: DeviceRecipe, geo: GeometryProxy) -> some View {
         let size = geo.size
         let hero = heroHeight(width: size.width, screen: size)
-        // The scroll view runs under the bar, so its coordinates start at the screen's top.
-        let barBottom = geo.safeAreaInsets.top
-        let selected = table == nil ? nil : selectedStep.flatMap { key in scaled.steps.firstIndex { $0.key == key } }
-        return ScrollViewReader { proxy in
-            ScrollView {
-                VStack(spacing: 0) {
-                    HeroArt(id: recipe.id, height: hero)
-                    VStack(alignment: .leading, spacing: 0) {
-                        VStack(alignment: .leading, spacing: 40) {
-                            header(wide: false, hasTable: hasTable)
-                            if table == nil {
-                                ingredients(scaled)
-                                steps(scaled).id("steps")
-                            }
-                        }
-                        .padding(.horizontal, 24)
-                        .padding(.top, 28)
-                        .padding(.bottom, table == nil ? 56 : 28)
-                        .frame(maxWidth: 620, alignment: .leading)
-                        if let table {
-                            RecipeTableScreen(
-                                recipe: scaled, table: table, units: units, checked: $checked, selected: $selectedStep,
-                                visibleTop: barBottom, visibleBottom: barBottom + size.height - (selected == nil ? 0 : cardHeight))
-                                // Past AX1 a 2D table breaks words inside its cells; Steps reads at every size.
-                                .dynamicTypeSize(...DynamicTypeSize.accessibility1)
-                                .id("steps")
-                                .padding(.bottom, 56)
-                                .transition(.opacity)
-                        }
-                    }
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .background(Color(.systemBackground), in: .rect(topLeadingRadius: Self.sheetRadius, topTrailingRadius: Self.sheetRadius))
-                    .padding(.top, -Self.sheetRadius)
+        return ScrollView {
+            VStack(spacing: 0) {
+                HeroArt(id: recipe.id, height: hero)
+                VStack(alignment: .leading, spacing: 40) {
+                    header(wide: false)
+                    ingredients(scaled)
+                    steps(scaled).id("steps")
                 }
+                .padding(.horizontal, 24)
+                .padding(.top, 28)
+                .padding(.bottom, 56)
+                .frame(maxWidth: 620, alignment: .leading)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .background(Color(.systemBackground), in: .rect(topLeadingRadius: Self.sheetRadius, topTrailingRadius: Self.sheetRadius))
+                .padding(.top, -Self.sheetRadius)
             }
-            .ignoresSafeArea(.container, edges: .top)
-            .onScrollGeometryChange(for: Bool.self) { $0.contentOffset.y + $0.contentInsets.top > hero + 40 } action: { titleInBar = $1 }
-            .safeAreaInset(edge: .bottom, spacing: 0) {
-                if let index = selected {
-                    StepCard(
-                        step: scaled.steps[index], number: index + 1, count: scaled.steps.count, recipe: scaled, units: units,
-                        maxHeight: size.height * 0.45, namespace: transitions,
-                        move: { delta in
-                            let next = min(max(index + delta, 0), scaled.steps.count - 1)
-                            withAnimation(.easeOut(duration: 0.2)) { selectedStep = scaled.steps[next].key }
-                        },
-                        close: { withAnimation(.easeOut(duration: 0.2)) { selectedStep = nil } },
-                        cook: { cookAt = CookStart(step: index, source: "cook-step") })
-                        .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { cardHeight = $0 }
-                        .transition(.move(edge: .bottom).combined(with: .opacity))
-                }
-            }
-            // Landscape and iPad come here from two columns: bring the table up under the bar.
-            // Turning the phone with the table open does the same.
-            .onAppear {
-                if table != nil, size.width >= 560 { proxy.scrollTo("mode", anchor: .top) }
-            }
-            .onChange(of: size.width >= 560) { _, wide in
-                if table != nil, wide { withAnimation(.smooth) { proxy.scrollTo("mode", anchor: .top) } }
-            }
-            #if DEBUG
-            .defaultScrollAnchor(DebugScroll.anchor)
-            .task {
-                if ProcessInfo.processInfo.arguments.contains("-SippetScrollSteps") {
-                    try? await Task.sleep(for: .seconds(1))
-                    proxy.scrollTo("steps", anchor: .top)
-                }
-            }
-            #endif
         }
+        .scrollPosition($pagePosition)
+        .ignoresSafeArea(.container, edges: .top)
+        .onScrollGeometryChange(for: CGFloat.self) { $0.contentOffset.y + $0.contentInsets.top } action: { _, y in
+            pageOffset = y
+            titleInBar = y > hero + 40
+        }
+        .onAppear {
+            if pageOffset > 0 { pagePosition.scrollTo(y: pageOffset) }
+        }
+        #if DEBUG
+        .defaultScrollAnchor(DebugScroll.anchor)
+        .task {
+            if ProcessInfo.processInfo.arguments.contains("-SippetScrollSteps") {
+                try? await Task.sleep(for: .seconds(1))
+                pagePosition.scrollTo(id: "steps", anchor: .top)
+            }
+            if let y = UserDefaults.standard.string(forKey: "SippetScrollY").flatMap(Double.init) {
+                try? await Task.sleep(for: .seconds(1))
+                pagePosition.scrollTo(y: y)
+            }
+        }
+        #endif
     }
 
-    private func wide(_ scaled: DeviceRecipe, size: CGSize, hasTable: Bool) -> some View {
+    private func wide(_ scaled: DeviceRecipe, size: CGSize) -> some View {
         let column = min(max(size.width * 0.42, 250), 440)
         let hero = heroHeight(width: column, screen: size)
         return HStack(alignment: .top, spacing: 0) {
@@ -180,7 +155,7 @@ struct RecipeScreen: View {
                 VStack(spacing: 0) {
                     HeroArt(id: recipe.id, height: hero)
                     VStack(alignment: .leading, spacing: 36) {
-                        header(wide: true, hasTable: hasTable)
+                        header(wide: true)
                         ingredients(scaled)
                     }
                     .padding(.horizontal, 32)
@@ -206,12 +181,50 @@ struct RecipeScreen: View {
         }
     }
 
+    /// The table, as in the picture: "Veganer Russischer Zupfkuchen (Springform 26 cm, 12 Stück)", then the grid.
+    private func overview(_ scaled: DeviceRecipe, table: RecipeTable, fit: TableFit) -> some View {
+        let vessel = recipe.yield.vessel.map { key in recipe.equipment.first { $0.key == key }?.name ?? key }
+        let facts = ([vessel] + [yieldText]).compactMap { $0 }.joined(separator: ", ")
+        return ScrollView {
+            VStack(alignment: .leading, spacing: 12) {
+                Text("\(Text(recipe.title).fontWeight(.bold)) \(Text("(\(facts))").foregroundStyle(.secondary))")
+                    .font(.rounded(.title3, weight: .regular))
+                    .fixedSize(horizontal: false, vertical: true)
+                    .accessibilityAddTraits(.isHeader)
+                RecipeTableScreen(recipe: scaled, table: table, fit: fit, units: units, selected: $tableStep) { key in
+                    AnyView(Group {
+                        if let index = scaled.steps.firstIndex(where: { $0.key == key }) {
+                            TableStepCard(recipe: scaled, index: index, units: units) { cook(from: index) }
+                        }
+                    })
+                }
+            }
+            .padding(.horizontal, Self.tableMargin)
+            .padding(.top, 4)
+            .padding(.bottom, 32)
+        }
+        .onAppear { showsTable = true }
+        .onDisappear {
+            showsTable = false
+            tableStep = nil
+        }
+    }
+
+    /// "Cook from here" in the table's popover: the popover goes first, then cook mode comes up.
+    private func cook(from index: Int) {
+        tableStep = nil
+        Task {
+            try? await Task.sleep(for: .milliseconds(350))
+            cookAt = CookStart(step: index, source: "cook")
+        }
+    }
+
     // MARK: header
 
     private static let sheetRadius: CGFloat = 28
 
     /// In the narrow left column the title steps down a size, so long German words don't break.
-    private func header(wide: Bool, hasTable: Bool) -> some View {
+    private func header(wide: Bool) -> some View {
         VStack(alignment: .leading, spacing: 16) {
             Text(recipe.title)
                 .font(.rounded(wide ? .title : .largeTitle, weight: .bold))
@@ -224,16 +237,6 @@ struct RecipeScreen: View {
                 unitsMenu
             }
             .padding(.top, 2)
-            if hasTable {
-                Picker("View", selection: $mode.animation(.smooth)) {
-                    Text("Steps").tag(RecipeMode.steps)
-                    Text("Table").tag(RecipeMode.table)
-                }
-                .pickerStyle(.segmented)
-                .frame(maxWidth: 360)
-                .padding(.top, 6)
-                .id("mode")
-            }
         }
     }
 
@@ -313,7 +316,11 @@ struct RecipeScreen: View {
     private func ingredients(_ scaled: DeviceRecipe) -> some View {
         VStack(alignment: .leading, spacing: 18) {
             SectionHeading(title: "Ingredients", systemName: "carrot.fill")
-            IngredientList(groups: ingredientGroups(scaled, units: units), checked: $checked)
+            if scaled.hasFlow {
+                FlowIngredientList(recipe: scaled, units: units, checked: $checked)
+            } else {
+                IngredientList(groups: ingredientGroups(scaled, units: units), checked: $checked)
+            }
         }
     }
 
@@ -323,9 +330,7 @@ struct RecipeScreen: View {
         VStack(alignment: .leading, spacing: 0) {
             SectionHeading(title: "Preparation", systemName: "frying.pan.fill")
                 .padding(.bottom, 22)
-            ForEach(Array(scaled.steps.enumerated()), id: \.element.key) { index, step in
-                StepRow(number: index + 1, isLast: index == scaled.steps.count - 1, step: step, recipe: scaled, units: units)
-            }
+            FlowSteps(recipe: scaled, units: units) { index in cookAt = CookStart(step: index, source: "cook") }
         }
     }
 }
@@ -346,160 +351,6 @@ private struct HeroArt: View {
         .frame(height: height)
     }
 }
-
-/// The step selected in the table, over the page's bottom: its sentence (recipe rule 8), what it uses, its facts;
-/// the steps before and after; cook mode from here.
-private struct StepCard: View {
-    let step: Step
-    let number: Int
-    let count: Int
-    let recipe: DeviceRecipe
-    let units: MeasurementSystem
-    let maxHeight: CGFloat
-    let namespace: Namespace.ID
-    let move: (Int) -> Void
-    let close: () -> Void
-    let cook: () -> Void
-    @State private var rowHeight: CGFloat = 0
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 14) {
-            HStack(alignment: .top, spacing: 8) {
-                // As tall as the step, at most `maxHeight`; a longer one scrolls (accessibility sizes).
-                ScrollView {
-                    row.onGeometryChange(for: CGFloat.self) { $0.size.height } action: { rowHeight = $0 }
-                }
-                .scrollBounceBehavior(.basedOnSize)
-                .frame(height: rowHeight > 0 ? min(rowHeight, maxHeight) : nil)
-                Button("Close", systemImage: "xmark", action: close)
-                    .labelStyle(.iconOnly)
-                    .font(.subheadline.weight(.semibold))
-                    .foregroundStyle(.secondary)
-                    .frame(width: 44, height: 44)
-                    .contentShape(.rect)
-                    .padding(.top, -10)
-                    .padding(.trailing, -10)
-            }
-            HStack(spacing: 10) {
-                Group {
-                    Button("Previous step", systemImage: "chevron.left") { move(-1) }
-                        .disabled(number == 1)
-                    Button("Next step", systemImage: "chevron.right") { move(1) }
-                        .disabled(number == count)
-                }
-                .labelStyle(.iconOnly)
-                .font(.body.weight(.semibold))
-                .frame(minWidth: 28, minHeight: 32)
-                .buttonStyle(.glass)
-                Spacer(minLength: 0)
-                Button(action: cook) {
-                    Label("Cook from here", systemImage: "play.fill")
-                        .font(.body.weight(.semibold))
-                        .frame(minHeight: 32)
-                }
-                .buttonStyle(.glassProminent)
-                .matchedTransitionSource(id: "cook-step", in: namespace)
-            }
-        }
-        .padding(20)
-        .frame(maxWidth: 560)
-        .glassEffect(.regular, in: .rect(cornerRadius: 30))
-        .padding(.horizontal, 12)
-        .padding(.bottom, 4)
-        .frame(maxWidth: .infinity)
-        .id(step.key)
-    }
-
-    private var row: some View {
-        StepRow(number: number, isLast: true, step: step, recipe: recipe, units: units)
-    }
-}
-
-/// "(1)  Springform einfetten, optional mit Backpapier auslegen." with what it uses and its facts underneath.
-/// The numbers sit on a thin line that runs down to the next step.
-private struct StepRow: View {
-    let number: Int
-    let isLast: Bool
-    let step: Step
-    let recipe: DeviceRecipe
-    let units: MeasurementSystem
-    @ScaledMetric(relativeTo: .body) private var badge: CGFloat = 28
-    @Environment(\.dynamicTypeSize) private var typeSize
-
-    var body: some View {
-        let stacked = typeSize.isAccessibilitySize
-        let layout = stacked
-            ? AnyLayout(VStackLayout(alignment: .leading, spacing: 8))
-            : AnyLayout(HStackLayout(alignment: .firstTextBaseline, spacing: 14))
-        layout {
-            Text(number, format: .number)
-                .font(.subheadline.weight(.bold))
-                .monospacedDigit()
-                .foregroundStyle(Color(.systemBackground)) // like the Cook button's label: dark on the lighter accent in dark mode
-                .frame(width: badge, height: badge)
-                .background(.tint, in: .circle)
-                .accessibilityHidden(true)
-            VStack(alignment: .leading, spacing: 12) {
-                Text(stepText(step))
-                    .font(.body)
-                    .lineSpacing(5)
-                    .fixedSize(horizontal: false, vertical: true)
-                if let used = usedLine {
-                    used
-                        .font(.subheadline)
-                        .foregroundStyle(.secondary)
-                        .lineSpacing(3)
-                        .fixedSize(horizontal: false, vertical: true)
-                }
-                let facts = stepFacts(step, in: recipe, units: units)
-                if !facts.isEmpty {
-                    FactRow(facts: facts).font(.subheadline)
-                }
-            }
-            .padding(.bottom, isLast ? 0 : 30)
-        }
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .background(alignment: .topLeading) {
-            // The badge is the row's top edge; the line runs from under it to the next badge.
-            if !stacked, !isLast {
-                Capsule()
-                    .fill(.tint.opacity(0.3))
-                    .frame(width: 2)
-                    .frame(maxHeight: .infinity)
-                    .padding(.top, badge + 6)
-                    .padding(.bottom, 6)
-                    .padding(.leading, badge / 2 - 1)
-            }
-        }
-        .accessibilityElement(children: .combine)
-    }
-
-    /// "300 g Mehl · 180 g Zucker · + 500 g Boden": what the step uses and takes, amounts a shade stronger.
-    private var usedLine: Text? {
-        var parts: [Text] = []
-        for key in step.uses ?? [] {
-            guard let ingredient = recipe.ingredients.first(where: { $0.key == key }) else { continue }
-            if let amount = ingredient.amount {
-                parts.append(Text("\(Text(nbsp(Format.amount(amount, system: units))).fontWeight(.semibold))\u{00A0}\(nbsp(ingredient.item))"))
-            } else {
-                parts.append(Text(nbsp(ingredient.item)))
-            }
-        }
-        for part in takenParts(step, in: recipe, units: units) {
-            if let amount = part.amount {
-                parts.append(Text("\(Text(nbsp(amount)).fontWeight(.semibold))\u{00A0}\(nbsp(part.name))"))
-            } else {
-                parts.append(Text(nbsp(part.name)))
-            }
-        }
-        guard var line = parts.first else { return nil }
-        for part in parts.dropFirst() { line = Text("\(line)\u{00A0}\u{00A0}·  \(part)") }
-        return line
-    }
-}
-
-/// Lines break between ingredients, never inside "1 Pck. Vanillezucker".
-private func nbsp(_ s: String) -> String { s.replacingOccurrences(of: " ", with: "\u{00A0}") }
 
 /// The header's two controls: a soft filled capsule.
 private struct SoftCapsule: ViewModifier {

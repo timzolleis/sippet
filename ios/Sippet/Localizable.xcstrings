@@ -1016,38 +1016,6 @@
         }
       }
     },
-    "Next step" : {
-      "localizations" : {
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Nächster Schritt"
-          }
-        },
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Next step"
-          }
-        }
-      }
-    },
-    "Previous step" : {
-      "localizations" : {
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Vorheriger Schritt"
-          }
-        },
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Previous step"
-          }
-        }
-      }
-    },
     "Previous" : {
       "extractionState" : "stale",
       "localizations" : {
@@ -1385,6 +1353,118 @@
         }
       }
     },
+    "Joins %@ from step %@" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Dazu: %1$@ aus Schritt %2$@"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Joins %1$@ from step %2$@"
+          }
+        }
+      }
+    },
+    "Joins %@ from steps %@" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Dazu: %1$@ aus den Schritten %2$@"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Joins %1$@ from steps %2$@"
+          }
+        }
+      }
+    },
+    "step %lld" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Schritt %lld"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "step %lld"
+          }
+        }
+      }
+    },
+    "Step %@ waits for this" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Schritt %@ wartet darauf"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Step %@ waits for this"
+          }
+        }
+      }
+    },
+    "Step %lld, %@" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Schritt %1$lld, %2$@"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Step %1$lld, %2$@"
+          }
+        }
+      }
+    },
+    "Steps %@ wait for this" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Schritte %@ warten darauf"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Steps %@ wait for this"
+          }
+        }
+      }
+    },
+    "Waits for step %@" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Wartet auf Schritt %@"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Waits for step %@"
+          }
+        }
+      }
+    },
     "Step %lld" : {
       "localizations" : {
         "de" : {
@@ -1430,38 +1510,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Step %1$lld of %2$lld · %3$@"
-          }
-        }
-      }
-    },
-    "Steps" : {
-      "localizations" : {
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Schritte"
-          }
-        },
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Steps"
-          }
-        }
-      }
-    },
-    "Table" : {
-      "localizations" : {
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Ablauf"
-          }
-        },
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Table"
           }
         }
       }
@@ -1703,23 +1751,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "US"
-          }
-        }
-      }
-    },
-    "View" : {
-      "extractionState" : "stale",
-      "localizations" : {
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Ansicht"
-          }
-        },
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "View"
           }
         }
       }

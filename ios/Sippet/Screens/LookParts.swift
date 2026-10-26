@@ -191,14 +191,18 @@ struct FactChip: View {
     }
 }
 
-/// What a step takes from earlier steps, with amounts: "500 g Boden", "Masse". A step's result without a name is
-/// just "what you made before", so it isn't listed.
+/// What a step takes from earlier steps, with amounts: "500 g Boden", "Masse". In a chain, a result without a name is
+/// just "what you made before", so it isn't listed. Where several things come together (a merge), each is named: an
+/// unnamed result by what its step took ("Boden"), else by the step's label.
 func takenParts(_ step: Step, in recipe: DeviceRecipe, units: MeasurementSystem) -> [(name: String, amount: String?)] {
-    (step.flow?.takes ?? step.takes ?? []).compactMap { key in
+    let keys = step.flow?.takes ?? step.takes ?? []
+    return keys.compactMap { key in
         for other in recipe.steps {
             if other.key == key {
-                guard let name = other.result?.name else { return nil }
-                return (name, other.result?.amount.map { Format.amount($0, system: units) })
+                if let name = other.result?.name {
+                    return (name, other.result?.amount.map { Format.amount($0, system: units) })
+                }
+                return keys.count > 1 ? (carriedName(other, in: recipe) ?? other.label, nil) : nil
             }
             if let portion = other.result?.split?.first(where: { $0.key == key }) {
                 return (portion.name, portion.amount.map { Format.amount($0, system: units) })
@@ -206,6 +210,19 @@ func takenParts(_ step: Step, in recipe: DeviceRecipe, units: MeasurementSystem)
         }
         return nil
     }
+}
+
+/// The name an unnamed result carries on from what its step took: `boden` takes the portion "Boden".
+private func carriedName(_ step: Step, in recipe: DeviceRecipe, depth: Int = 0) -> String? {
+    if let name = step.result?.name { return name }
+    guard depth < 8 else { return nil }
+    for key in step.flow?.takes ?? step.takes ?? [] {
+        for other in recipe.steps {
+            if other.key == key, let name = carriedName(other, in: recipe, depth: depth + 1) { return name }
+            if let portion = other.result?.split?.first(where: { $0.key == key }) { return portion.name }
+        }
+    }
+    return nil
 }
 
 /// The step's text: its sentence, or its label. Never the generated "label (A, B)": the ingredients sit next to it.
@@ -240,7 +257,7 @@ func ingredientGroups(_ recipe: DeviceRecipe, units: MeasurementSystem) -> [Ingr
     return groups
 }
 
-private struct AmountWidthKey: PreferenceKey {
+struct AmountWidthKey: PreferenceKey {
     static let defaultValue: CGFloat = 0
     static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) { value = max(value, nextValue()) }
 }
@@ -251,8 +268,7 @@ struct IngredientList: View {
     let groups: [IngredientGroup]
     @Binding var checked: Set<String>
     @State private var amountWidth: CGFloat = 0
-    @Environment(\.dynamicTypeSize) private var typeSize
-    @ScaledMetric(relativeTo: .body) private var maxAmountWidth: CGFloat = 92
+    @ScaledMetric(relativeTo: .body) private var checkWidth: CGFloat = 22
 
     var body: some View {
         VStack(alignment: .leading, spacing: 26) {
@@ -265,20 +281,30 @@ struct IngredientList: View {
                     }
                     ForEach(Array(group.rows.enumerated()), id: \.element.id) { i, row in
                         if i > 0 { Divider().padding(.leading, checkWidth + 12) }
-                        rowView(row)
+                        IngredientRow(row: row, checked: $checked, amountWidth: amountWidth)
                     }
                 }
             }
         }
         .onPreferenceChange(AmountWidthKey.self) { amountWidth = $0 }
     }
+}
 
+/// One checkable line: circle, amount in its column (tabular digits), the item. Reports its amount's width through
+/// `AmountWidthKey`, so the list around it can align the column.
+struct IngredientRow: View {
+    let row: IngredientRowData
+    @Binding var checked: Set<String>
+    let amountWidth: CGFloat
+    /// The amount column's cap at the default size; it scales with Dynamic Type.
+    var maxWidth: CGFloat = 92
+    @Environment(\.dynamicTypeSize) private var typeSize
+    @ScaledMetric(relativeTo: .body) private var scale: CGFloat = 1
     @ScaledMetric(relativeTo: .body) private var checkWidth: CGFloat = 22
 
-    private func rowView(_ row: IngredientRowData) -> some View {
+    var body: some View {
         let isChecked = checked.contains(row.id)
-        let stacked = typeSize.isAccessibilitySize
-        return Button {
+        Button {
             withAnimation(.easeOut(duration: 0.15)) {
                 if isChecked { checked.remove(row.id) } else { checked.insert(row.id) }
             }
@@ -290,9 +316,9 @@ struct IngredientList: View {
                     .contentTransition(.symbolEffect(.replace))
                     .accessibilityHidden(true)
                 Group {
-                    if stacked {
+                    if typeSize.isAccessibilitySize {
                         VStack(alignment: .leading, spacing: 2) {
-                            if let amount = row.amount { amountLabel(amount) }
+                            if let amount = row.amount { amountLabel(amount).monospacedDigit() }
                             row.text
                         }
                     } else {
@@ -303,13 +329,13 @@ struct IngredientList: View {
                                     amountLabel(row.amount ?? "").monospacedDigit().fixedSize().hidden()
                                         .background(GeometryReader { Color.clear.preference(key: AmountWidthKey.self, value: $0.size.width) })
                                 }
-                                .frame(width: amountWidth > 0 ? min(amountWidth, maxAmountWidth) : nil, alignment: .leading)
+                                .frame(width: amountWidth > 0 ? min(amountWidth, maxWidth * scale) : nil, alignment: .leading)
                             row.text
                         }
                     }
                 }
                 .lineSpacing(2)
-                .strikethrough(isChecked, color: .accentColor)
+                .strikethrough(isChecked)
                 .opacity(isChecked ? 0.38 : 1)
             }
             .frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
