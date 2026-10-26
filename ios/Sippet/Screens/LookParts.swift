@@ -93,10 +93,15 @@ struct StackedAmount: View {
     }
 }
 
-/// Wraps its children onto lines.
+/// Wraps its children onto lines. Measuring and placing arrange the same way, so the height it reports is the height
+/// it draws: a parent may place it at exactly the width it measured (or a hair less, pixel-rounded), and a line that
+/// fit when measured still fits.
 struct Flow: Layout {
     var spacing: CGFloat = 8
     var lineSpacing: CGFloat = 8
+
+    /// Half a point: float sums and pixel rounding never push the last child of a line onto the next one.
+    private static let tolerance: CGFloat = 0.5
 
     func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) -> CGSize {
         arrange(width: proposal.width ?? .infinity, subviews: subviews).size
@@ -104,30 +109,30 @@ struct Flow: Layout {
 
     func placeSubviews(in bounds: CGRect, proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) {
         let result = arrange(width: bounds.width, subviews: subviews)
-        for (subview, point) in zip(subviews, result.points) {
+        for (subview, frame) in zip(subviews, result.frames) {
             subview.place(
-                at: CGPoint(x: bounds.minX + point.x, y: bounds.minY + point.y),
-                proposal: ProposedViewSize(width: min(subview.sizeThatFits(.unspecified).width, bounds.width), height: nil))
+                at: CGPoint(x: bounds.minX + frame.minX, y: bounds.minY + frame.minY),
+                proposal: ProposedViewSize(frame.size))
         }
     }
 
-    private func arrange(width: CGFloat, subviews: Subviews) -> (size: CGSize, points: [CGPoint]) {
-        var points: [CGPoint] = []
+    private func arrange(width: CGFloat, subviews: Subviews) -> (size: CGSize, frames: [CGRect]) {
+        var frames: [CGRect] = []
         var x: CGFloat = 0, y: CGFloat = 0, rowHeight: CGFloat = 0, maxX: CGFloat = 0
         for subview in subviews {
             var size = subview.sizeThatFits(.unspecified)
-            if size.width > width { size = subview.sizeThatFits(ProposedViewSize(width: width, height: nil)) }
-            if x > 0, x + size.width > width {
+            if size.width > width + Self.tolerance { size = subview.sizeThatFits(ProposedViewSize(width: width, height: nil)) }
+            if x > 0, x + size.width > width + Self.tolerance {
                 x = 0
                 y += rowHeight + lineSpacing
                 rowHeight = 0
             }
-            points.append(CGPoint(x: x, y: y))
+            frames.append(CGRect(origin: CGPoint(x: x, y: y), size: size))
+            maxX = max(maxX, x + size.width)
             x += size.width + spacing
-            maxX = max(maxX, x - spacing)
             rowHeight = max(rowHeight, size.height)
         }
-        return (CGSize(width: maxX, height: y + rowHeight), points)
+        return (CGSize(width: maxX, height: y + rowHeight), frames)
     }
 }
 
