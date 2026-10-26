@@ -29,8 +29,8 @@ Stories: [cooking](../stories/cooking.md), [sync](../stories/sync.md), [library]
 | The cook signs a device out. | account 8 | `SettingsScreen` |
 | A device loads the library, catches up, and hears about changes. | sync 1–4, 6 | `SyncEngine` |
 | A device reads, searches, and filters the library offline. | sync 5, cooking 9, library 13, 14 | `LibraryStore`, `LibraryScreen` |
-| The cook reads a recipe as a table. | cooking 1 | `recipeTable`, `RecipeTableScreen` |
-| The cook reads a recipe as numbered steps, with its ingredients. | cooking 2, 3 | `RecipeScreen` |
+| The cook reads a recipe as a table. | cooking 1 | `recipeTable`, `RecipeTableScreen` (landscape) |
+| The cook reads a recipe as numbered steps, with its ingredients. | cooking 2, 3 | `RecipeScreen`, `FlowSteps`, `FlowIngredientList` |
 | The cook sees what to buy for a recipe. | cooking 3 | `RecipeScreen` |
 | The cook cooks along in cook mode. | cooking 4, 5 | `CookModeScreen` |
 | The cook scales a recipe; reads it in other units or another language. | cooking 6–8 | `RecipeScreen` |
@@ -207,23 +207,36 @@ SippetApp
    ├─ CollectionSheet    toggles per collection + new collection → add_to_collection / remove_from_collection / create_collection
    ├─ TrashScreen        "wird am 24. Nov. gelöscht"; swipe → wiederherstellen (revising 7, 8)
    ├─ tag chips, collection rows and tiles: context menu → umbenennen, löschen (library 6, 8, 12); "name taken" shows the refusal's message
-   └─ RecipeScreen                one scroll, no tab picker (see Look)
+   └─ RecipeScreen                one scroll, no tab picker, no mode switch (see Look)
       ├─ header      the recipe's art on top; large title; a row of chips: yield stepper "12 Stück · Springform 26 cm"
-      │              (cooking 6), total time, units menu: wie geschrieben | metrisch | US (cooking 8); source link;
-      │              Schritte | Ablauf (only when recipeTable(recipe) isn't nil): Zutaten and Zubereitung, or the table
-      ├─ Zutaten     by section, amount column bold and aligned, item and note after it (cooking 3);
+      │              (cooking 6), total time, units menu: wie geschrieben | metrisch | US (cooking 8); source link
+      ├─ Zutaten     by section, amount column bold, tabular digits and aligned, item, prep and note after it (cooking 3);
+      │              with a flow: within a section, runs of ingredients by the step that uses them, a hairline bracket
+      │              on the right with the step's number and label ("300 g Mehl … 50 g Kakao ┤ 2 mischen"); at AX sizes
+      │              or in a column under 330 pt the step goes under its run ("↳ 2 mischen"). Plain steps: no runs
       │              tap a row to check it off (struck through, dimmed); checks live as long as the screen
-      ├─ Zubereitung numbered steps: the sentence, then the ingredients it uses with amounts in one quiet line,
-      │              duration, temperature, equipment as small chips (cooking 2)
-      │              iPad and landscape: Zutaten in a left column, Zubereitung right, each scrolling on its own
-      ├─ Ablauf      RecipeTableScreen under the header, full width, in place of Zutaten and Zubereitung; iPad and
-      │              landscape too (no columns). Tap a step: a card at the bottom with its sentence, ‹ ›, "Ab hier
-      │              kochen" → CookModeScreen at that step (see Table)
+      ├─ Zubereitung the steps on a rail of numbered nodes (cooking 2); a section label (small caps) where a section
+      │              starts; per step the sentence, then what goes in, quiet: results it takes ("500 g Boden", at a
+      │              merge unnamed results by what they carry: "Boden"), then its ingredients with amounts; duration,
+      │              temperature, equipment as small chips; context menu "Ab hier kochen"
+      │              with a flow: lanes (FlowRail). A step's lane carries its result down to the step that takes it;
+      │              a step that takes nothing starts in the first free lane; lanes end in the step that takes from
+      │              them (Teig and Füllung meet at "gießen"). Steps something waits for (recipe 17) are dashed rings,
+      │              "Schritt 9 wartet darauf"; the waiting step says "Wartet auf Schritt 5"
+      │              AX sizes or more than 3 lanes: one rail, solid where a step takes from the one before, dotted
+      │              where it doesn't; a step taking from earlier ones says "Dazu: Teig aus den Schritten 3 und 4"
+      │              plain steps: one solid rail
+      │              wide (iPad, landscape) without the table: Zutaten in a left column, Zubereitung right
+      ├─ Ablauf      landscape (width > height, ≥ 560 pt) and recipeTable(recipe) isn't nil and TableFit fits:
+      │              RecipeTableScreen in place of the page, the whole width (see Table). Turning back shows the page
+      │              at the place it was. A recipe whose table doesn't fit readably keeps the page
       ├─ toolbar     Kochen (primary) · Einkaufen
       ├─ Einkaufen → sheet zooming out of its button: itemTotals "380 g Zucker (180 g Teig, 200 g Füllung)",
       │              checkable like Zutaten (cooking 3)
       └─ Kochen → CookModeScreen (full screen, zooming out of the button that opened it)
-           chrome: a thin segmented progress bar (one segment per step) and a close button; nothing else at the top
+           chrome: "you are here" (CookFlowStrip): one segment per step in the rail's lanes, a parallel part on a second
+             line meeting the first where a step takes both; done tinted, current thick; a tap jumps to the step under
+             it (60 pt tall), VoiceOver adjusts step by step. And a close button; nothing else at the top
            page: "Schritt 3 von 11" small; the step's ingredients with amounts large and bold, the results and portions it
              takes ("+ Masse"), then the sentence in large type (title, wraps freely); duration and temperature as chips (cooking 4)
            navigation: swipe, or tap the right or left third of the page; the last page ends with "Fertig"
@@ -234,7 +247,7 @@ SippetApp
              like the Clock app with the app closed. The first start asks for alarm permission. If the cook declines (or the system
              refuses), a local notification rings at the end instead and the countdown stays in the app. Stopping the ring, or ✕ on
              the Lock Screen, ends the timer in the app too (it follows `AlarmManager.alarmUpdates`)
-           reminders: a step a later step waits for (flow.waitsFor) shows as a quiet banner under the progress bar, from the
+           reminders: a step a later step waits for (flow.waitsFor) shows as a quiet banner under the strip, from the
              step after it until the step that waits: at "mit dem Mixer gut verrühren": "Ofen auf 170 °C O/U vorheizen" (cooking 5)
            "Alle Zutaten": a button at the bottom opens the full checked list as a sheet
            the screen stays awake while open
@@ -301,10 +314,9 @@ Cases (`swift test`, the Zupfkuchen from the golden file; expected is the pictur
   pasta with plain steps     → nil (recipe rule 10)
   a step whose ingredients sit in two sections with another section between them and no step joining it → nil
 
-`RecipeTableScreen`: a view inside `RecipeScreen` (Ablauf), not a screen of its own. The page scrolls it down; it scrolls sideways itself, at reading size (no fit-to-screen, no pinch). The page's header carries title, vessel, and yield; the table's corner repeats the yield ("Für 12 Stück").
-- Pinned: the ingredient column and the section names sideways; a header row with each column's step numbers under the bar while the table passes. A cell spanning many rows keeps its text in the part of it on screen.
-- Ingredient column at most half the screen; step columns share what's left when the table is narrower than the screen. Dynamic Type up to AX1, where columns grow; past it, words would break inside cells.
-- Tap an ingredient (or its prep): tick it, the same checks as Zutaten and cook mode (cooking 3). Tap a step (cell, header number, or the prep step in a section row): it is selected, its ingredients and the steps whose results it takes are tinted, the rest dims; the page shows its sentence (recipe rule 8).
+`RecipeTableScreen`: a view inside `RecipeScreen`, shown instead of the page in landscape: an overview, read-only. Above it "Veganer Russischer Zupfkuchen (Springform 26 cm, 12 Stück)", as in the picture; the corner repeats the yield ("Für 12 Stück"); a header row with each column's step numbers. It scrolls down with the page, never sideways; nothing is pinned.
+- `TableFit.make(recipe:table:units:width:typeSize:)`: each column at least its longest word (no word breaks inside a cell; "170 °C", "750 g" hold together); then the ingredient column grows until three of four ingredients fit on one line (at most a third of the width), step columns toward half their longest label. Text style: the largest of callout, subheadline, footnote at which the ingredient column gets that room, else the largest at which the words fit; none → nil, the page stays (AX sizes, narrow windows). Widths measured with UIFont at the current Dynamic Type size.
+- Tap a step (cell, or the prep step in a section row): it is tinted, and a popover at it (also on iPhone, `presentationCompactAdaptation(.popover)`) shows "Schritt 7 von 10 · FÜLLUNG", the sentence (recipe rule 8), its facts, and "Ab hier kochen" → CookModeScreen at that step. No dimming, nothing over the rest of the table; another tap switches or closes. Ingredients aren't checkable here.
 - VoiceOver reads by step: the section where it starts, "Schritt 3, verkneten, (ergibt 750 g)", then the ingredients that step brings in.
 - Hairlines in the accent's muted tint, drawn by each cell; section rows tinted; text centred in step cells and leading in ingredient cells, as in the picture. A custom SwiftUI `Layout` places cells by row, column, and spans (`Grid` has no row spans).
 

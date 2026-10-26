@@ -4,7 +4,7 @@ import SwiftUI
 
 /// Launch argument `-SippetOpen recipe:<id|title prefix>`, or `cook:<id>:<step>` opens (`table:` is DebugOpenTable) that screen directly.
 /// Add `-SippetTimer` to start the opened step's timer, `-SippetShopping` to open Einkaufen,
-/// `-SippetLandscape` to turn the window to landscape, `-SippetLabelsOnly` to drop every step's sentence (a recipe without them). Screenshots only.
+/// `-SippetLandscape` to turn the window to landscape, `-SippetRoundTrip` to turn it to landscape at 5 s and back at 8 s, `-SippetLabelsOnly` to drop every step's sentence (a recipe without them). Screenshots only.
 struct DebugOpen: ViewModifier {
     let model: AppModel
     @State private var target: Target?
@@ -26,6 +26,15 @@ struct DebugOpen: ViewModifier {
                 if args.contains("-SippetLandscape") {
                     let scene = UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }.first
                     scene?.requestGeometryUpdate(.iOS(interfaceOrientations: .landscapeRight)) { _ in }
+                }
+                if args.contains("-SippetRoundTrip") {
+                    Task {
+                        let scene = UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }.first
+                        try? await Task.sleep(for: .seconds(5))
+                        scene?.requestGeometryUpdate(.iOS(interfaceOrientations: .landscapeRight)) { _ in }
+                        try? await Task.sleep(for: .seconds(3))
+                        scene?.requestGeometryUpdate(.iOS(interfaceOrientations: .portrait)) { _ in }
+                    }
                 }
                 guard let at = args.firstIndex(of: "-SippetOpen"), at + 1 < args.count else { return }
                 let parts = args[at + 1].split(separator: ":").map(String.init)
@@ -109,8 +118,14 @@ struct ArtGallery: View {
     }
 }
 
-/// `-SippetScrollEnd`: lists and the recipe page start at their end. Screenshots only.
+/// `-SippetScrollEnd`: lists and the recipe page start at their end. `-SippetForceTable`: a wide recipe page shows the
+/// table in portrait too (an iPad in the Simulator can't be turned from the command line). Screenshots only.
 enum DebugScroll {
     static var anchor: UnitPoint? { ProcessInfo.processInfo.arguments.contains("-SippetScrollEnd") ? .bottom : nil }
+    static var forceTable: Bool { ProcessInfo.processInfo.arguments.contains("-SippetForceTable") }
+}
+#else
+enum DebugScroll {
+    static let forceTable = false
 }
 #endif
