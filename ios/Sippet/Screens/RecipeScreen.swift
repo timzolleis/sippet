@@ -53,14 +53,8 @@ struct RecipeScreen: View {
             CookModeScreen(recipe: scaled, units: units, checked: $checked)
         }
         .fullScreenCover(isPresented: $showTable) {
-            NavigationStack {
-                RecipeTableScreen(recipe: scaled, units: units)
-                    .toolbar {
-                        ToolbarItem(placement: .cancellationAction) {
-                            Button("Close", systemImage: "xmark") { showTable = false }
-                        }
-                    }
-            }
+            // RecipeTableScreen brings its own NavigationStack and close button.
+            RecipeTableScreen(recipe: scaled, units: units)
         }
         .sheet(isPresented: $showShopping) {
             ShoppingSheet(recipe: scaled, units: units, checked: $shopped)
