@@ -44,7 +44,10 @@ enum DemoLibrary {
             ingredients: ingredients.enumerated().map { i, item in
                 Ingredient(key: "i\(i)", item: item.0, amount: item.1.map { Amount(value: $0, unit: .code(item.2 ?? .piece)) })
             },
-            steps: steps.enumerated().map { i, label in Step(key: "s\(i)", label: label) })
+            // One timed step, so the smart collection's time filter (computed from steps) sees the recipe's time.
+            steps: steps.enumerated().map { i, label in
+                Step(key: "s\(i)", label: label, duration: i == 0 ? minutes.map { StepDuration(minutes: $0, kind: .active) } : nil)
+            })
     }
 
     private static let simple: [DeviceRecipe] = [
