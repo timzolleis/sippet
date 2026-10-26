@@ -30,6 +30,9 @@ enum AppConfig {
     static var libraryFile: URL {
         let dir = URL.applicationSupportDirectory
         try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+        #if DEBUG
+        if DemoLibrary.isOn { return dir.appending(path: "demo-library.json") }
+        #endif
         return dir.appending(path: "library.json")
     }
 }
@@ -76,11 +79,21 @@ final class AppModel {
         self.store = store
     }
 
-    var isOffline: Bool { sync == nil || sync?.state == .offline }
+    var isOffline: Bool {
+        #if DEBUG
+        if DemoLibrary.isOn { return DemoLibrary.isOffline }
+        #endif
+        return sync == nil || sync?.state == .offline
+    }
 
     /// Launch: the library is already loaded from disk; decide signed in or out.
     func launch() async {
         #if DEBUG
+        if DemoLibrary.isOn {
+            try? store.replace(with: DemoLibrary.library)
+            phase = .signedIn
+            return
+        }
         if let token = ProcessInfo.processInfo.environment["SIPPET_REFRESH_TOKEN"], !token.isEmpty,
            (try? await tokens.refreshToken()) == nil {
             try? await tokens.storeRefreshToken(token)
@@ -123,6 +136,9 @@ final class AppModel {
     /// Scene active / background.
     func sceneActive(_ active: Bool) async {
         guard phase == .signedIn else { return }
+        #if DEBUG
+        if DemoLibrary.isOn { return }
+        #endif
         if sync == nil { await connect() }
         if active { sync?.start() } else { sync?.stop() }
     }

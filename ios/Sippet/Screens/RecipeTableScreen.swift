@@ -11,6 +11,8 @@ struct RecipeTableScreen: View {
     @GestureState private var pinch: CGFloat = 1
     @State private var size: CGSize = .zero
     @State private var viewport: CGFloat = 0
+    /// Columns grow with Dynamic Type, so large text wraps between words, not inside them; the table zooms to fit.
+    @ScaledMetric(relativeTo: .subheadline) private var textScale: CGFloat = 1
 
     private static let zoomRange: ClosedRange<CGFloat> = 0.4...3
     private var fitted: CGFloat { size.width > 0 && viewport > 0 ? min(1, viewport / size.width) : 1 }
@@ -73,9 +75,9 @@ struct RecipeTableScreen: View {
     /// The ingredient column fits its longest line; step columns stay narrow and wrap.
     private func widths(_ table: RecipeTable) -> [CGFloat] {
         (0..<table.columns).map { column in
-            if column == 0 { return 200 }
+            if column == 0 { return 200 * textScale }
             let isPrep = table.cells.contains { $0.column == column && { if case .prep = $0.content { true } else { false } }($0) }
-            return isPrep ? 110 : 130
+            return (isPrep ? 110 : 130) * textScale
         }
     }
 

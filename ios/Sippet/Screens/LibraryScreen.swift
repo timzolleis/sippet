@@ -57,7 +57,29 @@ struct LibraryScreen: View {
             try? await Task.sleep(for: .seconds(4))
             if !Task.isCancelled { shownNotice = nil }
         }
+        #if DEBUG
+        .task { debugSelect() }
+        #endif
     }
+
+    #if DEBUG
+    /// `-SippetSelect sidebar|trash|collection:<name>|smart:<name>|tag:<name>`, `-SippetSettings`. Screenshots only.
+    private func debugSelect() {
+        let args = ProcessInfo.processInfo.arguments
+        if args.contains("-SippetSettings") { showSettings = true }
+        guard let at = args.firstIndex(of: "-SippetSelect"), at + 1 < args.count else { return }
+        let value = args[at + 1]
+        let name = value.split(separator: ":", maxSplits: 1).dropFirst().first.map(String.init) ?? ""
+        switch value.split(separator: ":").first {
+        case "sidebar": selection = nil
+        case "trash": selection = .trash
+        case "collection": selection = .collection(name)
+        case "smart": selection = .smart(name)
+        case "tag": selection = .tag(name)
+        default: break
+        }
+    }
+    #endif
 
     // MARK: sidebar
 
@@ -139,7 +161,9 @@ struct LibraryScreen: View {
     @ViewBuilder private var content: some View {
         switch selection ?? .all {
         case .all:
-            RecipeList(model: model, title: "All recipes", recipes: store.library, collection: nil, selection: $recipeId)
+            RecipeList(
+                model: model, title: "All recipes", recipes: store.library, collection: nil, selection: $recipeId,
+                folders: folders, openFolder: { selection = $0 })
         case .collection(let name):
             RecipeList(model: model, title: LocalizedStringKey(name), recipes: store.recipes(inCollection: name), collection: name, selection: $recipeId)
         case .smart(let name):
@@ -150,6 +174,16 @@ struct LibraryScreen: View {
             RecipeList(model: model, title: LocalizedStringKey(name), recipes: store.recipes(taggedWith: name), collection: nil, selection: $recipeId)
         case .trash:
             TrashScreen(model: model)
+        }
+    }
+
+    /// Collections, then smart collections, each with its first recipes and its count.
+    private var folders: [Folder] {
+        store.organization.collections.map { collection in
+            let recipes = store.recipes(inCollection: collection.name)
+            return Folder(item: .collection(collection.name), name: collection.name, recipeIds: recipes.map(\.id), isSmart: false)
+        } + store.organization.smartCollections.map { smart in
+            Folder(item: .smart(smart.name), name: smart.name, recipeIds: store.recipes(matching: smart).map(\.id), isSmart: true)
         }
     }
 
@@ -212,6 +246,9 @@ struct RecipeList: View {
     let recipes: [DeviceRecipe]
     let collection: String?
     @Binding var selection: String?
+    /// All recipes: the collections as folder tiles above the recipes.
+    var folders: [Folder] = []
+    var openFolder: (SidebarItem) -> Void = { _ in }
     @State private var search = ""
     @State private var tagsFor: DeviceRecipe?
     @State private var collectionsFor: DeviceRecipe?
@@ -233,25 +270,38 @@ struct RecipeList: View {
     }
 
     var body: some View {
-        List(selection: $selection) {
-            ForEach(shown) { recipe in
-                row(recipe)
-                    .tag(recipe.id)
-                    .swipeActions(edge: .trailing) {
-                        Button("To the trash", systemImage: "trash", role: .destructive) {
-                            Task { await model.trash([recipe.id]) }
-                        }
-                        .disabled(model.isOffline)
-                    }
-                    .contextMenu {
-                        Button("Tags…", systemImage: "tag") { tagsFor = recipe }
-                            .disabled(model.isOffline)
-                        Button("To collection…", systemImage: "folder.badge.plus") { collectionsFor = recipe }
-                            .disabled(model.isOffline)
-                    }
+        ScrollViewReader { proxy in
+            list
+            #if DEBUG
+            .task {
+                guard DebugScroll.anchor != nil, let last = shown.last else { return }
+                try? await Task.sleep(for: .milliseconds(600))
+                proxy.scrollTo(last.id, anchor: .bottom)
             }
-            .onMove(perform: canReorder ? { move(from: $0, to: $1) } : nil)
+            #endif
         }
+    }
+
+    private var showsFolders: Bool { !folders.isEmpty && search.isEmpty }
+
+    private var list: some View {
+        List(selection: $selection) {
+            if showsFolders {
+                Section {
+                    FolderGrid(folders: folders, open: openFolder)
+                        .listRowInsets(EdgeInsets(top: 4, leading: 16, bottom: 12, trailing: 16))
+                        .listRowSeparator(.hidden)
+                } header: {
+                    Text("Collections")
+                }
+            }
+            Section {
+                recipeRows
+            } header: {
+                if showsFolders { Text("Recipes") }
+            }
+        }
+        .listStyle(.plain)
         .overlay {
             if shown.isEmpty {
                 if search.isEmpty {
@@ -270,24 +320,71 @@ struct RecipeList: View {
         }
         .sheet(item: $tagsFor) { recipe in TagsSheet(model: model, recipe: recipe) }
         .sheet(item: $collectionsFor) { recipe in CollectionSheet(model: model, recipe: recipe) }
+        #if DEBUG
+        .task {
+            // `-SippetSheet tags|collections` opens the sheet for the first recipe. Screenshots only.
+            let args = ProcessInfo.processInfo.arguments
+            guard let at = args.firstIndex(of: "-SippetSheet"), at + 1 < args.count, let first = shown.first else { return }
+            if args[at + 1] == "tags" { tagsFor = first } else { collectionsFor = first }
+        }
+        #endif
     }
 
-    /// The recipe's initial on a soft accent tile, the title, then time and tags with their symbols.
+    private var recipeRows: some View {
+        ForEach(shown) { recipe in
+            row(recipe)
+                .tag(recipe.id)
+                .swipeActions(edge: .trailing) {
+                    Button("To the trash", systemImage: "trash", role: .destructive) {
+                        Task { await model.trash([recipe.id]) }
+                    }
+                    .disabled(model.isOffline)
+                }
+                .contextMenu {
+                    Button("Tags…", systemImage: "tag") { tagsFor = recipe }
+                        .disabled(model.isOffline)
+                    Button("To collection…", systemImage: "folder.badge.plus") { collectionsFor = recipe }
+                        .disabled(model.isOffline)
+                }
+        }
+        .onMove(perform: canReorder ? { move(from: $0, to: $1) } : nil)
+    }
+
+    /// The recipe's art tile, the title, then time and tags with their symbols.
+    /// At accessibility sizes the tile sits above the text and time and tags stack, so words don't break.
     private func row(_ recipe: DeviceRecipe) -> some View {
-        let tags = model.store.tags(of: recipe.id)
-        return HStack(spacing: 14) {
-            RecipeTile(title: recipe.title)
+        RecipeRow(recipe: recipe, tags: model.store.tags(of: recipe.id))
+    }
+}
+
+private struct RecipeRow: View {
+    let recipe: DeviceRecipe
+    let tags: [String]
+    @Environment(\.dynamicTypeSize) private var typeSize
+    @ScaledMetric(relativeTo: .headline) private var tile: CGFloat = 48
+
+    var body: some View {
+        let large = typeSize.isAccessibilitySize
+        let layout = large
+            ? AnyLayout(VStackLayout(alignment: .leading, spacing: 10))
+            : AnyLayout(HStackLayout(alignment: .center, spacing: 14))
+        layout {
+            RecipeArtTile(id: recipe.id, size: min(tile, 64))
             VStack(alignment: .leading, spacing: 3) {
                 Text(recipe.title)
                     .font(.rounded(.headline))
                 if recipe.totalMinutes != nil || !tags.isEmpty {
-                    HStack(spacing: 12) {
+                    let meta = large
+                        ? AnyLayout(VStackLayout(alignment: .leading, spacing: 2))
+                        : AnyLayout(HStackLayout(spacing: 12))
+                    meta {
                         if let minutes = recipe.totalMinutes {
                             Label(Format.minutes(minutes), systemImage: "clock")
+                                .fixedSize()
                         }
                         if !tags.isEmpty {
                             Label(tags.joined(separator: ", "), systemImage: "tag")
-                                .lineLimit(1)
+                                .lineLimit(large ? 3 : 1)
                         }
                     }
                     .font(.subheadline)
@@ -298,21 +395,6 @@ struct RecipeList: View {
         }
         .padding(.vertical, 4)
         .accessibilityElement(children: .combine)
-    }
-}
-
-/// "Z" on a rounded square in the accent's tint; the list has no photos.
-private struct RecipeTile: View {
-    let title: String
-    @ScaledMetric(relativeTo: .headline) private var size: CGFloat = 44
-
-    var body: some View {
-        Text(verbatim: title.first.map { String($0).uppercased() } ?? "·")
-            .font(.system(size: size * 0.45, weight: .bold, design: .rounded))
-            .foregroundStyle(.tint)
-            .frame(width: size, height: size)
-            .background(.tint.opacity(0.13), in: .rect(cornerRadius: size * 0.28))
-            .accessibilityHidden(true)
     }
 }
 

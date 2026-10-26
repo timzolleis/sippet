@@ -18,6 +18,9 @@ struct DebugOpen: ViewModifier {
 
     func body(content: Content) -> some View {
         content
+            .overlay {
+                if ProcessInfo.processInfo.arguments.contains("-SippetGallery") { ArtGallery() }
+            }
             .task {
                 let args = ProcessInfo.processInfo.arguments
                 if args.contains("-SippetLandscape") {
@@ -50,5 +53,27 @@ struct DebugOpen: ViewModifier {
                 }
             }
     }
+}
+
+/// `-SippetGallery`: 24 arts in a grid, to judge the generator. Screenshots only.
+struct ArtGallery: View {
+    var body: some View {
+        ScrollView {
+            LazyVGrid(columns: [GridItem(.adaptive(minimum: 110), spacing: 8)], spacing: 8) {
+                ForEach(0..<24, id: \.self) { i in
+                    RecipeArtView(id: "rcp_demo_\(i * 7919)")
+                        .aspectRatio(ArtGeometry.heroAspect, contentMode: .fit)
+                        .clipShape(.rect(cornerRadius: 12))
+                }
+            }
+            .padding(12)
+        }
+        .background(Color(.systemBackground))
+    }
+}
+
+/// `-SippetScrollEnd`: lists and the recipe page start at their end. Screenshots only.
+enum DebugScroll {
+    static var anchor: UnitPoint? { ProcessInfo.processInfo.arguments.contains("-SippetScrollEnd") ? .bottom : nil }
 }
 #endif
