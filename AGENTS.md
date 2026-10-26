@@ -17,6 +17,7 @@ Personal recipe app; Claude reads and edits a cook's library through MCP.
 | `src/device/`, `src/store/`, `src/cook-library.ts`, `test/device/`, `scripts/verify-device.ts` | device API (device-api.md) |
 | `ios/SippetCore/`, `scripts/golden.ts`, `test/golden/` | Swift core: model, cooking port, library, sync, auth (ios.md SippetCore) |
 | `ios/Sippet.xcodeproj`, `ios/Sippet/` | SwiftUI app (ios.md Screens); uses only SippetCore's public surface |
+| `ios/SippetWidgets/`, `ios/Shared/` | widget extension for the timer countdown (Lock Screen, Dynamic Island) and the code compiled into both it and the app (ios.md Cook mode timer) |
 
 ## Rules
 
