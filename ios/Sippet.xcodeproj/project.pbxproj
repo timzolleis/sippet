@@ -7,11 +7,37 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		2249E10D308EB000007D59DF /* SippetWidgets.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = 2249E102308EB000007D59DF /* SippetWidgets.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 		2249E050308EB000007D59DF /* SippetCore in Frameworks */ = {isa = PBXBuildFile; productRef = 2249E04F308EB000007D59DF /* SippetCore */; };
 /* End PBXBuildFile section */
 
+/* Begin PBXContainerItemProxy section */
+		2249E10F308EB000007D59DF /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 2249E02E308EAE85007D59DF /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 2249E101308EB000007D59DF;
+			remoteInfo = SippetWidgets;
+		};
+/* End PBXContainerItemProxy section */
+
+/* Begin PBXCopyFilesBuildPhase section */
+		2249E10C308EB000007D59DF /* Embed Foundation Extensions */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "";
+			dstSubfolderSpec = 13;
+			files = (
+				2249E10D308EB000007D59DF /* SippetWidgets.appex in Embed Foundation Extensions */,
+			);
+			name = "Embed Foundation Extensions";
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXCopyFilesBuildPhase section */
+
 /* Begin PBXFileReference section */
 		2249E036308EAE85007D59DF /* Sippet.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Sippet.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		2249E102308EB000007D59DF /* SippetWidgets.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = SippetWidgets.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
@@ -21,6 +47,13 @@
 				Info.plist,
 			);
 			target = 2249E035308EAE85007D59DF /* Sippet */;
+		};
+		2249E105308EB000007D59DF /* Exceptions for "SippetWidgets" folder in "SippetWidgets" target */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				Info.plist,
+			);
+			target = 2249E101308EB000007D59DF /* SippetWidgets */;
 		};
 /* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
 
@@ -33,6 +66,19 @@
 			path = Sippet;
 			sourceTree = "<group>";
 		};
+		2249E103308EB000007D59DF /* SippetWidgets */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			exceptions = (
+				2249E105308EB000007D59DF /* Exceptions for "SippetWidgets" folder in "SippetWidgets" target */,
+			);
+			path = SippetWidgets;
+			sourceTree = "<group>";
+		};
+		2249E104308EB000007D59DF /* Shared */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = Shared;
+			sourceTree = "<group>";
+		};
 /* End PBXFileSystemSynchronizedRootGroup section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -42,6 +88,13 @@
 				2249E050308EB000007D59DF /* SippetCore in Frameworks */,
 			);
 		};
+		2249E107308EB000007D59DF /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
@@ -49,6 +102,8 @@
 			isa = PBXGroup;
 			children = (
 				2249E038308EAE85007D59DF /* Sippet */,
+				2249E103308EB000007D59DF /* SippetWidgets */,
+				2249E104308EB000007D59DF /* Shared */,
 				2249E037308EAE85007D59DF /* Products */,
 			);
 			sourceTree = "<group>";
@@ -57,6 +112,7 @@
 			isa = PBXGroup;
 			children = (
 				2249E036308EAE85007D59DF /* Sippet.app */,
+				2249E102308EB000007D59DF /* SippetWidgets.appex */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -71,11 +127,16 @@
 				2249E032308EAE85007D59DF /* Sources */,
 				2249E033308EAE85007D59DF /* Frameworks */,
 				2249E034308EAE85007D59DF /* Resources */,
+				2249E10C308EB000007D59DF /* Embed Foundation Extensions */,
 			);
 			buildRules = (
 			);
+			dependencies = (
+				2249E10E308EB000007D59DF /* PBXTargetDependency */,
+			);
 			fileSystemSynchronizedGroups = (
 				2249E038308EAE85007D59DF /* Sippet */,
+				2249E104308EB000007D59DF /* Shared */,
 			);
 			name = Sippet;
 			packageProductDependencies = (
@@ -84,6 +145,29 @@
 			productName = Sippet;
 			productReference = 2249E036308EAE85007D59DF /* Sippet.app */;
 			productType = "com.apple.product-type.application";
+		};
+		2249E101308EB000007D59DF /* SippetWidgets */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 2249E109308EB000007D59DF /* Build configuration list for PBXNativeTarget "SippetWidgets" */;
+			buildPhases = (
+				2249E106308EB000007D59DF /* Sources */,
+				2249E107308EB000007D59DF /* Frameworks */,
+				2249E108308EB000007D59DF /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			fileSystemSynchronizedGroups = (
+				2249E103308EB000007D59DF /* SippetWidgets */,
+				2249E104308EB000007D59DF /* Shared */,
+			);
+			name = SippetWidgets;
+			packageProductDependencies = (
+			);
+			productName = SippetWidgets;
+			productReference = 2249E102308EB000007D59DF /* SippetWidgets.appex */;
+			productType = "com.apple.product-type.app-extension";
 		};
 /* End PBXNativeTarget section */
 
@@ -96,6 +180,9 @@
 				LastUpgradeCheck = 2710;
 				TargetAttributes = {
 					2249E035308EAE85007D59DF = {
+						CreatedOnToolsVersion = 27.1;
+					};
+					2249E101308EB000007D59DF = {
 						CreatedOnToolsVersion = 27.1;
 					};
 				};
@@ -119,6 +206,7 @@
 			projectRoot = "";
 			targets = (
 				2249E035308EAE85007D59DF /* Sippet */,
+				2249E101308EB000007D59DF /* SippetWidgets */,
 			);
 		};
 /* End PBXProject section */
@@ -129,6 +217,13 @@
 			files = (
 			);
 		};
+		2249E108308EB000007D59DF /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXResourcesBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
@@ -137,7 +232,22 @@
 			files = (
 			);
 		};
+		2249E106308EB000007D59DF /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXSourcesBuildPhase section */
+
+/* Begin PBXTargetDependency section */
+		2249E10E308EB000007D59DF /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 2249E101308EB000007D59DF /* SippetWidgets */;
+			targetProxy = 2249E10F308EB000007D59DF /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
 
 /* Begin XCBuildConfiguration section */
 		2249E03F308EAE86007D59DF /* Debug configuration for PBXProject "Sippet" */ = {
@@ -282,7 +392,7 @@
 				"INFOPLIST_KEY_UIStatusBarStyle[sdk=iphonesimulator*]" = UIStatusBarStyleDefault;
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
-				IPHONEOS_DEPLOYMENT_TARGET = 26.0;
+				IPHONEOS_DEPLOYMENT_TARGET = 26.1;
 				LD_RUNPATH_SEARCH_PATHS = "@executable_path/Frameworks";
 				MARKETING_VERSION = 1.0;
 				PRODUCT_BUNDLE_IDENTIFIER = de.bastelboxx.sippet;
@@ -328,7 +438,7 @@
 				"INFOPLIST_KEY_UIStatusBarStyle[sdk=iphonesimulator*]" = UIStatusBarStyleDefault;
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
-				IPHONEOS_DEPLOYMENT_TARGET = 26.0;
+				IPHONEOS_DEPLOYMENT_TARGET = 26.1;
 				LD_RUNPATH_SEARCH_PATHS = "@executable_path/Frameworks";
 				MARKETING_VERSION = 1.0;
 				PRODUCT_BUNDLE_IDENTIFIER = de.bastelboxx.sippet;
@@ -341,6 +451,66 @@
 				SUPPORTS_XR_DESIGNED_FOR_IPHONE_IPAD = NO;
 				SWIFT_APPROACHABLE_CONCURRENCY = YES;
 				SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 6.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Release;
+		};
+		2249E10A308EB000007D59DF /* Debug configuration for PBXNativeTarget "SippetWidgets" */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = FSWQJNJ9FW;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = SippetWidgets/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = Sippet;
+				INFOPLIST_KEY_NSHumanReadableCopyright = "";
+				IPHONEOS_DEPLOYMENT_TARGET = 26.1;
+				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/Frameworks @executable_path/../../Frameworks";
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = de.bastelboxx.sippet.widgets;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SKIP_INSTALL = YES;
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
+				SUPPORTS_MACCATALYST = NO;
+				SUPPORTS_MAC_DESIGNED_FOR_IPHONE_IPAD = NO;
+				SUPPORTS_XR_DESIGNED_FOR_IPHONE_IPAD = NO;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 6.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Debug;
+		};
+		2249E10B308EB000007D59DF /* Release configuration for PBXNativeTarget "SippetWidgets" */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = FSWQJNJ9FW;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = SippetWidgets/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = Sippet;
+				INFOPLIST_KEY_NSHumanReadableCopyright = "";
+				IPHONEOS_DEPLOYMENT_TARGET = 26.1;
+				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/Frameworks @executable_path/../../Frameworks";
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = de.bastelboxx.sippet.widgets;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SKIP_INSTALL = YES;
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
+				SUPPORTS_MACCATALYST = NO;
+				SUPPORTS_MAC_DESIGNED_FOR_IPHONE_IPAD = NO;
+				SUPPORTS_XR_DESIGNED_FOR_IPHONE_IPAD = NO;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
 				SWIFT_EMIT_LOC_STRINGS = YES;
 				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
 				SWIFT_VERSION = 6.0;
@@ -364,6 +534,14 @@
 			buildConfigurations = (
 				2249E042308EAE86007D59DF /* Debug configuration for PBXNativeTarget "Sippet" */,
 				2249E043308EAE86007D59DF /* Release configuration for PBXNativeTarget "Sippet" */,
+			);
+			defaultConfigurationName = Release;
+		};
+		2249E109308EB000007D59DF /* Build configuration list for PBXNativeTarget "SippetWidgets" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				2249E10A308EB000007D59DF /* Debug configuration for PBXNativeTarget "SippetWidgets" */,
+				2249E10B308EB000007D59DF /* Release configuration for PBXNativeTarget "SippetWidgets" */,
 			);
 			defaultConfigurationName = Release;
 		};
