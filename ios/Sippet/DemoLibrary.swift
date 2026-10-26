@@ -9,7 +9,7 @@ enum DemoLibrary {
     static var isOffline: Bool { ProcessInfo.processInfo.arguments.contains("-SippetOffline") }
 
     static var library: LibraryAtChange {
-        let recipes = [decode(zupfkuchen), decode(spaghetti)] + simple
+        let recipes = [decode(zupfkuchen), decode(spaghetti), pizza] + simple
         return LibraryAtChange(seq: 1, recipes: recipes, organization: LibraryOrganization(
             tags: [
                 TagView(name: "vegan", recipeIds: ["rcp_zupfkuchen", "rcp_dal", "rcp_curry", "rcp_ofengemuese"]),
@@ -49,6 +49,45 @@ enum DemoLibrary {
                 Step(key: "s\(i)", label: label, duration: i == 0 ? minutes.map { StepDuration(minutes: $0, kind: .active) } : nil)
             })
     }
+
+    /// Long German sentences with two facts each: the fact chips wrap beside the step rail (Flow measuring vs. placing).
+    private static let pizza: DeviceRecipe = {
+        func g(_ v: Double, _ u: UnitCode) -> Amount { Amount(value: v, unit: .code(u)) }
+        let hot = Temperature(celsius: 250, maxCelsius: 280)
+        return DeviceRecipe(
+            id: "rcp_pizza", revision: 1, title: "Pizza Margherita (ohne Pizzastein, mit langer Teigführung)",
+            yield: Yield(amount: g(2, .piece)), totalMinutes: 75,
+            ingredients: [
+                Ingredient(key: "mehl", item: "Weizenmehl Tipo 00", amount: g(500, .g)),
+                Ingredient(key: "wasser", item: "Wasser", amount: g(325, .ml), note: "kalt"),
+                Ingredient(key: "hefe", item: "frische Hefe", amount: g(1, .g)),
+                Ingredient(key: "salz", item: "Salz", amount: g(15, .g)),
+                Ingredient(key: "bemehlen", item: "Weizenmehl", amount: g(1, .pinch)),
+                Ingredient(key: "sosse", item: "Tomatensoße", amount: g(100, .g)),
+                Ingredient(key: "mozzarella", item: "Mozzarella", amount: g(125, .g)),
+                Ingredient(key: "parmesan", item: "Parmesan", amount: g(20, .g)),
+            ],
+            steps: [
+                Step(key: "kneten", label: "kneten", sentence: "Mehl, Wasser, Hefe und Salz zu einem glatten, elastischen Teig kneten.",
+                     duration: StepDuration(minutes: 10, kind: .active), uses: ["mehl", "wasser", "hefe", "salz"], result: StepResult(name: "Teig"),
+                     flow: StepFlow(takes: [], waitsFor: [], makes: true)),
+                Step(key: "gehen", label: "gehen lassen", sentence: "Den Teig abgedeckt 24 Stunden im Kühlschrank gehen lassen.",
+                     duration: StepDuration(minutes: 1440, kind: .passive), flow: StepFlow(takes: ["kneten"], waitsFor: [], makes: true)),
+                Step(key: "formen", label: "formen", sentence: "Ein Backpapier sehr großzügig bemehlen und den Teig vorsichtig daraufsetzen, ohne dass er zusammenfällt. Zu einer Kugel formen und wenden, dann mit einer Schüssel abdecken und 10 Minuten ruhen lassen.",
+                     duration: StepDuration(minutes: 10, kind: .passive), uses: ["bemehlen"], flow: StepFlow(takes: ["gehen"], waitsFor: [], makes: true)),
+                Step(key: "vorheizen", label: "Ofen vorheizen", sentence: "Inzwischen den Ofen mit dem Blech darin 35 Minuten auf höchster Stufe (meist 250–280 °C) vorheizen.",
+                     duration: StepDuration(minutes: 35, kind: .passive), temperature: hot,
+                     flow: StepFlow(takes: [], waitsFor: [], makes: false)),
+                Step(key: "ausdruecken", label: "ausdrücken", sentence: "Den Teig von der Mitte nach außen ausdrücken, dabei den Rand dick und die Mitte dünn lassen.",
+                     flow: StepFlow(takes: ["formen"], waitsFor: [], makes: true)),
+                Step(key: "belegen", label: "belegen", sentence: "Tomatensoße, Mozzarella und Parmesan darauf verteilen und mit etwas Olivenöl beträufeln.",
+                     uses: ["sosse", "mozzarella", "parmesan"], flow: StepFlow(takes: ["ausdruecken"], waitsFor: [], makes: true)),
+                Step(key: "backen", label: "backen", sentence: "Die Pizza mit dem Backpapier auf das heiße Blech ziehen und nur 10 Minuten backen – nicht länger.",
+                     duration: StepDuration(minutes: 10, kind: .passive), temperature: hot,
+                     result: StepResult(name: "Pizza"), flow: StepFlow(takes: ["belegen"], waitsFor: ["vorheizen"], makes: true)),
+            ],
+            hasFlow: true, makes: ["backen"])
+    }()
 
     private static let simple: [DeviceRecipe] = [
         recipe("rcp_shakshuka", "Shakshuka", minutes: 30, ingredients: [
