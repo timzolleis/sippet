@@ -7,10 +7,11 @@ extension Theme {
     static let rangeKey = "themeRange"
 
     /// The accent for light and dark, resolved by the trait collection like an asset colour.
-    var accent: Color {
-        let theme = self
-        return Color(uiColor: UIColor { traits in
-            let rgb = themeAccent(theme, dark: traits.userInterfaceStyle == .dark)
+    /// Nonisolated: SwiftUI resolves colours on its render thread (glass tints), and a main-actor closure traps there.
+    nonisolated var accent: Color {
+        let light = themeAccent(self, dark: false), dark = themeAccent(self, dark: true)
+        return Color(uiColor: UIColor { @Sendable traits in
+            let rgb = traits.userInterfaceStyle == .dark ? dark : light
             return UIColor(red: CGFloat(rgb.x), green: CGFloat(rgb.y), blue: CGFloat(rgb.z), alpha: 1)
         })
     }
