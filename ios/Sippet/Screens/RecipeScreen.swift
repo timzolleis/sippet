@@ -89,6 +89,7 @@ struct RecipeScreen: View {
                 .frame(maxWidth: .infinity)
             }
             #if DEBUG
+            .defaultScrollAnchor(DebugScroll.anchor)
             .task {
                 if ProcessInfo.processInfo.arguments.contains("-SippetScrollSteps") {
                     try? await Task.sleep(for: .seconds(1))

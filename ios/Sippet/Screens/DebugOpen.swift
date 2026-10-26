@@ -51,4 +51,9 @@ struct DebugOpen: ViewModifier {
             }
     }
 }
+
+/// `-SippetScrollEnd`: lists and the recipe page start at their end. Screenshots only.
+enum DebugScroll {
+    static var anchor: UnitPoint? { ProcessInfo.processInfo.arguments.contains("-SippetScrollEnd") ? .bottom : nil }
+}
 #endif

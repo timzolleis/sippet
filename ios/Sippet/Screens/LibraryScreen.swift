@@ -57,7 +57,29 @@ struct LibraryScreen: View {
             try? await Task.sleep(for: .seconds(4))
             if !Task.isCancelled { shownNotice = nil }
         }
+        #if DEBUG
+        .task { debugSelect() }
+        #endif
     }
+
+    #if DEBUG
+    /// `-SippetSelect sidebar|trash|collection:<name>|smart:<name>|tag:<name>`, `-SippetSettings`. Screenshots only.
+    private func debugSelect() {
+        let args = ProcessInfo.processInfo.arguments
+        if args.contains("-SippetSettings") { showSettings = true }
+        guard let at = args.firstIndex(of: "-SippetSelect"), at + 1 < args.count else { return }
+        let value = args[at + 1]
+        let name = value.split(separator: ":", maxSplits: 1).dropFirst().first.map(String.init) ?? ""
+        switch value.split(separator: ":").first {
+        case "sidebar": selection = nil
+        case "trash": selection = .trash
+        case "collection": selection = .collection(name)
+        case "smart": selection = .smart(name)
+        case "tag": selection = .tag(name)
+        default: break
+        }
+    }
+    #endif
 
     // MARK: sidebar
 
@@ -261,6 +283,9 @@ struct RecipeList: View {
                 }
             }
         }
+        #if DEBUG
+        .defaultScrollAnchor(DebugScroll.anchor)
+        #endif
         .onChange(of: serverOrder) { pendingOrder = nil }
         .onChange(of: collection) { pendingOrder = nil }
         .navigationTitle(title)
@@ -270,6 +295,14 @@ struct RecipeList: View {
         }
         .sheet(item: $tagsFor) { recipe in TagsSheet(model: model, recipe: recipe) }
         .sheet(item: $collectionsFor) { recipe in CollectionSheet(model: model, recipe: recipe) }
+        #if DEBUG
+        .task {
+            // `-SippetSheet tags|collections` opens the sheet for the first recipe. Screenshots only.
+            let args = ProcessInfo.processInfo.arguments
+            guard let at = args.firstIndex(of: "-SippetSheet"), at + 1 < args.count, let first = shown.first else { return }
+            if args[at + 1] == "tags" { tagsFor = first } else { collectionsFor = first }
+        }
+        #endif
     }
 
     /// The recipe's initial on a soft accent tile, the title, then time and tags with their symbols.
