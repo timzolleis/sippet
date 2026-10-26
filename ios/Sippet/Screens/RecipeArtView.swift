@@ -1,6 +1,6 @@
 import SwiftUI
 
-/// Draws `recipeArt(id:dark:)`: the mesh, finished by `RecipeArt.metal` (marbled flow, faint contour lines, film grain).
+/// Draws `recipeArt(id:dark:theme:)`: the mesh, finished by `RecipeArt.metal` (marbled flow, faint contour lines, film grain).
 /// Fills its frame; decoration only.
 ///
 /// The finished art is rendered once per recipe, scheme, and size into an image and kept: a shader on every tile
@@ -8,11 +8,12 @@ import SwiftUI
 struct RecipeArtView: View {
     let id: String
     @Environment(\.colorScheme) private var scheme
+    @Environment(\.theme) private var theme
     @Environment(\.displayScale) private var displayScale
 
     var body: some View {
         GeometryReader { geo in
-            if let image = ArtImages.image(id: id, dark: scheme == .dark, size: geo.size, scale: displayScale) {
+            if let image = ArtImages.image(id: id, dark: scheme == .dark, theme: theme, size: geo.size, scale: displayScale) {
                 Image(decorative: image, scale: displayScale)
                     .resizable()
             }
@@ -21,7 +22,7 @@ struct RecipeArtView: View {
     }
 }
 
-/// The finished art as images, by recipe, scheme, and pixel size. Rendering one takes a few milliseconds, once.
+/// The finished art as images, by recipe, scheme, theme, and pixel size. Rendering one takes a few milliseconds, once.
 @MainActor private enum ArtImages {
     static let cache: NSCache<NSString, CGImage> = {
         let cache = NSCache<NSString, CGImage>()
@@ -29,13 +30,13 @@ struct RecipeArtView: View {
         return cache
     }()
 
-    static func image(id: String, dark: Bool, size: CGSize, scale: CGFloat) -> CGImage? {
+    static func image(id: String, dark: Bool, theme: Theme, size: CGSize, scale: CGFloat) -> CGImage? {
         let width = (size.width * scale).rounded(), height = (size.height * scale).rounded()
         guard width >= 1, height >= 1 else { return nil }
-        let key = "\(id) \(dark) \(Int(width))×\(Int(height))" as NSString
+        let key = "\(id) \(dark) \(theme.hue) \(theme.range) \(Int(width))×\(Int(height))" as NSString
         if let image = cache.object(forKey: key) { return image }
         let points = CGSize(width: width / scale, height: height / scale)
-        let renderer = ImageRenderer(content: FinishedArt(art: recipeArt(id: id, dark: dark), dark: dark, size: points, scale: scale))
+        let renderer = ImageRenderer(content: FinishedArt(art: recipeArt(id: id, dark: dark, theme: theme), dark: dark, size: points, scale: scale))
         renderer.scale = scale
         renderer.isOpaque = true
         guard let image = renderer.cgImage else { return nil }

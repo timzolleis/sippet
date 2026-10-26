@@ -9,6 +9,7 @@ struct SippetApp: App {
     var body: some Scene {
         WindowGroup {
             Root(model: model)
+                .modifier(Themed())
                 .task { await model.launch() }
                 .onChange(of: scenePhase) { _, phase in
                     Task { await model.sceneActive(phase == .active) }

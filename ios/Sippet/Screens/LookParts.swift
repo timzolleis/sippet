@@ -246,6 +246,7 @@ struct IngredientList: View {
     let groups: [IngredientGroup]
     @Binding var checked: Set<String>
     @State private var amountWidth: CGFloat = 0
+    @Environment(\.theme) private var theme
     @Environment(\.dynamicTypeSize) private var typeSize
     @ScaledMetric(relativeTo: .body) private var maxAmountWidth: CGFloat = 92
 
@@ -304,7 +305,7 @@ struct IngredientList: View {
                     }
                 }
                 .lineSpacing(2)
-                .strikethrough(isChecked, color: .accentColor)
+                .strikethrough(isChecked, color: theme.accent)
                 .opacity(isChecked ? 0.38 : 1)
             }
             .frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)

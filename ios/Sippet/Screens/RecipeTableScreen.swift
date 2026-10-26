@@ -365,10 +365,10 @@ private enum Emphasis { case normal, selected, related, dimmed }
 nonisolated private enum TableStyle {
     /// The page margin: the ingredient column's text lines up with the page's text.
     static let edge: CGFloat = 24
-    static let line = Color.accentColor.opacity(0.3)
-    static let sectionTint = Color.accentColor.opacity(0.09)
-    static let selectedTint = Color.accentColor.opacity(0.2)
-    static let relatedTint = Color.accentColor.opacity(0.1)
+    static let lineOpacity = 0.3
+    static let sectionTintOpacity = 0.09
+    static let selectedTintOpacity = 0.2
+    static let relatedTintOpacity = 0.1
 }
 
 private struct TableCellView: View {
@@ -380,6 +380,7 @@ private struct TableCellView: View {
     let tick: (String) -> Void
     let select: (String) -> Void
     @Environment(\.displayScale) private var displayScale
+    @Environment(\.theme) private var theme
     @ScaledMetric(relativeTo: .callout) private var badge: CGFloat = 24
 
     var body: some View {
@@ -392,15 +393,15 @@ private struct TableCellView: View {
             .modifier(Pin(layer: item.layer, viewport: viewport))
     }
 
-    private var hairline: some View { Rectangle().fill(TableStyle.line) }
+    private var hairline: some View { Rectangle().fill(theme.accent.opacity(TableStyle.lineOpacity)) }
 
     @ViewBuilder private var background: some View {
         ZStack {
             Rectangle().fill(Color(.systemBackground))
             switch (item.kind, emphasis) {
-            case (_, .selected): Rectangle().fill(TableStyle.selectedTint)
-            case (.sectionName, _), (.sectionBand, _): Rectangle().fill(TableStyle.sectionTint)
-            case (_, .related): Rectangle().fill(TableStyle.relatedTint)
+            case (_, .selected): Rectangle().fill(theme.accent.opacity(TableStyle.selectedTintOpacity))
+            case (.sectionName, _), (.sectionBand, _): Rectangle().fill(theme.accent.opacity(TableStyle.sectionTintOpacity))
+            case (_, .related): Rectangle().fill(theme.accent.opacity(TableStyle.relatedTintOpacity))
             default: EmptyView()
             }
         }
@@ -411,7 +412,7 @@ private struct TableCellView: View {
         case .ingredient(let ingredient):
             Button { tick(ingredient.key) } label: {
                 ingredientLabel(ingredient)
-                    .strikethrough(checked, color: .accentColor)
+                    .strikethrough(checked, color: theme.accent)
                     .opacity(checked ? 0.38 : 1)
                     .padding(.leading, TableStyle.edge)
                     .padding(.trailing, 10)
@@ -427,7 +428,7 @@ private struct TableCellView: View {
                 Text(text)
                     .foregroundStyle(.secondary)
                     .multilineTextAlignment(.center)
-                    .strikethrough(checked, color: .accentColor)
+                    .strikethrough(checked, color: theme.accent)
                     .opacity(checked ? 0.38 : 1)
                     .padding(.horizontal, 8)
                     .padding(.vertical, 10)

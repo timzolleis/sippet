@@ -12,22 +12,38 @@ nonisolated struct MeshArt: Equatable, Sendable {
     var seed: Float
 }
 
+/// The seed of every colour in the app: the accent's hue, and the band of hues the art takes around it.
+nonisolated struct Theme: Equatable, Sendable {
+    /// OKLCH hue, 0..<360.
+    var hue: Float
+    /// Width of the art's hue band around `hue`; 360 is the whole wheel.
+    var range: Float
+
+    static let standard = Theme(hue: 42, range: 360)
+}
+
+/// The accent: the theme's hue at a lightness that reads as text on the background (≈ 6:1 light, ≈ 8:1 dark).
+nonisolated func themeAccent(_ theme: Theme, dark: Bool) -> SIMD3<Float> {
+    srgb(OKLCH(l: dark ? 0.72 : 0.50, c: 0.15, h: cleanHue(theme.hue)))
+}
+
 /// id → art. Dark: the same hues and layout at lower lightness.
 ///
-/// Four roles with fixed lightness and chroma give it depth: deep, mid, light, and a glow from a neighbouring family.
+/// The theme gives seven hue families, evenly over its band. Four roles with fixed lightness and chroma give it depth: deep, mid, light, and a glow from a neighbouring family.
 /// A layout puts the roles on the grid (a diagonal sweep, a glow, a horizon, a corner light), mirrored by the seed.
-nonisolated func recipeArt(id: String, dark: Bool) -> MeshArt {
+nonisolated func recipeArt(id: String, dark: Bool, theme: Theme = .standard) -> MeshArt {
     let hash = fnv1a(id)
     var random = SplitMix64(seed: hash)
 
-    let family = ArtPalette.families[Int(random.next() % UInt64(ArtPalette.families.count))]
-    let base = family + random.float(in: -12...12)
+    let families = ArtPalette.families(theme)
+    let family = families[Int(random.next() % UInt64(families.count))]
+    let base = family + random.float(in: -12...12) * min(1, theme.range / 180)
     let hues: [Float] = [
         base - random.float(in: 6...18),                                  // deep: a shade cooler
         base,                                                             // mid
         base + random.float(in: 10...24),                                 // light: a shade warmer
         base + (random.next() % 2 == 0 ? 1 : -1) * random.float(in: 45...80), // glow: a neighbour
-    ]
+    ].map(cleanHue)
     let roles = dark ? ArtPalette.dark : ArtPalette.light
     let palette = zip(hues, roles).map { hue, role in srgb(OKLCH(l: role.l, c: role.c, h: hue)) }
 
@@ -49,12 +65,23 @@ nonisolated func recipeArt(id: String, dark: Bool) -> MeshArt {
 // MARK: palette
 
 nonisolated private enum ArtPalette {
-    /// OKLCH hues that stay clean at every role: berry, coral, sage, teal, sky, indigo, plum.
-    /// No apricot or yellow: their deep shades turn brown and olive.
-    static let families: [Float] = [355, 22, 158, 192, 235, 272, 318]
+    /// Seven hues evenly over the theme's band, measured on the clean wheel (the hue wheel without the yellow zone).
+    /// The whole wheel starts at the theme's hue; a band is centred on it and slides to stay off the yellow zone.
+    static func families(_ theme: Theme) -> [Float] {
+        let count = 7
+        let length = CleanWheel.length
+        let centre = CleanWheel.position(of: theme.hue)
+        let range = min(max(theme.range, 0), 360)
+        if range >= 360 {
+            return (0..<count).map { CleanWheel.hue(at: (centre + Float($0) * length / Float(count)).truncatingRemainder(dividingBy: length)) }
+        }
+        let width = min(range, length)
+        let start = min(max(centre - width / 2, 0), length - width)
+        return (0..<count).map { CleanWheel.hue(at: start + Float($0) * width / Float(count - 1)) }
+    }
     /// deep, mid, light, glow.
     static let light: [(l: Float, c: Float)] = [(0.50, 0.13), (0.68, 0.14), (0.90, 0.06), (0.80, 0.12)]
-    static let dark: [(l: Float, c: Float)] = [(0.26, 0.08), (0.38, 0.11), (0.55, 0.08), (0.50, 0.12)]
+    static let dark: [(l: Float, c: Float)] = [(0.30, 0.09), (0.42, 0.12), (0.58, 0.09), (0.52, 0.13)]
 
     /// Role per point, row by row: 0 deep, 1 mid, 2 light, 3 glow.
     static let layouts: [Layout] = [
@@ -72,6 +99,33 @@ nonisolated private enum ArtPalette {
         var mirroredVertically: Layout {
             Layout(roles: [6, 3, 0].flatMap { roles[$0..<$0 + 3] })
         }
+    }
+}
+
+/// Deep yellows turn olive and brown: a hue in that zone moves to its nearer edge (amber or green).
+nonisolated private func cleanHue(_ hue: Float) -> Float {
+    let h = CleanWheel.normalized(hue)
+    let zone = CleanWheel.yellow
+    guard zone.contains(h) else { return h }
+    return h - zone.lowerBound < zone.upperBound - h ? zone.lowerBound : zone.upperBound
+}
+
+/// The hue wheel with the yellow zone cut out: position 0 is green at the zone's end, running through blue, purple,
+/// red to amber at the zone's start.
+nonisolated private enum CleanWheel {
+    static let yellow: ClosedRange<Float> = 70...135
+    static var length: Float { 360 - (yellow.upperBound - yellow.lowerBound) }
+
+    static func normalized(_ hue: Float) -> Float {
+        (hue.truncatingRemainder(dividingBy: 360) + 360).truncatingRemainder(dividingBy: 360)
+    }
+
+    static func position(of hue: Float) -> Float {
+        min(normalized(cleanHue(hue) - yellow.upperBound), length)
+    }
+
+    static func hue(at position: Float) -> Float {
+        normalized(yellow.upperBound + position)
     }
 }
 

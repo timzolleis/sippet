@@ -4,6 +4,7 @@ import SwiftUI
 /// Trashed recipes, soonest purge first; swipe or the menu restores (revising 7, 8).
 struct TrashScreen: View {
     let model: AppModel
+    @Environment(\.theme) private var theme
     @ScaledMetric(relativeTo: .headline) private var tile: CGFloat = 52
 
     var body: some View {
@@ -32,7 +33,7 @@ struct TrashScreen: View {
             .accessibilityAction(named: "Restore") { restore(recipe) }
             .swipeActions(edge: .leading) {
                 Button("Restore", systemImage: "arrow.uturn.backward") { restore(recipe) }
-                    .tint(.accentColor)
+                    .tint(theme.accent)
                     .disabled(model.isOffline)
             }
             .contextMenu {
