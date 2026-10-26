@@ -192,7 +192,7 @@ struct LibraryScreen: View {
                 .buttonStyle(.plain)
                 .transition(.move(edge: .top).combined(with: .opacity))
             }
-            if model.isOffline {
+            if model.isOffline, !model.isConnecting {
                 Label("Offline", systemImage: "wifi.slash")
                     .font(.caption.weight(.semibold))
                     .padding(.horizontal, 10).padding(.vertical, 5)

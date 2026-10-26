@@ -229,7 +229,7 @@ SippetApp
            "Alle Zutaten": a button at the bottom opens the full checked list as a sheet
            the screen stays awake while open
 SettingsScreen     units default, device name, "Konto verwalten" (opens <server>/account), abmelden
-banner             SyncEngine.lastNotice, 4 s (sync 4); "Offline" pill while offline (sync 5)
+banner             SyncEngine.lastNotice, 4 s (sync 4); "Offline" pill while offline (sync 5); launch shows the library from disk at once, no pill until the first connect has tried
 ```
 
 - Look: like Crouton. Calm, typographic, much white space, content over chrome. Large titles; amounts bold. No grouped-list boxes on the recipe and cook mode: plain backgrounds, hairline dividers, generous line height. One accent (paprika, account-ui.md) for the primary action, step numbers, and checks. SF Symbols, Dynamic Type up to accessibility sizes, dark mode. Library, sidebar, sheets, and settings stay standard SwiftUI lists, given colour by the recipe art: art tiles, collection mosaics, tag chips.

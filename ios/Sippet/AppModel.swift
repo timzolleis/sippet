@@ -63,6 +63,8 @@ final class AppModel {
     private(set) var signIn: SignIn?
     private(set) var api: DeviceAPI?
     private(set) var sync: SyncEngine?
+    /// Launch shows the library from disk while this finds the server; no "Offline" until it has tried.
+    private(set) var isConnecting = false
     /// A refusal or failure for the cook, shown in an alert.
     var alertMessage: String?
     var signInError: String?
@@ -100,8 +102,11 @@ final class AppModel {
         }
         #endif
         guard (try? await tokens.refreshToken()) != nil else { phase = .signedOut; return }
-        await connect()
+        // The library is on disk: show it now. Until connect() has a sync engine, isOffline holds writes back.
         phase = .signedIn
+        isConnecting = true
+        await connect()
+        isConnecting = false
     }
 
     /// Builds SignIn, DeviceAPI and SyncEngine. Offline at launch uses the endpoints cached at the last sign-in.
