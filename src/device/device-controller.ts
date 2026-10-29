@@ -1,10 +1,11 @@
 // The device endpoints: middleware → view or use case → error mapping (specs/device-api.md Commands).
-import { Effect, Result } from "effect"
+import { RuntimeContext } from "alchemy"
+import { Effect } from "effect"
 import { HttpApiBuilder } from "effect/http-api"
 import { EditLibraryService } from "../domain/library/edit-library-service.ts"
 import { RestoreRecipesService } from "../domain/recipe/restore-recipes-service.ts"
 import { TrashRecipesService } from "../domain/recipe/trash-recipes-service.ts"
-import { inTransaction } from "../mcp/unit-of-work.ts"
+import { inTransaction } from "../store/unit-of-work.ts"
 import type { Library } from "../store/library.ts"
 import { retryKey } from "../store/retry.ts"
 import { DeviceApi, DeviceHttpApi } from "./device-api.ts"
@@ -35,26 +36,22 @@ export const deviceControllerLayer = (library: Library) =>
       getLibrary: () => views.getLibrary(),
 
       listChangesAfter: ({ query }) =>
-        views.listChangesAfter({ after: query.after }).pipe(Effect.mapError(changesNotReachedHttpErrorFromChangesNotReachedError)),
+        views.listChangesAfter({ after: query.after }).pipe(Effect.provide(RuntimeContext.phantom), Effect.mapError(changesNotReachedHttpErrorFromChangesNotReachedError)),
 
       editLibrary: ({ payload }) =>
         Effect.gen(function* () {
           const { retry, by } = yield* retryOf({ tool: "editLibrary", args: { edits: payload.edits } })
 
-          const done = yield* Effect.promise(() =>
-            inTransaction({
-              library,
-              retry,
-              program: Effect.gen(function* () {
-                const edited = yield* EditLibraryService
-                yield* edited.editLibrary({ edits: payload.edits, by })
+          yield* inTransaction({
+            library,
+            retry,
+            program: Effect.gen(function* () {
+              const edited = yield* EditLibraryService
+              yield* edited.editLibrary({ edits: payload.edits, by })
 
-                return {}
-              }),
-            })
-          )
-
-          if (Result.isFailure(done)) return yield* libraryEditsRefusedHttpErrorFromLibraryRefusedError(done.failure)
+              return {}
+            }),
+          }).pipe(Effect.provide(RuntimeContext.phantom), Effect.mapError(libraryEditsRefusedHttpErrorFromLibraryRefusedError))
 
           return yield* views.getOrganization()
         }),
@@ -63,20 +60,16 @@ export const deviceControllerLayer = (library: Library) =>
         Effect.gen(function* () {
           const { retry, by } = yield* retryOf({ tool: "trashRecipes", args: { recipeIds: payload.recipeIds } })
 
-          const done = yield* Effect.promise(() =>
-            inTransaction({
-              library,
-              retry,
-              program: Effect.gen(function* () {
-                const trash = yield* TrashRecipesService
-                yield* trash.trashRecipes({ recipeIds: payload.recipeIds, by })
+          yield* inTransaction({
+            library,
+            retry,
+            program: Effect.gen(function* () {
+              const trash = yield* TrashRecipesService
+              yield* trash.trashRecipes({ recipeIds: payload.recipeIds, by })
 
-                return { recipeIds: [...payload.recipeIds] }
-              }),
-            })
-          )
-
-          if (Result.isFailure(done)) return yield* recipesNotFoundHttpErrorFromRecipesNotFoundError(done.failure)
+              return { recipeIds: [...payload.recipeIds] }
+            }),
+          }).pipe(Effect.provide(RuntimeContext.phantom), Effect.mapError(recipesNotFoundHttpErrorFromRecipesNotFoundError))
 
           return { recipes: yield* views.getRecipes({ recipeIds: payload.recipeIds }) }
         }),
@@ -85,20 +78,16 @@ export const deviceControllerLayer = (library: Library) =>
         Effect.gen(function* () {
           const { retry, by } = yield* retryOf({ tool: "restoreRecipes", args: { recipeIds: payload.recipeIds } })
 
-          const done = yield* Effect.promise(() =>
-            inTransaction({
-              library,
-              retry,
-              program: Effect.gen(function* () {
-                const restore = yield* RestoreRecipesService
-                yield* restore.restoreRecipes({ recipeIds: payload.recipeIds, by })
+          yield* inTransaction({
+            library,
+            retry,
+            program: Effect.gen(function* () {
+              const restore = yield* RestoreRecipesService
+              yield* restore.restoreRecipes({ recipeIds: payload.recipeIds, by })
 
-                return { recipeIds: [...payload.recipeIds] }
-              }),
-            })
-          )
-
-          if (Result.isFailure(done)) return yield* recipesNotFoundHttpErrorFromRecipesNotFoundError(done.failure)
+              return { recipeIds: [...payload.recipeIds] }
+            }),
+          }).pipe(Effect.provide(RuntimeContext.phantom), Effect.mapError(recipesNotFoundHttpErrorFromRecipesNotFoundError))
 
           return { recipes: yield* views.getRecipes({ recipeIds: payload.recipeIds }) }
         }),

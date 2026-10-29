@@ -4,11 +4,15 @@ import { passkey, type PasskeyOptions } from "@better-auth/passkey"
 import { betterAuth, type BetterAuthOptions } from "better-auth"
 import { APIError, createAuthMiddleware, getSessionFromCtx } from "better-auth/api"
 import { jwt } from "better-auth/plugins"
-import type { Env } from "../alchemy.run.ts"
 
-export type AuthEnv = Pick<Env, "DB" | "COOK_LIBRARY" | "BETTER_AUTH_SECRET" | "PUBLIC_URL">
+// What the Worker hands Better Auth per request (specs/hosting.md Auth): raw D1, and the cook's DO behind promises for the hooks.
+export type AuthEnv = {
+  readonly DB: D1Database
+  readonly BETTER_AUTH_SECRET: string
+  readonly PUBLIC_URL: string
+  readonly COOK_LIBRARY: { readonly getByName: (cookId: string) => { readonly connectClient: (input: { clientId: string; name: string }) => Promise<void> } }
+}
 
-const rpID = "sippet.bastelboxx.de"
 const invitationGone = "invitation used, expired, or unknown"
 const provisionalUserPrefix = "invitation:"
 
@@ -122,7 +126,7 @@ export const createAuth = (env: AuthEnv, database: BetterAuthOptions["database"]
     plugins: [
       jwt({ jwt: { issuer: env.PUBLIC_URL } }),
       passkey({
-        rpID: new URL(env.PUBLIC_URL).hostname === "localhost" ? "localhost" : rpID,
+        rpID: new URL(env.PUBLIC_URL).hostname, // prod: sippet.bastelboxx.de, fixed forever (hosting.md Resources)
         rpName: "Sippet",
         origin: env.PUBLIC_URL,
         registration: { requireSession: false, resolveUser: joinFromInvitation(env), afterVerification: consumeInvitation(env) },

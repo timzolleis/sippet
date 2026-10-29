@@ -1,4 +1,4 @@
-import { Result } from "effect"
+import { Effect, Result } from "effect"
 import { describe, expect, it } from "vitest"
 import { cleanSource, normalizeSource } from "../../src/store/source.ts"
 import { withOptional } from "../../src/domain/with-optional.ts"
@@ -51,7 +51,7 @@ const fakeFetch = (steps: Record<string, Step>) => {
 
 const sourceOf = async (address: string, steps: Record<string, Step>, budgetMs?: number) => {
   const { fetch, calls } = fakeFetch(steps)
-  const result = await cleanSource(withOptional({ source: address, fetch }, "budgetMs", budgetMs))
+  const result = await Effect.runPromise(Effect.result(cleanSource(withOptional({ source: address, fetch }, "budgetMs", budgetMs))))
 
   if (Result.isFailure(result)) throw new Error("expected a clean address")
 
@@ -104,7 +104,7 @@ describe("cleanSource", () => {
     const fetch = (_: string, init: { signal: AbortSignal }) =>
       new Promise<never>((_, reject) => init.signal.addEventListener("abort", () => reject(new Error("aborted"))))
 
-    const result = await cleanSource({ source: "https://www.example.com/slow/", fetch, budgetMs: 20 })
+    const result = await Effect.runPromise(Effect.result(cleanSource({ source: "https://www.example.com/slow/", fetch, budgetMs: 20 })))
     expect(Result.isSuccess(result) && result.success.source).toBe("https://example.com/slow")
   })
   it("ignores a redirect to something that is not a web address", async () => {
@@ -113,7 +113,7 @@ describe("cleanSource", () => {
   })
   it("refuses an unusable address without fetching", async () => {
     const { fetch, calls } = fakeFetch({})
-    expect(Result.isFailure(await cleanSource({ source: "nope", fetch }))).toBe(true)
+    expect(Result.isFailure(await Effect.runPromise(Effect.result(cleanSource({ source: "nope", fetch }))))).toBe(true)
     expect(calls).toHaveLength(0)
   })
 })

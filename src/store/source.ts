@@ -1,6 +1,6 @@
 // cleanSource (adding rule 6): the address a recipe is compared by. specs/hosting.md#source.
 // Follows redirects by hand, then normalizes. Pure apart from the injected fetch.
-import { Data, Result } from "effect"
+import { Data, Effect, Result } from "effect"
 
 export const maxRedirectFetches = 5 // hosting.md#limits-on-free: source cleaning uses at most 5 subrequests
 export const redirectBudgetMs = 3000
@@ -41,8 +41,30 @@ export const normalizeSource = (address: string | URL): Result.Result<CleanedSou
 
 type Fetch = (input: string, init: { redirect: "manual"; signal: AbortSignal }) => Promise<Pick<Response, "status" | "headers" | "body">>
 
+// The next address a redirect points to, or undefined when this one is where it ends.
+const redirectFrom = ({ current, fetch }: { readonly current: URL; readonly fetch: Fetch }): Effect.Effect<URL | undefined> =>
+  Effect.tryPromise((signal) => fetch(current.href, { redirect: "manual", signal })).pipe(
+    Effect.map((response) => {
+      void response.body?.cancel() // only the status and Location matter
+
+      if (response.status < 300 || response.status >= 400) return undefined // the first non-3xx ends it, whatever its status
+      const location = response.headers.get("location")
+
+      if (location === null) return undefined
+
+      try {
+        const next = new URL(location, current)
+
+        return next.protocol === "http:" || next.protocol === "https:" ? next : undefined
+      } catch {
+        return undefined
+      }
+    }),
+    Effect.orElseSucceed(() => undefined),
+  )
+
 // A network error or timeout keeps the last address reached; only an unusable address is refused.
-export const cleanSource = async ({
+export const cleanSource = ({
   source,
   fetch = globalThis.fetch,
   budgetMs = redirectBudgetMs,
@@ -50,38 +72,24 @@ export const cleanSource = async ({
   source: string
   fetch?: Fetch
   budgetMs?: number
-}): Promise<Result.Result<CleanedSource, InvalidSourceError>> => {
-  const first = normalizeSource(source)
+}): Effect.Effect<CleanedSource, InvalidSourceError> =>
+  Effect.gen(function* () {
+    const first = normalizeSource(source)
 
-  if (Result.isFailure(first)) return first
-  let current = new URL(source)
-  const signal = AbortSignal.timeout(budgetMs)
+    if (Result.isFailure(first)) return yield* Effect.fail(first.failure)
+    let current = new URL(source)
 
-  for (let fetches = 0; fetches < maxRedirectFetches; fetches++) {
-    let location: string | null
+    const follow = Effect.gen(function* () {
+      for (let fetches = 0; fetches < maxRedirectFetches; fetches++) {
+        const next = yield* redirectFrom({ current, fetch })
 
-    try {
-      const response = await fetch(current.href, { redirect: "manual", signal })
-      void response.body?.cancel() // only the status and Location matter
+        if (next === undefined) return
+        current = next
+      }
+    })
 
-      if (response.status < 300 || response.status >= 400) break // the first non-3xx ends it, whatever its status
-      location = response.headers.get("location")
-    } catch {
-      break
-    }
+    yield* follow.pipe(Effect.timeoutOption(budgetMs))
+    const cleaned = normalizeSource(current)
 
-    if (location === null) break
-    let next: URL
-
-    try {
-      next = new URL(location, current)
-    } catch {
-      break
-    }
-
-    if (next.protocol !== "http:" && next.protocol !== "https:") break
-    current = next
-  }
-
-  return normalizeSource(current)
-}
+    return Result.isFailure(cleaned) ? yield* Effect.fail(cleaned.failure) : cleaned.success
+  })

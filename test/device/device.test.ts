@@ -1,5 +1,4 @@
 import { describe, expect, it } from "vitest"
-import { purgeDueRecipes } from "../../src/mcp/unit-of-work.ts"
 import { zupfkuchenEdits, zupfkuchenTitle, zupfkuchenYield } from "../domain/fixtures.ts"
 import { makeCook } from "../mcp/harness.ts"
 
@@ -93,7 +92,7 @@ describe("listChangesAfter (sync rules 1, 2, 4, 6)", () => {
     const gone = await add(simple("Brownies"))
     await claude.call("trash_recipes", { recipeIds: [gone] })
     advance(31 * day)
-    await purgeDueRecipes(cook.library)
+    await cook.purge()
 
     const { body } = await cook.device(`/api/device/changes?after=${seen}`)
 

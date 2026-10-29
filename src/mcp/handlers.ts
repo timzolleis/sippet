@@ -1,4 +1,5 @@
 // The tools' handlers over one cook's Library (specs/mcp.md). Writes are one transaction each, keyed for retries by the connection.
+import { RuntimeContext } from "alchemy"
 import { Context, DateTime, Effect, Result } from "effect"
 import { HttpServerRequest } from "effect/http"
 import { EditLibraryService } from "../domain/library/edit-library-service.ts"
@@ -15,10 +16,10 @@ import type { Library } from "../store/library.ts"
 import { retryKey, type CanonicalValue } from "../store/retry.ts"
 import type { Json } from "../store/schema.ts"
 import { cleanSource } from "../store/source.ts"
+import { inTransaction, type Services } from "../store/unit-of-work.ts"
 import { refuse, refusalFromError, unknownRecipe, unknownRevision, type DomainError } from "./refusal.ts"
 import { iso, libraryViewOf, recipeSummariesOf, recipeViewOf, revisionViewsOf } from "./recipe-view.ts"
 import { searchQueryOf } from "./search.ts"
-import { inTransaction, type Services } from "./unit-of-work.ts"
 import { SippetToolkit } from "./tools.ts"
 import type { Refusal } from "./schemas.ts"
 
@@ -47,15 +48,16 @@ export const toolsLayer = (library: Library) => {
       const connection = yield* connectionOfRequest
       const retry = dryRun === true ? undefined : retryKey({ connection, tool, args })
 
-      const done = yield* Effect.promise(() =>
-        inTransaction({ library, retry, dryRun, cleanedSource, program: program({ kind: "claude", connection }) })
+      return yield* inTransaction({ library, retry, dryRun, cleanedSource, program: program({ kind: "claude", connection }) }).pipe(
+        Effect.mapError((error) => {
+          const refusal = refusalFromError(error)
+          const latest = latestRevisionOf === undefined ? undefined : library.getRecipe(latestRevisionOf)?.latestRevision
+
+          return latest === undefined || refusal.latestRevision !== undefined ? refusal : { ...refusal, latestRevision: latest }
+        }),
+        // toolkit handlers can't require it; the storage transaction only marks it (Alchemy's HttpApi pattern)
+        Effect.provide(RuntimeContext.phantom),
       )
-
-      if (Result.isSuccess(done)) return done.success
-      const refusal = refusalFromError(done.failure)
-      const latest = latestRevisionOf === undefined ? undefined : library.getRecipe(latestRevisionOf)?.latestRevision
-
-      return yield* Effect.fail(latest === undefined || refusal.latestRevision !== undefined ? refusal : { ...refusal, latestRevision: latest })
     })
 
   const recipeViewById = (recipeId: string, revision?: number) => {
@@ -116,17 +118,17 @@ export const toolsLayer = (library: Library) => {
         let cleanedSource: string | undefined
 
         if (source !== undefined && batchOk) {
-          const cleaned = yield* Effect.promise(() => cleanSource({ source }))
+          const cleaned = yield* cleanSource({ source }).pipe(
+            Effect.mapError(() =>
+              refuse({
+                rule: "source-kept",
+                message: `source ${JSON.stringify(source)} is not a web address`,
+                fix: "pass the page's full address (https://…), or omit source",
+              })
+            ),
+          )
 
-          if (Result.isFailure(cleaned)) {
-            return yield* Effect.fail(refuse({
-              rule: "source-kept",
-              message: `source ${JSON.stringify(source)} is not a web address`,
-              fix: "pass the page's full address (https://…), or omit source",
-            }))
-          }
-
-          cleanedSource = cleaned.success.source
+          cleanedSource = cleaned.source
         }
 
         return yield* write({
