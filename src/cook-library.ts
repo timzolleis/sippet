@@ -3,7 +3,7 @@ import * as Cloudflare from "@alchemy.run/cloudflare"
 import * as Alchemy from "alchemy"
 import type { RuntimeContext } from "alchemy"
 import { drizzle } from "drizzle-orm/durable-sqlite"
-import { Effect } from "effect"
+import { Effect, Scope } from "effect"
 import { HttpRouter } from "effect/http"
 import { HttpServerRequest } from "effect/http/HttpServerRequest"
 import * as HttpServerResponse from "effect/http/HttpServerResponse"
@@ -47,18 +47,19 @@ export default CookLibrary.make(
       adoptDrizzle045History({ storage, migrations })
       yield* migrations.apply().pipe(Effect.orDie)
 
-      const purge = yield* Alchemy.makeCallback("purge", () => purgeDueRecipes(library))
-
-      const library: Library = new Library({
+      // The job and the store need each other: the store reschedules the job, the job purges through the store.
+      const library = new Library({
         db: drizzle(storage),
         storage: state.storage,
         derive,
         purge: {
-          scheduleAt: (at) => purge.schedule(purgeJobId, { at, payload: null }).pipe(Effect.orDie),
-          cancel: purge.cancel(purgeJobId).pipe(Effect.orDie),
+          scheduleAt: (at) => Effect.suspend(() => purge.schedule(purgeJobId, { at, payload: null })).pipe(Effect.orDie),
+          cancel: Effect.suspend(() => purge.cancel(purgeJobId)).pipe(Effect.orDie),
         },
         onChange: (seq) => broadcastChange({ state, seq, now: Date.now() }),
       })
+
+      const purge = yield* Alchemy.makeCallback("purge", () => purgeDueRecipes(library))
 
       // Objects from before the purge job had only the native alarm; this also heals a job lost any other way.
       const nextPurgeAt = library.nextPurgeAt()
@@ -69,8 +70,11 @@ export default CookLibrary.make(
 
       yield* state.setWebSocketAutoResponse(new WebSocketRequestResponsePair("ping", "pong"))
 
-      const mcp = yield* HttpRouter.toHttpEffect(mcpAppLayer({ library })).pipe(Effect.orDie)
-      const device = yield* HttpRouter.toHttpEffect(deviceAppLayer({ library })).pipe(Effect.orDie)
+      // The routers live as long as the instance. The scope Alchemy hands the instance Effect is already closed here,
+      // and McpServer's RpcClient fails building in a closed scope.
+      const routers = yield* Scope.make()
+      const mcp = yield* HttpRouter.toHttpEffect(mcpAppLayer({ library })).pipe(Scope.provide(routers), Effect.orDie)
+      const device = yield* HttpRouter.toHttpEffect(deviceAppLayer({ library })).pipe(Scope.provide(routers), Effect.orDie)
 
       // A token from a disconnected connection is refused when it was issued before the disconnect.
       // An unknown client is stored as "Claude" until connectClient names it.
