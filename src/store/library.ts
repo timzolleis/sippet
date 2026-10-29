@@ -14,7 +14,7 @@ const { change, recipe, recipeItem, retry, revision } = schema
 export const trashDays = 30 // revising rule 7
 export const trashMs = 720 * 3600 * 1000
 
-export type Db = DrizzleSqliteDODatabase<typeof schema>
+export type Db = DrizzleSqliteDODatabase
 
 // What the domain's content means to the columns and to search. Pure; supplied by the wiring.
 export type Derived = {

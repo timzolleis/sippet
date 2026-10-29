@@ -1,5 +1,5 @@
 // A cook's library in memory: node:sqlite behind the Durable Object storage API, the real migrations, and the real MCP handler.
-import { readFileSync } from "node:fs"
+import { readdirSync, readFileSync } from "node:fs"
 import { DatabaseSync } from "node:sqlite"
 import { join } from "node:path"
 import { drizzle } from "drizzle-orm/durable-sqlite"
@@ -27,7 +27,11 @@ const makeStorage = () => {
       toArray: () => objects,
       one: () => objects[0],
       next: () => iterator.next(),
-      raw: () => ({ toArray: () => arrays }),
+      raw: () => {
+        const rows = arrays[Symbol.iterator]()
+
+        return { toArray: () => arrays, next: () => rows.next(), [Symbol.iterator]: () => rows }
+      },
       [Symbol.iterator]: () => iterator,
     }
   }
@@ -62,8 +66,10 @@ const makeStorage = () => {
 }
 
 const migrate = (database: DatabaseSync) => {
-  for (const file of ["0000_library.sql", "0001_recipe_text.sql"]) {
-    for (const statement of readFileSync(join(import.meta.dirname, "../../migrations/cook-library", file), "utf8").split("--> statement-breakpoint")) {
+  const dir = join(import.meta.dirname, "../../migrations/cook-library")
+
+  for (const folder of readdirSync(dir).filter((name) => /^\d{14}_/.test(name)).sort()) {
+    for (const statement of readFileSync(join(dir, folder, "migration.sql"), "utf8").split("--> statement-breakpoint")) {
       database.exec(statement)
     }
   }
@@ -87,7 +93,7 @@ export type ToolOutcome = { readonly isError: boolean; readonly value: any }
 export const makeCook = ({ now = () => Date.now() }: { now?: () => number } = {}) => {
   const { database, storage, getAlarm } = makeStorage()
   migrate(database)
-  const db = drizzle(storage, { schema })
+  const db = drizzle(storage)
   const library = new Library({ db, storage, derive, now })
   const server = mcpWebHandler({ library })
   const deviceServer = deviceWebHandler({ library })

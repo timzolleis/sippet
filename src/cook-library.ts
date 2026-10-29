@@ -27,7 +27,7 @@ export class CookLibrary extends DurableObject<Env> {
 
   constructor(ctx: DurableObjectState, env: Env) {
     super(ctx, env)
-    this.db = drizzle(ctx.storage, { schema })
+    this.db = drizzle(ctx.storage)
     this.library = new Library({ db: this.db, storage: ctx.storage, derive, onChange: (seq) => broadcastChange({ ctx, seq, now: Date.now() }) })
     this.mcp = mcpWebHandler({ library: this.library })
     this.device = deviceWebHandler({ library: this.library })
