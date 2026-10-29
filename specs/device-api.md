@@ -147,7 +147,7 @@ DeviceViews.listChangesAfter({ after }): Effect<ChangesAfter, ChangesNotReachedE
 ```text
 DeviceController.editLibrary({ payload: { edits } })
 ├─ CurrentDevice                                         → by = { kind: "device", device: deviceName }
-├─ library.transact({ retry: retryKey({ connection: `${connection}/${deviceId}`, tool: "editLibrary", args }), program:
+├─ inTransaction({ library, retry: retryKey({ connection: `${connection}/${deviceId}`, tool: "editLibrary", args }), program:
 │    EditLibraryService.editLibrary({ edits, by }) : Effect<void, LibraryRefusedError> })
 └─ DeviceViews.getLibrary() organization part            → LibraryOrganization
 
@@ -155,7 +155,7 @@ DeviceController.trashRecipes({ payload: { recipeIds } })      TrashRecipesServi
 DeviceController.restoreRecipes({ payload: { recipeIds } })    RestoreRecipesService.restoreRecipes : RecipesNotFoundError → the recipes, read back
 ```
 
-- The same services, `Library.transact` with `src/store/unit-of-work.ts`, and retry table as MCP. A write commits its change row and retry row together (hosting.md Unit of work).
+- The same services, `inTransaction` (`src/store/unit-of-work.ts`, over `Library.transact`), and retry table as MCP. A write commits its change row and retry row together (hosting.md Unit of work).
 - Retries: the same rules as mcp.md Retries. The key's connection is `<client id>/<device id>`, so two devices never share a stored result.
 - `LibraryEdit` is the domain schema (`src/domain/library/library-edit.ts`), the same ops as `edit_library`.
 
@@ -196,7 +196,7 @@ webSocketMessage / webSocketClose    nothing to do
 ```text
 DeviceController                 device endpoints: middleware → view or use case → error mapping
 ├─ DeviceMiddleware              x-device-id, x-device-name, sippet-connection → CurrentDevice
-├─ EditLibraryService, TrashRecipesService, RestoreRecipesService     (existing, via Library.transact)
+├─ EditLibraryService, TrashRecipesService, RestoreRecipesService     (existing, via inTransaction)
 └─ DeviceViews                   LibraryAtChange, ChangesAfter, LibraryOrganization over Library
 ```
 

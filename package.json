@@ -9,6 +9,7 @@
     "build": "vite build",
     "dev": "vite build && (vite build --watch --logLevel warn & alchemy dev --stage dev_$(basename $(git rev-parse --show-toplevel)))",
     "deploy": "vite build && alchemy deploy --stage prod --yes",
+    "deploy:staging": "vite build && SIPPET_STAGING=1 alchemy deploy --stage staging --yes",
     "invite": "node --env-file-if-exists=.env scripts/invite.ts",
     "device-token": "node scripts/device-token.ts",
     "dev-cook": "node scripts/dev-cook.ts",

@@ -1,5 +1,5 @@
 // Worker edge (specs/hosting.md Request path): /mcp and /api/device/* token check and forward, Better Auth, and the account page endpoints.
-// /mcp never builds betterAuth(); auth.ts loads on the first request that needs it.
+// /mcp never builds betterAuth(). auth.ts is imported statically: a dynamic import becomes a separate chunk, compiled inside the first request that needs it.
 import * as Cloudflare from "@alchemy.run/cloudflare"
 import type { RuntimeContext } from "alchemy"
 import { Config, Effect, Option, Redacted, Ref, Schema } from "effect"
@@ -8,7 +8,7 @@ import { HttpServerRequest } from "effect/http/HttpServerRequest"
 import * as ServerRequest from "effect/http/HttpServerRequest"
 import * as HttpServerResponse from "effect/http/HttpServerResponse"
 import { createLocalJWKSet, errors, jwtVerify, type JSONWebKeySet, type JWK } from "jose"
-import type { AuthEnv } from "./auth.ts"
+import * as auth from "./auth.ts"
 import CookLibraryLive, { CookLibrary } from "./cook-library.ts"
 
 export const DB = Cloudflare.D1.Database("auth", { migrations: "./migrations/auth" })
@@ -154,14 +154,14 @@ export default class Sippet extends Cloudflare.Worker<Sippet>()(
     const authEnv = Effect.gen(function* () {
       const run = Effect.runPromiseWith(yield* Effect.context<RuntimeContext>())
 
-      const env: AuthEnv = {
+      const env: auth.AuthEnv = {
         DB: yield* d1.raw,
         BETTER_AUTH_SECRET: Redacted.value(secret),
         PUBLIC_URL: yield* publicUrl,
         COOK_LIBRARY: { getByName: (cookId) => ({ connectClient: (input) => run(libraries.getByName(cookId).connectClient(input)) }) },
       }
 
-      return { env, auth: yield* Effect.promise(() => import("./auth.ts")) }
+      return { env, auth }
     })
 
     const toWeb = (request: ServerRequest.HttpServerRequest) => ServerRequest.toWeb(request).pipe(Effect.orDie)

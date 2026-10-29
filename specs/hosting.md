@@ -30,7 +30,8 @@ CookLibrary (one per cook, 30 s CPU)
 └─ purge          durable callback: the trash purge (Alchemy.makeCallback)
 ```
 
-- The `/mcp` path never builds `betterAuth()`. It only runs `jose` against the JWKS (see below) and forwards the request. That keeps cold `/mcp` requests far below 10 ms.
+- The `/mcp` path never builds `betterAuth()`. It only runs `jose` against the JWKS (see below) and forwards the request.
+- `auth.ts` is imported statically. A dynamic `import()` becomes its own chunk, compiled inside the first auth request of each isolate (measured 339–587 ms CPU on staging, against 89 ms static).
 - All domain and MCP work runs in the DO, which has 30 s CPU per request on Free. This replaces the spike's CPU concern.
 - Rejected: MCP in the Worker. Effect plus the MCP server took 20 ms CPU cold in the spike.
 
@@ -276,7 +277,7 @@ source = the cleaned address;  source_key = the same address without the scheme
 
 ## Development and deploy
 
-- `alchemy dev` runs the Worker, DO, and D1 locally. `alchemy deploy --stage prod` deploys. Deploy a staging stage first when Alchemy, Effect, or Drizzle versions change.
+- `alchemy dev` runs the Worker, DO, and D1 locally. `pnpm deploy` deploys `prod`. `pnpm deploy:staging` deploys stage `staging` on workers.dev (`SIPPET_STAGING=1`); do that first when Alchemy, Effect, or Drizzle versions change, and `alchemy destroy --stage staging` after.
 - Better Auth's schema: `npx auth generate` produces a D1 migration, committed. CookLibrary: `drizzle-kit generate` (1.0 folder layout); `SqlMigrations` embeds the SQL in the bundle and each object applies it on activation.
 - Tests: the domain is pure and tested in vitest without Workers. The MCP flow runs against `alchemy dev` with a minted token, like `spike/remote.ts`.
 
@@ -290,5 +291,13 @@ source = the cleaned address;  source_key = the same address without the scheme
 6. Better Auth sign-in and the token endpoint stay near 10 ms CPU cold on the Worker. If they don't, move Better Auth into a singleton `Accounts` DO on its own SQLite.
 
 7. FTS5 `trigram` with `remove_diacritics 1` works in the production DO SQLite build (checked only in local workerd).
-8. The Effect Worker stays under 10 ms CPU on Free: cold and warm `/mcp`, `/api/device/*`, `/api/auth/*` (Effect runtime and Alchemy's bridge on every request). If it doesn't, move routing that needs no Better Auth into a plain fetch handler in front.
+8. Worker CPU per request, staging, tail `cpuTime` (ms). Every outcome `ok`; none exceeded.
+
+   | route | async Worker (before) | Effect Worker warm | Effect Worker, first request of an isolate |
+   |---|---|---|---|
+   | `/mcp` | 2 (cold 11) | 3 | 26 |
+   | `/api/device/*` | 3 | 3 | 18 |
+   | `/.well-known/*`, `/api/auth/*` | 27 | 10–48 | 89 |
+
+   Warm is level with before. The first request of each isolate pays for building the Worker's layers. If Free starts refusing those, move routing that needs no Better Auth into a plain fetch handler in front.
 9. ✅ Spike 2 (stage `spike2`): an object with drizzle 0.45 history and a native purge alarm is adopted, keeps its data, gets its `"due"` job; the old device refresh token refreshes; consent reaches `connectClient` on the Effect DO.
