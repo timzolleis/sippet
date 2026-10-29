@@ -40,7 +40,7 @@ Stories: [sync](../stories/sync.md), [account](../stories/account.md) rule 8, [l
 ```text
 The cook disconnects "Sippet app" on the account page: every device's next request gets 401 and its live socket closes (account rule 8).
 Claude's token on /api/device/*: 401. A device's token on /mcp: 401 (account rule 6).
-Every write, Claude's and the trash alarm's included, sends {"seq"} to open live sockets (sync rule 3).
+Every write, Claude's and the trash purge's included, sends {"seq"} to open live sockets (sync rule 3).
 ```
 
 ## Sign-in (`src/auth.ts`)
@@ -137,7 +137,7 @@ DeviceViews.getLibrary(): LibraryAtChange
 DeviceViews.listChangesAfter({ after }): Effect<ChangesAfter, ChangesNotReachedError>     // after > last seq (sync rule 6)
 ```
 
-- Each view reads in one synchronous pass over the DO's SQLite, so `seq` and the contents agree. No write interleaves inside a DO request without an `await`.
+- Each view reads in one synchronous pass over the DO's SQLite, so `seq` and the contents agree. Writes run in `state.storage.transaction`, so none interleaves with a read pass.
 - Built: a `library_changed` change names recipe ids in `ChangeView.recipeIds` but adds nothing to `recipes` (a library edit changes no recipe's content; the Cases show Zupfkuchen only). Purged ids come from every `recipes_purged` change after `after`, not only the newest 100.
 - `after = seq` returns no changes and no recipes. `after = 0` is valid, but a device never sends it: a device without a library calls `getLibrary`.
 - Cost: a device more than 100 changes behind shows a summary of the newest 100 only. Its recipes are still complete.
@@ -147,7 +147,7 @@ DeviceViews.listChangesAfter({ after }): Effect<ChangesAfter, ChangesNotReachedE
 ```text
 DeviceController.editLibrary({ payload: { edits } })
 ├─ CurrentDevice                                         → by = { kind: "device", device: deviceName }
-├─ inTransaction({ library, retry: retryKey({ connection: `${connection}/${deviceId}`, tool: "editLibrary", args }), program:
+├─ library.transact({ retry: retryKey({ connection: `${connection}/${deviceId}`, tool: "editLibrary", args }), program:
 │    EditLibraryService.editLibrary({ edits, by }) : Effect<void, LibraryRefusedError> })
 └─ DeviceViews.getLibrary() organization part            → LibraryOrganization
 
@@ -155,7 +155,7 @@ DeviceController.trashRecipes({ payload: { recipeIds } })      TrashRecipesServi
 DeviceController.restoreRecipes({ payload: { recipeIds } })    RestoreRecipesService.restoreRecipes : RecipesNotFoundError → the recipes, read back
 ```
 
-- The same services, `inTransaction` (`src/mcp/unit-of-work.ts`), and retry table as MCP. A write commits its change row and retry row together (hosting.md).
+- The same services, `Library.transact` with `src/store/unit-of-work.ts`, and retry table as MCP. A write commits its change row and retry row together (hosting.md Unit of work).
 - Retries: the same rules as mcp.md Retries. The key's connection is `<client id>/<device id>`, so two devices never share a stored result.
 - `LibraryEdit` is the domain schema (`src/domain/library/library-edit.ts`), the same ops as `edit_library`.
 
@@ -171,16 +171,16 @@ DeviceUnknownHttpError         400 { message }                                  
 
 ```text
 acceptLive({ connection, expiresAt })
-├─ WebSocketPair; ctx.acceptWebSocket(server, [connection]); server.serializeAttachment({ expiresAt })
+├─ Cloudflare.upgrade({ tags: [connection] }); socket.serializeAttachment({ expiresAt })
 ├─ send {"seq": last seq}                      the device catches up if it's behind
 └─ 101
 
-Library({ …, onChange: (seq) => broadcastChange(seq) })   after every commit that appended a change: tools, device, alarm
+Library({ …, onChange: (seq) => broadcastChange(seq) })   after every commit that appended a change: tools, device, purge
 broadcastChange(seq)
-└─ each ctx.getWebSockets(): expiresAt < now → close(4401, "token expired"); else send {"seq": seq}
+└─ each state.getWebSockets(): expiresAt < now → close(4401, "token expired"); else send {"seq": seq}
 
-disconnectClient({ clientId, at })   also closes ctx.getWebSockets(clientId) with 4401
-constructor                          ctx.setWebSocketAutoResponse(new WebSocketRequestResponsePair("ping", "pong"))
+disconnectClient({ clientId, at })   also closes state.getWebSockets(clientId) with 4401
+instance Effect                      state.setWebSocketAutoResponse(new WebSocketRequestResponsePair("ping", "pong"))
 webSocketMessage / webSocketClose    nothing to do
 ```
 
@@ -196,7 +196,7 @@ webSocketMessage / webSocketClose    nothing to do
 ```text
 DeviceController                 device endpoints: middleware → view or use case → error mapping
 ├─ DeviceMiddleware              x-device-id, x-device-name, sippet-connection → CurrentDevice
-├─ EditLibraryService, TrashRecipesService, RestoreRecipesService     (existing, via inTransaction)
+├─ EditLibraryService, TrashRecipesService, RestoreRecipesService     (existing, via Library.transact)
 └─ DeviceViews                   LibraryAtChange, ChangesAfter, LibraryOrganization over Library
 ```
 
