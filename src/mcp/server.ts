@@ -1,7 +1,6 @@
-// The MCP web handler for one CookLibrary instance: its Library closed over in the tool layer (hosting.md Verify 4).
+// The MCP server for one CookLibrary instance: its Library closed over in the tool layer (hosting.md Verify 4).
 import { Effect, Layer, Schema } from "effect"
 import { McpProtocol, McpSchema, McpServer } from "effect/ai"
-import { HttpRouter } from "effect/http"
 import type { Library } from "../store/library.ts"
 import { compactJsonSchema, compactOutputSchema } from "./compact-tool-schema.ts"
 import { toolsLayer } from "./handlers.ts"
@@ -32,8 +31,9 @@ const toolkitLayer = Layer.effectDiscard(Effect.gen(function* () {
   yield* McpServer.registerToolkit(SippetToolkit).pipe(Effect.provideService(McpServer.McpServer, compacting))
 })).pipe(Layer.provide(McpServer.McpServer.layer))
 
-export const mcpWebHandler = ({ library }: { readonly library: Library }) => {
-  const app = toolkitLayer.pipe(
+// CookLibrary serves it with HttpRouter.toHttpEffect; the tests with HttpRouter.toWebHandler.
+export const mcpAppLayer = ({ library }: { readonly library: Library }) =>
+  toolkitLayer.pipe(
     Layer.provideMerge(toolsLayer(library)),
     Layer.provideMerge(
       McpServer.layerHttp({
@@ -45,6 +45,3 @@ export const mcpWebHandler = ({ library }: { readonly library: Library }) => {
       }),
     ),
   )
-
-  return HttpRouter.toWebHandler(app, { disableLogger: true })
-}

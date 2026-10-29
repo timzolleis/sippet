@@ -16,3 +16,9 @@ allowBuilds:
   esbuild: true
   workerd: true
   '@prisma/client': false
+
+# effect 4.1 removed effect/Crypto, which alchemy 2.0.0-beta.84 imports (specs/hosting.md Resources)
+overrides:
+  effect: 4.0.5
+  '@effect/platform-node': 4.0.5
+  '@effect/platform-node-shared': 4.0.5

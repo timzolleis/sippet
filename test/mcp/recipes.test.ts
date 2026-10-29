@@ -227,7 +227,7 @@ describe("trash (revising rules 4, 6–10)", () => {
     const read = await client.call("get_recipe", { recipeId })
     expect(read.value).toMatchObject({ trashedAt: listed.value.recipes[0].trashedAt, purgeAt: trashed.value.trashed[0].purgeAt })
     expect(cook.count("recipe_text")).toBe(0)
-    expect(await cook.getAlarm()).toBe(purgeAt)
+    expect(cook.purgeJobAt()).toBe(purgeAt)
 
     const refused = await client.call("edit_recipe", { recipeId, fromRevision: 1, edits: [{ op: "set_title", title: "Neu" }] })
     expect(refused.value.problems[0]).toMatchObject({ rule: "not-in-the-trash" })
@@ -236,7 +236,7 @@ describe("trash (revising rules 4, 6–10)", () => {
     expect(restored.value).toEqual({ recipeIds: [recipeId] })
     expect((await client.call("search_recipes", {})).value.recipes).toHaveLength(1)
     expect((await client.call("list_trash")).value.recipes).toEqual([])
-    expect(await cook.getAlarm()).toBe(null)
+    expect(cook.purgeJobAt()).toBe(null)
   })
 
   it("is all or nothing, and keeps the date of one already trashed (rule 10)", async () => {

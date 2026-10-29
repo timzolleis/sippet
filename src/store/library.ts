@@ -1,8 +1,10 @@
 // The storage side of a cook's library (specs/hosting.md#cooklibrary). Sync SQLite over Drizzle, no MCP, no recipe rules.
 // The domain's content is stored as JSON; `derive` (supplied by the wiring) computes the columns and search text from it.
+import type { DurableObjectStorage } from "@alchemy.run/cloudflare"
+import type { RuntimeContext } from "alchemy"
 import { and, asc, eq, inArray, isNotNull, lte, max, min, sql, type SQL } from "drizzle-orm"
 import type { DrizzleSqliteDODatabase } from "drizzle-orm/durable-sqlite"
-import { Data, Result, Schema } from "effect"
+import { Data, Effect, Result, Schema } from "effect"
 import { LibraryNameTakenError, readLibrarySnapshot, writeLibrarySnapshot, type LibrarySnapshot } from "./library-change.ts"
 import { retryWindowMs, type RetryKey } from "./retry.ts"
 import * as schema from "./schema.ts"
@@ -14,7 +16,7 @@ const { change, recipe, recipeItem, retry, revision } = schema
 export const trashDays = 30 // revising rule 7
 export const trashMs = 720 * 3600 * 1000
 
-export type Db = DrizzleSqliteDODatabase<typeof schema>
+export type Db = DrizzleSqliteDODatabase
 
 // What the domain's content means to the columns and to search. Pure; supplied by the wiring.
 export type Derived = {
@@ -99,9 +101,15 @@ export type SearchHit = RecipeRow & { readonly content: Json }
 const likePattern = (text: string) => `%${text.replace(/[\\%_]/g, "\\$&")}%`
 const characters = (text: string) => [...text].length
 
+// The trash's one purge job (specs/hosting.md Trash): at the earliest purge_at, or none.
+export type PurgeJob = {
+  readonly scheduleAt: (at: number) => Effect.Effect<void, never, RuntimeContext>
+  readonly cancel: Effect.Effect<void, never, RuntimeContext>
+}
+
 // Writes inside one `transact`. Every write appends exactly one change row (sync rule 1).
 export class Writes {
-  alarmDirty = false
+  purgeDirty = false
   lastSeq: number | undefined = undefined
 
   constructor(
@@ -188,7 +196,7 @@ export class Writes {
       this.db.run(sql`DELETE FROM recipe_text WHERE rowid = (SELECT rowid FROM recipe WHERE id = ${row.id})`)
     }
 
-    this.alarmDirty = true
+    this.purgeDirty = true
 
     return Result.succeed(all)
   }
@@ -207,12 +215,12 @@ export class Writes {
       this.writeSearchText({ id: row.id, derived: this.derive(latest!.content) })
     }
 
-    this.alarmDirty = true
+    this.purgeDirty = true
 
     return Result.succeed(rows.success.map((row) => row.id))
   }
 
-  // Revising rules 7, 9. Called by the alarm; the change is by the trash (sync rule 4).
+  // Revising rules 7, 9. Called by the purge job; the change is by the trash (sync rule 4).
   purgeDue(): ReadonlyArray<string> {
     const due = this.db.select({ id: recipe.id }).from(recipe).where(and(isNotNull(recipe.purgeAt), lte(recipe.purgeAt, this.now))).all()
 
@@ -230,7 +238,7 @@ export class Writes {
       this.db.delete(recipe).where(inArray(recipe.id, [...some])).run()
     }
 
-    this.alarmDirty = true
+    this.purgeDirty = true
 
     return ids
   }
@@ -283,9 +291,10 @@ export class Library {
       readonly db: Db
       readonly storage: DurableObjectStorage
       readonly derive: Derive
+      readonly purge: PurgeJob
       readonly now?: () => number
-      // After a commit that appended a change: tools, device, alarm (device-api.md Live). Not for a retry hit or a dry run.
-      readonly onChange?: (seq: number) => void
+      // After a commit that appended a change: tools, device, purge (device-api.md Live). Not for a retry hit or a dry run.
+      readonly onChange?: (seq: number) => Effect.Effect<void, never, RuntimeContext>
     },
   ) {}
 
@@ -293,74 +302,76 @@ export class Library {
     return this.options.db
   }
 
-  // One SQLite transaction: the content, the derived columns, the FTS row, the change, and the retry row commit together.
-  // A Result failure rolls everything back. With `retry`, the same call inside the window returns the stored first result.
+  // One SQLite transaction: the content, the derived columns, the FTS row, the change, the retry row, and the purge job commit together.
+  // A typed failure or a defect rolls everything back. With `retry`, the same call inside the window returns the stored first result.
   // With `dryRun`, a success rolls back too: the caller sees what the write would return, and nothing changes (specs/mcp.md dryRun).
-  async transact<A extends Json, E>({
+  transact<A extends Json, E, R>({
     retry: key,
     dryRun = false,
-    run,
+    reschedulePurge = false,
+    program,
   }: {
     retry?: RetryKey | undefined
-    dryRun?: boolean
-    run: (writes: Writes) => Result.Result<A, E>
-  }): Promise<Result.Result<A, E>> {
-    const now = (this.options.now ?? Date.now)()
-    const writes = new Writes(this.db, this.options.derive, now)
-    let outcome: Result.Result<A, E>
+    dryRun?: boolean | undefined
+    // the purge job itself: a run that found nothing due still sets the next one
+    reschedulePurge?: boolean | undefined
+    program: (writes: Writes) => Effect.Effect<A, E, R>
+  }): Effect.Effect<A, E, R | RuntimeContext> {
+    const { db, options } = this
 
-    // A refused write or a dry run throws this out of the transaction so SQLite rolls back; it is caught below and returned.
-    class Rollback {
-      constructor(readonly outcome: Result.Result<A, E>) {}
-    }
+    return Effect.gen(function* () {
+      const now = (options.now ?? Date.now)()
+      const writes = new Writes(db, options.derive, now)
 
-    try {
-      outcome = this.options.storage.transactionSync(() => {
-        this.db.delete(retry).where(lte(retry.expiresAt, now)).run()
+      const outcome = yield* options.storage.transaction((txn) =>
+        Effect.gen(function* () {
+          db.delete(retry).where(lte(retry.expiresAt, now)).run()
 
-        if (key !== undefined && !dryRun) {
-          const hit = this.db
-            .select({ result: retry.result })
-            .from(retry)
-            .where(and(eq(retry.connection, key.connection), eq(retry.tool, key.tool), eq(retry.argsHash, key.argsHash)))
-            .get()
+          if (key !== undefined && !dryRun) {
+            const hit = db
+              .select({ result: retry.result })
+              .from(retry)
+              .where(and(eq(retry.connection, key.connection), eq(retry.tool, key.tool), eq(retry.argsHash, key.argsHash)))
+              .get()
 
-          if (hit !== undefined) {
-            // SAFETY: the key names the same connection, tool, and arguments, so the stored result is what that call returned: an A.
-            return Result.succeed(hit.result as A)
+            if (hit !== undefined) {
+              // SAFETY: the key names the same connection, tool, and arguments, so the stored result is what that call returned: an A.
+              return { result: hit.result as A, wrote: false }
+            }
           }
-        }
 
-        const result = run(writes)
+          const result = yield* program(writes)
 
-        if (Result.isFailure(result) || dryRun) throw new Rollback(result)
+          if (dryRun) {
+            yield* txn.rollback()
 
-        if (key !== undefined) {
-          // Only the connection's latest write can be retried: tagging, untagging, and tagging again must write each time.
-          this.db.delete(retry).where(eq(retry.connection, key.connection)).run()
-          this.db.insert(retry).values({ ...key, result: result.success, expiresAt: now + retryWindowMs }).run()
-        }
+            return { result, wrote: false }
+          }
 
-        return result
-      })
-    } catch (thrown) {
-      if (thrown instanceof Rollback) return thrown.outcome
-      throw thrown
-    }
+          if (key !== undefined) {
+            // Only the connection's latest write can be retried: tagging, untagging, and tagging again must write each time.
+            db.delete(retry).where(eq(retry.connection, key.connection)).run()
+            db.insert(retry).values({ ...key, result, expiresAt: now + retryWindowMs }).run()
+          }
 
-    if (writes.alarmDirty) await this.scheduleAlarm()
+          if (writes.purgeDirty || reschedulePurge) {
+            const next = db.select({ at: min(recipe.purgeAt) }).from(recipe).get()?.at ?? null
+            yield* next === null ? options.purge.cancel : options.purge.scheduleAt(next)
+          }
 
-    if (writes.lastSeq !== undefined) this.options.onChange?.(writes.lastSeq)
+          return { result, wrote: true }
+        })
+      ).pipe(Effect.catchTag("DurableObjectStorageError", Effect.die))
 
-    return outcome
+      if (outcome.wrote && writes.lastSeq !== undefined && options.onChange !== undefined) yield* options.onChange(writes.lastSeq)
+
+      return outcome.result
+    })
   }
 
-  // The single alarm is at the earliest purge_at (revising rule 7); none when nothing is trashed.
-  async scheduleAlarm(): Promise<void> {
-    const next = this.db.select({ at: min(recipe.purgeAt) }).from(recipe).get()?.at ?? null
-
-    if (next === null) await this.options.storage.deleteAlarm()
-    else await this.options.storage.setAlarm(next)
+  // The earliest purge_at, for the purge job on activation (specs/hosting.md Trash).
+  nextPurgeAt(): number | undefined {
+    return this.db.select({ at: min(recipe.purgeAt) }).from(recipe).get()?.at ?? undefined
   }
 
   getRecipe(id: string, revisionNumber?: number): (RecipeRow & StoredRevision) | undefined {

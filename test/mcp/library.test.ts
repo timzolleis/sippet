@@ -1,6 +1,5 @@
 import { describe, expect, it } from "vitest"
 import type { Json } from "../../src/store/schema.ts"
-import { purgeDueRecipes } from "../../src/mcp/unit-of-work.ts"
 import { makeCook } from "./harness.ts"
 
 const simple = (title: string, extra: ReadonlyArray<string> = []) => ({
@@ -161,6 +160,18 @@ describe("edit_library (library rules 1–15)", () => {
     expect(refused.value.problems[0].message).toBe('no tag "nope"')
   })
 
+  it("keeps the purge job when it runs before anything is due (hosting.md Trash)", async () => {
+    const { cook, client, add } = await setup()
+    const a = await add("Alpha")
+    const trashed = await client.call("trash_recipes", { recipeIds: [a] })
+    const purgeAt = Date.parse(trashed.value.trashed[0].purgeAt)
+
+    await cook.purge()
+
+    expect(cook.count("recipe")).toBe(1)
+    expect(cook.purgeJobAt()).toBe(purgeAt)
+  })
+
   it("keeps tags and collection places through the trash and drops them with a purge (revising rules 6, 8, 9)", async () => {
     const { cook, client, add } = await setup()
     const [a, b] = [await add("Alpha"), await add("Beta")]
@@ -177,7 +188,7 @@ describe("edit_library (library rules 1–15)", () => {
 
     await client.call("trash_recipes", { recipeIds: [a] })
     cook.database.prepare(`UPDATE recipe SET purge_at = 1 WHERE id = ?`).run(a)
-    await purgeDueRecipes(cook.library)
+    await cook.purge()
 
     expect(cook.count("recipe")).toBe(1)
     expect(cook.count("revision")).toBe(1)
@@ -188,7 +199,7 @@ describe("edit_library (library rules 1–15)", () => {
     expect(purge).toMatchObject({ kind: "recipes_purged", by: { kind: "trash" }, payload: { recipeIds: [a] } })
     expect((await client.call("restore_recipes", { recipeIds: [a] })).isError).toBe(true)
     expect((await client.call("get_recipe", { recipeId: a })).isError).toBe(true)
-    expect(await cook.getAlarm()).toBe(null)
+    expect(cook.purgeJobAt()).toBe(null)
   })
 })
 

@@ -1,20 +1,23 @@
 // A cook's library in memory: node:sqlite behind the Durable Object storage API, the real migrations, and the real MCP handler.
-import { readFileSync } from "node:fs"
+import { readdirSync, readFileSync } from "node:fs"
 import { DatabaseSync } from "node:sqlite"
 import { join } from "node:path"
+import { fromDurableObjectStorage } from "@alchemy.run/cloudflare"
+import { RuntimeContext } from "alchemy"
 import { drizzle } from "drizzle-orm/durable-sqlite"
+import { Effect } from "effect"
+import { HttpRouter } from "effect/http"
 import { derive } from "../../src/store/derive.ts"
 import { Library } from "../../src/store/library.ts"
-import { deviceWebHandler } from "../../src/device/server.ts"
-import { mcpWebHandler } from "../../src/mcp/server.ts"
-import * as schema from "../../src/store/schema.ts"
+import { deviceAppLayer } from "../../src/device/server.ts"
+import { mcpAppLayer } from "../../src/mcp/server.ts"
 import type { Json } from "../../src/store/schema.ts"
+import { purgeDueRecipes } from "../../src/store/unit-of-work.ts"
 
 type SqlValue = string | number | null | bigint | Uint8Array
 
-const makeStorage = () => {
+export const makeStorage = () => {
   const database = new DatabaseSync(":memory:")
-  let alarm: number | null = null
 
   const exec = (query: string, ...params: Array<SqlValue>) => {
     const statement = database.prepare(query)
@@ -27,23 +30,46 @@ const makeStorage = () => {
       toArray: () => objects,
       one: () => objects[0],
       next: () => iterator.next(),
-      raw: () => ({ toArray: () => arrays }),
+      raw: () => {
+        const rows = arrays[Symbol.iterator]()
+
+        return { toArray: () => arrays, next: () => rows.next(), [Symbol.iterator]: () => rows }
+      },
       [Symbol.iterator]: () => iterator,
     }
   }
 
   let depth = 0
 
-  // Drizzle's durable-sqlite driver and Library use only `sql.exec`, `transactionSync`, and the alarm calls, all implemented here.
-  const storage: DurableObjectStorage = Object.assign(Object.create(null), {
-    sql: { exec },
-    transactionSync: <T>(closure: () => T): T => {
-      if (depth++ > 0) throw new Error("nested transactionSync")
+  const inTransaction = <T>(closure: () => T): T => {
+    if (depth++ > 0) throw new Error("nested transaction")
+    database.exec("BEGIN")
+
+    try {
+      const value = closure()
+      database.exec("COMMIT")
+
+      return value
+    } catch (error) {
+      database.exec("ROLLBACK")
+      throw error
+    } finally {
+      depth--
+    }
+  }
+
+  // One async transaction at a time, as the DO's input gate gives Alchemy's storage.transaction.
+  let queue: Promise<unknown> = Promise.resolve()
+
+  const transaction = <T>(closure: (txn: { rollback: () => void }) => Promise<T>): Promise<T> => {
+    const run = queue.then(async () => {
+      if (depth++ > 0) throw new Error("nested transaction")
       database.exec("BEGIN")
+      let rolledBack = false
 
       try {
-        const value = closure()
-        database.exec("COMMIT")
+        const value = await closure({ rollback: () => void (rolledBack = true) })
+        database.exec(rolledBack ? "ROLLBACK" : "COMMIT")
 
         return value
       } catch (error) {
@@ -52,18 +78,25 @@ const makeStorage = () => {
       } finally {
         depth--
       }
-    },
-    setAlarm: async (at: number) => void (alarm = at),
-    deleteAlarm: async () => void (alarm = null),
-    getAlarm: async () => alarm,
-  })
+    })
 
-  return { database, storage, getAlarm: () => alarm }
+    queue = run.catch(() => undefined)
+
+    return run
+  }
+
+  // Drizzle's durable-sqlite driver and the store use only `sql.exec`, `transactionSync`, and `transaction`, all implemented here.
+  const storage: DurableObjectStorage = Object.assign(Object.create(null), { sql: { exec }, transactionSync: inTransaction, transaction })
+
+  return { database, storage }
 }
 
+
 const migrate = (database: DatabaseSync) => {
-  for (const file of ["0000_library.sql", "0001_recipe_text.sql"]) {
-    for (const statement of readFileSync(join(import.meta.dirname, "../../migrations/cook-library", file), "utf8").split("--> statement-breakpoint")) {
+  const dir = join(import.meta.dirname, "../../migrations/cook-library")
+
+  for (const folder of readdirSync(dir).filter((name) => /^\d{14}_/.test(name)).sort()) {
+    for (const statement of readFileSync(join(dir, folder, "migration.sql"), "utf8").split("--> statement-breakpoint")) {
       database.exec(statement)
     }
   }
@@ -85,12 +118,23 @@ const sessionHeaders = ({ connection, session, protocol }: { connection: string;
 export type ToolOutcome = { readonly isError: boolean; readonly value: any }
 
 export const makeCook = ({ now = () => Date.now() }: { now?: () => number } = {}) => {
-  const { database, storage, getAlarm } = makeStorage()
+  const { database, storage } = makeStorage()
   migrate(database)
-  const db = drizzle(storage, { schema })
-  const library = new Library({ db, storage, derive, now })
-  const server = mcpWebHandler({ library })
-  const deviceServer = deviceWebHandler({ library })
+  const db = drizzle(storage)
+  // The purge job as the DO schedules it (hosting.md Trash): its time, or null when cancelled.
+  let purgeJobAt: number | null = null
+
+  const library = new Library({
+    db,
+    storage: fromDurableObjectStorage(storage),
+    derive,
+    now,
+    purge: { scheduleAt: (at) => Effect.sync(() => void (purgeJobAt = at)), cancel: Effect.sync(() => void (purgeJobAt = null)) },
+  })
+
+  const server = HttpRouter.toWebHandler(mcpAppLayer({ library }), { disableLogger: true })
+  const deviceServer = HttpRouter.toWebHandler(deviceAppLayer({ library }), { disableLogger: true })
+  const purge = () => Effect.runPromise(purgeDueRecipes(library).pipe(Effect.provide(RuntimeContext.phantom)))
   let id = 0
 
   const post = (body: string, { connection, session, protocol }: { connection: string; session?: string | undefined; protocol: string }) =>
@@ -147,5 +191,5 @@ export const makeCook = ({ now = () => Date.now() }: { now?: () => number } = {}
     return { status: response.status, body: text === "" ? undefined : JSON.parse(text) }
   }
 
-  return { library, device, database, getAlarm, connect, count: (table: string) => Number(database.prepare(`SELECT count(*) AS n FROM ${table}`).get()?.n) }
+  return { library, device, database, purgeJobAt: () => purgeJobAt, purge, connect, count: (table: string) => Number(database.prepare(`SELECT count(*) AS n FROM ${table}`).get()?.n) }
 }
